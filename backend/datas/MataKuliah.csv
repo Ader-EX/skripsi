@@ -1,0 +1,74 @@
+Kodemk,Namamk,sks,smt,kurikulum,status MK,kelas,kode_rencana,tipe_MK
+INF124201,Algoritma dan Pemrograman,2,2,511.2024,A,ABCDE,0,0
+INF124205,Aljabar Linier,3,2,511.2024,A,ABCDE,0,0
+INF124210,Arsitektur dan Organisasi Komputer,3,2,511.2024,A,ABCDE,0,0
+INF124209,Etika Profesi Teknologi Informasi,2,2,511.2024,A,ABCDE,0,0
+INF124206,Logika Matematika,3,2,511.2024,A,ABCDE,0,0
+INF124202,Praktikum Algoritma dan Pemrograman,1,2,511.2024,A,ABCDE,0,1
+INF124208,Praktikum Sistem Basis Data,1,2,511.2024,A,ABCDE,0,1
+INF124204,Praktikum Struktur Data,1,2,511.2024,A,ABCDE,0,1
+INF124207,Sistem Basis Data,2,2,511.2024,A,ABCDE,0,0
+INF124203,Struktur Data,2,2,511.2024,A,ABCDE,0,0
+INF124404,Internet Of Thing,2,4,511.2024,A,ABCD,0,0
+INF124401,Keamanan Data dan Jaringan,2,4,511.2024,A,ABCD,0,0
+INF124406,Kecerdasan Buatan,3,4,511.2024,A,ABCD,0,0
+INF124413,Komputasi Jaringan (NE.2),3,4,511.2024,A,ABCD,0,0
+INF124411,Kriptografi (CE.2),3,4,511.2024,A,ABCD,0,0
+INF124409,Matematika Diskrit,3,4,511.2024,A,ABCD,0,0
+INF124412,Pembangunan Perangkat Lunak Berorientasi Service (SE.2),3,4,511.2024,A,ABCD,0,0
+INF124407,Pemrograman Berbasis Platform,2,4,511.2024,A,ABCD,0,0
+INF124402,Praktikum Keamanan Data dan Jaringan,1,4,511.2024,A,ABCD,0,1
+INF124408,Praktikum Pemrograman berbasis Platform,1,4,511.2024,A,ABCD,0,1
+INF124405,Pratikum Internet Of Thing,1,4,511.2024,A,ABCD,0,0
+INF124403,Rekayasa Perangkat Lunak,3,4,511.2024,A,ABCD,0,0
+INF124410,Technopreneuership,2,4,511.2024,A,ABCD,0,0
+INF124639,AI Computing Platform,3,6,511.2024,A,AB,0,0
+INF124637,Analisis Jejaring Sosial,3,6,511.2024,A,AB,0,0
+INF124612,Big Data,2,6,511.2024,A,AB,0,0
+INF124631,Communication Skill,1,6,511.2024,A,AB,0,0
+INF124642,Computer Vision,3,6,511.2024,A,AB,0,0
+INF124624,Data mining dan Data warehouse + Tutorial,2,6,511.2024,A,AB,0,0
+INF124630,Deep Learning,3,6,511.2024,A,AB,0,0
+INF124603,Disseminasi luaran,1,6,511.2024,A,AB,0,0
+INF124623,Embedded System,2,6,511.2024,A,AB,0,0
+INF124618,Ethical Hacking,2,6,511.2024,A,AB,0,0
+INF124636,Financial Technology,3,6,511.2024,A,AB,0,0
+INF124611,Informatika Sosial,2,6,511.2024,A,AB,0,0
+INF124634,Inovasi dan Desain Thinking,3,6,511.2024,A,AB,0,0
+INF124602,Kerja Praktik,2,6,511.2024,A,AB,0,0
+INF124633,Manajemen Organisasi,3,6,511.2024,A,AB,0,0
+INF124621,Mobile Programming,2,6,511.2024,A,AB,0,0
+INF124628,Pengolahan Citra Digital,2,6,511.2024,A,AB,0,0
+INF124614,Perangkat Sensor Jaringan tanpa kabel,3,6,511.2024,A,AB,0,0
+INF124613,Praktikum Big Data,1,6,511.2024,A,AB,0,1
+INF124622,Praktikum Mobile Programming,1,6,511.2024,A,AB,0,1
+INF124629,Praktikum Pengolahan Citra Digital,1,6,511.2024,A,AB,0,1
+INF124625,Pratikum Data Mining dan Data Warehouse,1,6,511.2024,A,AB,0,1
+INF124632,Problem Solving,2,6,511.2024,A,AB,0,0
+INF124601,Proyek Capstone,2,6,511.2024,A,AB,0,0
+INF124641,Robotika,3,6,511.2024,A,AB,0,0
+INF124619,Sistem Digital,2,6,511.2024,A,AB,0,0
+INF124638,Sistem Media Interaktif,3,6,511.2024,A,AB,0,0
+INF124615,Sistem Pakar,3,6,511.2024,A,AB,0,0
+INF124610,Software Quality Assurance,3,6,511.2024,A,AB,0,0
+INF124635,Strategi Algoritma,3,6,511.2024,A,AB,0,0
+INF124617,Technology Blockchain,3,6,511.2024,A,AB,0,0
+INF124620,Temu Kembali Informasi,3,6,511.2024,A,AB,0,0
+INF124616,Visualisasi Data,3,6,511.2024,A,AB,0,0
+INF124640,Web Semantic,3,6,511.2024,A,AB,0,0
+INF124701,Proposal,2,8,511.2024,A,A,0,0
+INF124801,Tugas Akhir,4,8,511.2024,A,A,0,0
+INF124501,Analisis dan Desain Perangkat Lunak,3,5,"5,112,024",A,AB,0,0
+INF124504,Bahasa Inggris,3,5,"5,112,024",A,AB,0,0
+POL124501,Cyber Politik dan Media Baru,3,5,"5,112,024",A,AB,0,0
+INF124505,Forensik Digital (CE.3),3,5,"5,112,024",A,AB,0,0
+HKM124701,Hukum Teknologi Informasi,2,5,"5,112,024",A,AB,0,0
+INF124502,Komputasi Paralel dan Terdistribusi,3,5,"5,112,024",A,AB,0,0
+INFMBKM02,Magang/Studi Independen,17,5,"5,112,024",A,AB,0,0
+MNJ124305,Manajemen Resiko,3,5,"5,112,024",A,AB,0,0
+SDT124307,Pembelajaran Mesin,3,5,"5,112,024",A,AB,0,0
+INF124506,Pengembangan Aplikasi Permainan (SE.3),3,5,"5,112,024",A,AB,0,0
+TKM120407,Sistem Kendali,3,5,"5,112,024",A,AB,0,0
+SIM124109,Tata Kelolah TI,3,5,"5,112,024",A,AB,0,0
+INF124503,Teori Bahasa dan Automata,3,5,"5,112,024",A,AB,0,0
+INF124507,Wireless Network (NE.3),3,5,"5,112,024",A,AB,0,0

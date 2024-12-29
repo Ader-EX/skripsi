@@ -1,0 +1,20 @@
+from database import Base
+from sqlalchemy.orm import mapped_column, Mapped, relationship
+from sqlalchemy import String, ForeignKey, DateTime, event, Boolean
+
+class TimeTable(Base):
+    __tablename__ = "timetable"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    kelas_id: Mapped[int] = mapped_column(ForeignKey("list_kelas.id"), nullable=False)
+    mata_kuliah_id: Mapped[int] = mapped_column(ForeignKey("mata_kuliah.id"), nullable=False)
+    dosen_id: Mapped[int] = mapped_column(ForeignKey("dosen.id"), nullable=False)
+    ruangan_id: Mapped[int] = mapped_column(ForeignKey("ruangan.id"), nullable=False)
+    timeslot_id: Mapped[int] = mapped_column(ForeignKey("timeslot.id"), nullable=False)
+
+    kelas: Mapped["ListKelas"] = relationship("ListKelas", back_populates="timetables")
+    mata_kuliah: Mapped["MataKuliah"] = relationship("MataKuliah", back_populates="timetables")
+    dosen: Mapped["Dosen"] = relationship("Dosen", back_populates="timetables")
+    ruangan: Mapped["Ruangan"] = relationship("Ruangan", back_populates="timetables")
+    timeslot: Mapped["TimeSlot"] = relationship("TimeSlot", back_populates="timetables")
+    mahasiswa_timetable : Mapped[list["MahasiswaTimeTable"]] =relationship("MahasiswaTimeTable", back_populates="timetable")
