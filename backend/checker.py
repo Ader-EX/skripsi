@@ -1,85 +1,55 @@
 import pandas as pd
 
-def check_schedule_conflicts(schedule_file, dosen_file, ruangan_file):
-    # Load the schedule and reference data
-    schedule_df = pd.read_csv(schedule_file)
-    dosen_df = pd.read_csv(dosen_file)
-    ruangan_df = pd.read_csv(ruangan_file)
-    
-    # Ensure `jabatan` is treated as a string
-    dosen_df['jabatan'] = dosen_df['jabatan'].fillna("").astype(str).str.strip()
-    dosen_data = dosen_df.set_index('f_pegawai_id').to_dict(orient='index')
-    
-    # Conflict dictionaries
-    lecturer_conflicts = []
-    room_conflicts = []
-    tugas_tambahan_conflicts = []
-    
-    # Track usage
-    lecturer_time_slots = {}
-    room_time_slots = {}
-    
-    # Iterate through schedule
-    for _, row in schedule_df.iterrows():
-        f_pegawai_id = str(row["Dosen ID"]).strip()
-        room_id = row["Jadwal Pertemuan"].split('(')[1][:-1]
-        day = row["Jadwal Pertemuan"].split(" - ")[0]
-        time_slot = row["Jadwal Pertemuan"].split(" - ")[1]
-        
-        # Check for duplicate lecturer time slots
-        if f_pegawai_id not in lecturer_time_slots:
-            lecturer_time_slots[f_pegawai_id] = set()
-        if time_slot in lecturer_time_slots[f_pegawai_id]:
-            lecturer_conflicts.append({
-                "Dosen ID": f_pegawai_id,
-                "Dosen Name": dosen_data.get(f_pegawai_id, {}).get("f_namapegawai", "Unknown"),
-                "Time Slot": time_slot,
-                "Conflict": "Duplicate lecturer time slot"
-            })
-        lecturer_time_slots[f_pegawai_id].add(time_slot)
-        
-        # Check for duplicate room time slots
-        if room_id not in room_time_slots:
-            room_time_slots[room_id] = set()
-        if time_slot in room_time_slots[room_id]:
-            room_conflicts.append({
-                "Room ID": room_id,
-                "Time Slot": time_slot,
-                "Conflict": "Duplicate room time slot"
-            })
-        room_time_slots[room_id].add(time_slot)
-        
-        # Check for lecturers with tugas tambahan on Monday
-        if day == "Senin" and f_pegawai_id in dosen_data:
-            jabatan = dosen_data[f_pegawai_id].get("jabatan", "").strip()
-            if jabatan:  # Non-empty `jabatan` indicates "tugas tambahan"
-                tugas_tambahan_conflicts.append({
-                    "Dosen ID": f_pegawai_id,
-                    "Dosen Name": dosen_data[f_pegawai_id].get("f_namapegawai", "Unknown"),
-                    "Day": day,
-                    "Conflict": "Tugas tambahan scheduled on Monday"
-                })
-    
-    # Combine all conflicts into one DataFrame
-    all_conflicts = pd.DataFrame(
-        lecturer_conflicts + room_conflicts + tugas_tambahan_conflicts
-    )
-    
-    return all_conflicts
+# Load the schedule data
+file_path = "./datas/BestSchedule.csv"  # Update this with the correct path to your file
+schedule_df = pd.read_csv(file_path)
 
+# Parse the 'Jadwal Pertemuan' column into separate day, time, and room columns
+schedule_df[['Day', 'Time', 'Room']] = schedule_df['Jadwal Pertemuan'].str.extract(r'(\w+) - ([\d:]+ - [\d:]+) \((.*?)\)')
 
-if __name__ == "__main__":
-    # Paths to the schedule and reference data files
-    schedule_file = "./datas/BestSchedule.csv"
-    dosen_file = "./datas/Dosen.csv"
-    ruangan_file = "./datas/CleanedRuangan.csv"
-    
-    # Check for conflicts
-    conflicts = check_schedule_conflicts(schedule_file, dosen_file, ruangan_file)
-    
-    # Output conflicts to a CSV file
-    if not conflicts.empty:
-        conflicts.to_csv("./datas/ScheduleConflicts.csv", index=False)
-        print("Conflicts found! Saved to './datas/ScheduleConflicts.csv'.")
-    else:
-        print("No conflicts found in the schedule.")
+# Conflict Checker
+def check_conflicts(schedule_df):
+    conflicts = []
+
+    # Group by day and time to check conflicts for both lecturer and room
+    grouped = schedule_df.groupby(['Day', 'Time'])
+
+    for (day, time), group in grouped:
+        # Check for lecturer conflicts
+        lecturer_conflicts = group[group.duplicated(subset='Dosen', keep=False)]
+        for _, row in lecturer_conflicts.iterrows():
+            conflicts.append({
+                "Conflict Type": "Lecturer Conflict",
+                "Details": f"Lecturer {row['Dosen']} is scheduled for multiple classes at the same time.",
+                "Day": day,
+                "Time": time,
+                "Room": row['Room'],
+                "Matakuliah": row['Matakuliah'],
+                "Class": row['Kelas']
+            })
+
+        # Check for room conflicts
+        room_conflicts = group[group.duplicated(subset='Room', keep=False)]
+        for _, row in room_conflicts.iterrows():
+            conflicts.append({
+                "Conflict Type": "Room Conflict",
+                "Details": f"Room {row['Room']} is scheduled for multiple classes at the same time.",
+                "Day": day,
+                "Time": time,
+                "Room": row['Room'],
+                "Matakuliah": row['Matakuliah'],
+                "Class": row['Kelas']
+            })
+
+    # Convert conflicts to a DataFrame
+    conflicts_df = pd.DataFrame(conflicts)
+    return conflicts_df
+
+# Run the conflict checker
+conflicts_df = check_conflicts(schedule_df)
+
+# Save conflicts to a file
+output_path = "./Schedule_Conflicts.csv"
+conflicts_df.to_csv(output_path, index=False)
+
+print(f"Conflicts have been saved to {output_path}")

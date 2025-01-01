@@ -1,0 +1,32 @@
+Conflict Type,Details,Day,Time,Room,Matakuliah,Class
+Room Conflict,Room FIK-401 is scheduled for multiple classes at the same time.,Jumat,07:50 - 08:40,FIK-401,Algoritma dan Pemrograman,B
+Room Conflict,Room FIK-401 is scheduled for multiple classes at the same time.,Jumat,07:50 - 08:40,FIK-401,Praktikum Struktur Data,C
+Lecturer Conflict,Lecturer Rudhy Ho Purabaya is scheduled for multiple classes at the same time.,Jumat,10:20 - 11:10,FIKLAB-202,Sistem Kendali,A
+Lecturer Conflict,Lecturer Rudhy Ho Purabaya is scheduled for multiple classes at the same time.,Jumat,10:20 - 11:10,FIKLAB-303,Tata Kelolah TI,A
+Room Conflict,Room FIK-401 is scheduled for multiple classes at the same time.,Kamis,10:20 - 11:10,FIK-401,Technopreneuership,C
+Room Conflict,Room FIK-202 is scheduled for multiple classes at the same time.,Kamis,10:20 - 11:10,FIK-202,Technopreneuership,D
+Room Conflict,Room FIK-202 is scheduled for multiple classes at the same time.,Kamis,10:20 - 11:10,FIK-202,Sistem Digital,A
+Room Conflict,Room FIK-401 is scheduled for multiple classes at the same time.,Kamis,10:20 - 11:10,FIK-401,Software Quality Assurance,B
+Lecturer Conflict,Lecturer Yohanes Kurnia is scheduled for multiple classes at the same time.,Kamis,11:10 - 12:00,FIK-302,Keamanan Data dan Jaringan,C
+Lecturer Conflict,Lecturer Yohanes Kurnia is scheduled for multiple classes at the same time.,Kamis,11:10 - 12:00,FIK-301,Analisis dan Desain Perangkat Lunak,A
+Room Conflict,Room FIK-302 is scheduled for multiple classes at the same time.,Rabu,07:50 - 08:40,FIK-302,Sistem Basis Data,E
+Room Conflict,Room FIK-302 is scheduled for multiple classes at the same time.,Rabu,07:50 - 08:40,FIK-302,Web Semantic,B
+Room Conflict,Room FIKLAB-401 is scheduled for multiple classes at the same time.,Rabu,14:30 - 15:20,FIKLAB-401,Struktur Data,D
+Room Conflict,Room FIKLAB-401 is scheduled for multiple classes at the same time.,Rabu,14:30 - 15:20,FIKLAB-401,Komputasi Paralel dan Terdistribusi,A
+Room Conflict,Room FIKLAB-201 is scheduled for multiple classes at the same time.,Rabu,15:20 - 16:10,FIKLAB-201,Algoritma dan Pemrograman,A
+Room Conflict,Room FIKLAB-201 is scheduled for multiple classes at the same time.,Rabu,15:20 - 16:10,FIKLAB-201,Komputasi Paralel dan Terdistribusi,B
+Room Conflict,Room FIK-302 is scheduled for multiple classes at the same time.,Rabu,17:00 - 17:50,FIK-302,Algoritma dan Pemrograman,E
+Room Conflict,Room FIK-302 is scheduled for multiple classes at the same time.,Rabu,17:00 - 17:50,FIK-302,Ethical Hacking,A
+Room Conflict,Room FIKLAB-302 is scheduled for multiple classes at the same time.,Selasa,13:40 - 14:30,FIKLAB-302,Komputasi Jaringan (NE.2),B
+Room Conflict,Room FIKLAB-302 is scheduled for multiple classes at the same time.,Selasa,13:40 - 14:30,FIKLAB-302,Manajemen Organisasi,A
+Room Conflict,Room FIKLAB-302 is scheduled for multiple classes at the same time.,Selasa,13:40 - 14:30,FIKLAB-302,Proyek Capstone,A
+Room Conflict,Room FIK-203 is scheduled for multiple classes at the same time.,Selasa,14:30 - 15:20,FIK-203,Praktikum Keamanan Data dan Jaringan,B
+Room Conflict,Room FIK-203 is scheduled for multiple classes at the same time.,Selasa,14:30 - 15:20,FIK-203,Software Quality Assurance,A
+Room Conflict,Room FIKLAB-203 is scheduled for multiple classes at the same time.,Senin,07:50 - 08:40,FIKLAB-203,Hukum Teknologi Informasi,A
+Room Conflict,Room FIKLAB-203 is scheduled for multiple classes at the same time.,Senin,07:50 - 08:40,FIKLAB-203,Pengembangan Aplikasi Permainan (SE.3),A
+Room Conflict,Room FIK-202 is scheduled for multiple classes at the same time.,Senin,09:30 - 10:20,FIK-202,Praktikum Algoritma dan Pemrograman,B
+Room Conflict,Room FIKLAB-202 is scheduled for multiple classes at the same time.,Senin,09:30 - 10:20,FIKLAB-202,Sistem Basis Data,B
+Room Conflict,Room FIKLAB-202 is scheduled for multiple classes at the same time.,Senin,09:30 - 10:20,FIKLAB-202,Struktur Data,E
+Room Conflict,Room FIK-202 is scheduled for multiple classes at the same time.,Senin,09:30 - 10:20,FIK-202,AI Computing Platform,B
+Room Conflict,Room FIK-201 is scheduled for multiple classes at the same time.,Senin,14:30 - 15:20,FIK-201,Struktur Data,C
+Room Conflict,Room FIK-201 is scheduled for multiple classes at the same time.,Senin,14:30 - 15:20,FIK-201,Praktikum Pemrograman berbasis Platform,C
