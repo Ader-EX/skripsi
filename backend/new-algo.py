@@ -21,8 +21,6 @@ ruangan_df = pd.read_csv(ruangan_file_path)
 lecturer_time_preferences_df = pd.read_csv(lecturer_preference_file_path)
 pengajaran_df = pd.read_csv(pengajaran_file_path)
 
-print("[DEBUG] pengajaran_df with is_dosen_kb == True:")
-print(pengajaran_df[pengajaran_df["is_dosen_kb"] == True])
 
 
 # Create a mapping of mk_id to allowed dosens
@@ -38,13 +36,13 @@ dosen_df['jabatan'] = dosen_df['jabatan'].fillna("")  # Replace NaN with an empt
 room_data = ruangan_df.set_index('f_koderuang').to_dict(orient='index')
 dosen_data = dosen_df.set_index('f_pegawai_id').to_dict(orient='index')
 
-print(pengajaran_df.columns)
+
 
 
 
 # Generate adjusted time slots
 def generate_adjusted_time_slots(start_time, end_time, interval_minutes=50):
-    days = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"]
+    days = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"] 
     slots = []
     for day in days:
         current_time = start_time
@@ -73,16 +71,15 @@ def generate_pengajaran_table():
 
     for _, row in mata_kuliah_df.iterrows():
         mata_kuliah_id = row["Kodemk"]
+        if mata_kuliah_id not in pengajaran_mapping:
+            print(f"[WARNING] No valid lecturers found for mata kuliah {mata_kuliah_id}. Skipping.")
+            continue
 
         # Interpret the `kelas` column as a string of class labels
-        kelas_labels = list(row["kelas"].strip())  # Convert 'ABCDE' to ['A', 'B', 'C', 'D', 'E']
-
-        # Get the list of dosens for this mata kuliah
-        dosens_for_mk = pengajaran_df[pengajaran_df["mk_id"] == mata_kuliah_id]
+        kelas_labels = list(row["kelas"].strip()) if pd.notna(row["kelas"]) else []
 
         # Get the dosen besar (is_dosen_kb == True)
-        dosen_besar_row = dosens_for_mk[dosens_for_mk["is_dosen_kb"] == True]
-        dosen_besar_id = dosen_besar_row["dosen_id"].iloc[0] if not dosen_besar_row.empty else None
+        dosen_besar_id = dosen_besar_mapping.get(mata_kuliah_id)
 
         for class_label in kelas_labels:
             if dosen_besar_id:
@@ -91,14 +88,14 @@ def generate_pengajaran_table():
                     "mk_id": mata_kuliah_id,
                     "class": class_label,
                     "dosen_id": dosen_besar_id,
-                    "is_dosen_kb": True  # Mark as dosen besar
+                    "is_dosen_kb": True
                 })
                 dosen_besar_id = None  # Ensure only one "dosen besar" is added
             else:
                 # Assign other dosens (dosen kecil)
-                dosen_kecil_row = dosens_for_mk[dosens_for_mk["is_dosen_kb"] == False]
-                if not dosen_kecil_row.empty:
-                    f_pegawai_id = dosen_kecil_row["dosen_id"].sample().iloc[0]
+                dosens_for_mk = pengajaran_mapping[mata_kuliah_id]
+                if dosens_for_mk:
+                    f_pegawai_id = random.choice(dosens_for_mk)
                 else:
                     f_pegawai_id = random.choice(valid_f_pegawai_ids)
 
@@ -106,7 +103,7 @@ def generate_pengajaran_table():
                     "mk_id": mata_kuliah_id,
                     "class": class_label,
                     "dosen_id": f_pegawai_id,
-                    "is_dosen_kb": False  # Mark as dosen kecil
+                    "is_dosen_kb": False
                 })
 
     return pd.DataFrame(pengajaran)
@@ -114,9 +111,10 @@ def generate_pengajaran_table():
 
 
 
+
+
 pengajaran_table = generate_pengajaran_table()
-print(pengajaran_table.columns)
-print(pengajaran_table.head())
+
 
 # Generate formatted schedule without time preferences
 
@@ -177,6 +175,121 @@ print(pengajaran_table.head())
 
 #     return schedule
 
+# Validate lecturer assignment based on pengajaran.csv
+def is_valid_assignment(dosen_id, mk_id):
+    # Validate dosen_id and mk_id against pengajaran.csv
+    valid_entries = pengajaran_df[
+        (pengajaran_df['dosen_id'] == dosen_id) &
+        (pengajaran_df['mk_id'] == mk_id)
+    ]
+    return not valid_entries.empty
+
+
+
+# Merge Kelas Besar and Kelas Kecil schedules
+# Generate combined schedule with mandatory rules
+# Generate schedules for specific courses
+# Generate schedules for specific courses
+def generate_combined_schedule(pengajaran_df, adjusted_time_slots):
+    schedule = []
+    no = 1
+
+    # IDs for specific cases
+    special_ids = {
+        "INF124603": "Diseminasi luaran",
+        "INF124602": "Kerja Praktik",
+        "INFMBKM02": "Magang/Studi Independen",
+        "INF124701": "Proposal",
+        "INF124801": "Tugas Akhir"
+    }
+
+    # Group by mk_id
+    grouped_pengajaran = pengajaran_df.groupby("mk_id")
+    for mk_id, group in grouped_pengajaran:
+        matakuliah_name = mata_kuliah_df.loc[mata_kuliah_df["Kodemk"] == mk_id, "Namamk"].values[0]
+        kurikulum = mata_kuliah_df.loc[mata_kuliah_df["Kodemk"] == mk_id, "kurikulum"].values[0]
+        sks = mata_kuliah_df.loc[mata_kuliah_df["Kodemk"] == mk_id, "sks"].values[0]
+        semester = mata_kuliah_df.loc[mata_kuliah_df["Kodemk"] == mk_id, "smt"].values[0]
+
+        # Special handling for specific IDs
+        if mk_id in special_ids:
+            if mk_id in ["INF124603", "INF124602", "INFMBKM02"]:
+                for _, row in group.iterrows():
+                    schedule.append({
+                        "No": no,
+                        "Kodemk": mk_id,
+                        "Matakuliah": matakuliah_name,
+                        "Kurikulum": kurikulum,
+                        "Kelas": row["class"],
+                        # "Kap/Peserta": row["capacity"],
+                        
+                        "Kap/Peserta": "35",
+                        "Sks": sks,
+                        "Smt": semester,
+                        "Jadwal Pertemuan": "None",  # No scheduled time
+                        "Dosen": "TIM DOSEN FIK",
+                        "Dosen ID": "2026",
+                    })
+                    no += 1
+                continue
+
+            if mk_id in ["INF124701", "INF124801"]:
+                for _, row in group.iterrows():
+                    time_slot = random.choice([slot for slot in adjusted_time_slots if slot['day'] == "Sabtu"])
+                    schedule.append({
+                        "No": no,
+                        "Kodemk": mk_id,
+                        "Matakuliah": matakuliah_name,
+                        "Kurikulum": kurikulum,
+                        "Kelas": row["class"],
+                        # "Kap/Peserta": row["capacity"],
+                        
+                        "Kap/Peserta": "35",
+                        "Sks": sks,
+                        "Smt": semester,
+                        "Jadwal Pertemuan": f"{time_slot['day']} - {time_slot['start_time'].strftime('%H:%M')} - {time_slot['end_time'].strftime('%H:%M')} (VCR-FIK-KK)",  # Random Sabtu time
+                        "Dosen": "TIM DOSEN FIK",
+                        "Dosen ID": "2026",
+                    })
+                    no += 1
+                continue
+
+        # Handle normal schedules for other courses
+        for _, row in group.iterrows():
+            dosen_id = row["dosen_id"]
+            if not is_valid_assignment(dosen_id, mk_id):
+                print(f"Invalid assignment: Dosen {dosen_id} cannot teach {mk_id}")
+                continue
+
+            dosen_name = dosen_df.loc[dosen_df["f_pegawai_id"] == str(dosen_id), "f_namapegawai"].values[0]
+            class_label = row["class"]
+
+            time_slot = random.choice(adjusted_time_slots)
+            room = random.choice(ruangan_df["f_koderuang"].tolist())
+
+            schedule.append({
+                "No": no,
+                "Kodemk": mk_id,
+                "Matakuliah": matakuliah_name,
+                "Kurikulum": kurikulum,
+                "Kelas": f"Kelas Kecil {class_label}",
+                "Kap/Peserta": "0 / 35",
+                "Sks": sks,
+                "Smt": semester,
+                "Jadwal Pertemuan": f"{time_slot['day']} - {time_slot['start_time'].strftime('%H:%M')} - {time_slot['end_time'].strftime('%H:%M')} ({room})",
+                "Dosen": dosen_name,
+                "Dosen ID": dosen_id,
+            })
+            no += 1
+
+    return schedule
+
+
+
+
+
+
+
 def generate_formatted_schedule(pengajaran_table, adjusted_time_slots):
     schedule = []
     no = 1
@@ -188,8 +301,7 @@ def generate_formatted_schedule(pengajaran_table, adjusted_time_slots):
     # Group by Mata Kuliah (mk_id)
     grouped_pengajaran = pengajaran_table.groupby("mk_id")
     for mk_id, group in grouped_pengajaran:
-        print(f"[DEBUG] Processing mk_id: {mk_id}")
-        print(group)
+       
 
         # Mata Kuliah details
         matakuliah_name = mata_kuliah_df.loc[mata_kuliah_df["Kodemk"] == mk_id, "Namamk"].values[0]
@@ -375,7 +487,7 @@ def calculate_fitness(schedule):
 
 # Genetic algorithm
 def genetic_algorithm(population_size, generations, mutation_rate):
-    population = [generate_formatted_schedule(pengajaran_table, adjusted_time_slots)
+    population = [generate_combined_schedule(pengajaran_table, adjusted_time_slots)
                   for _ in range(population_size)]
     best_schedule = None
     best_fitness = float('-inf')
