@@ -16,6 +16,8 @@ fastapi-env/
 
 # Hasil generated schedule
 /backend/datas/hasil
+__pycache__/
+
 
 /frontend/node_modules/
 # Logs and debugging

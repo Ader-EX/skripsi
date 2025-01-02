@@ -4,17 +4,20 @@ from sqlalchemy import String, ForeignKey, DateTime, event, Boolean
 
 class TimeTable(Base):
     __tablename__ = "timetable"
-
+    
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     kelas_id: Mapped[int] = mapped_column(ForeignKey("list_kelas.id"), nullable=False)
-    mata_kuliah_id: Mapped[int] = mapped_column(ForeignKey("mata_kuliah.id"), nullable=False)
-    dosen_id: Mapped[int] = mapped_column(ForeignKey("dosen.id"), nullable=False)
+    pengajaran_id: Mapped[int] = mapped_column(ForeignKey("pengajaran.id"), nullable=False)
     ruangan_id: Mapped[int] = mapped_column(ForeignKey("ruangan.id"), nullable=False)
     timeslot_id: Mapped[int] = mapped_column(ForeignKey("timeslot.id"), nullable=False)
-
+    is_online: Mapped[bool] = mapped_column(Boolean, default=False)
+    
+    # Relationships
     kelas: Mapped["ListKelas"] = relationship("ListKelas", back_populates="timetables")
-    mata_kuliah: Mapped["MataKuliah"] = relationship("MataKuliah", back_populates="timetables")
-    dosen: Mapped["Dosen"] = relationship("Dosen", back_populates="timetables")
+    pengajaran: Mapped["Pengajaran"] = relationship("Pengajaran", back_populates="timetables")
     ruangan: Mapped["Ruangan"] = relationship("Ruangan", back_populates="timetables")
     timeslot: Mapped["TimeSlot"] = relationship("TimeSlot", back_populates="timetables")
-    mahasiswa_timetable : Mapped[list["MahasiswaTimeTable"]] =relationship("MahasiswaTimeTable", back_populates="timetable")
+    mahasiswa_timetable: Mapped[list["MahasiswaTimeTable"]] = relationship("MahasiswaTimeTable", back_populates="timetable")
+
+    def __repr__(self):
+        return f"<TimeTable(kelas_id={self.kelas_id}, ruangan={self.ruangan_id}, timeslot={self.timeslot_id})>"

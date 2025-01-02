@@ -69,86 +69,84 @@ def is_valid_assignment(dosen_id, mk_id):
 def generate_combined_schedule(pengajaran_df, adjusted_time_slots):
     schedule = []
     no = 1
+    class_time_slots = {}
+    class_rooms = {}
+    time_slot_usage = {}
+    room_time_usage = {}
 
-    # Track time and room usage
-    time_slot_usage = {}  # Keep track of which time slots are used
-    room_time_usage = {}  # Keep track of which rooms are used
-
-    # Group by mk_id
     grouped_pengajaran = pengajaran_df.groupby("mk_id")
     for mk_id, group in grouped_pengajaran:
-        # Fetch Mata Kuliah details
         matakuliah_name = mata_kuliah_df.loc[mata_kuliah_df["Kodemk"] == mk_id, "Namamk"].values[0]
         kurikulum = mata_kuliah_df.loc[mata_kuliah_df["Kodemk"] == mk_id, "kurikulum"].values[0]
         sks = mata_kuliah_df.loc[mata_kuliah_df["Kodemk"] == mk_id, "sks"].values[0]
         semester = mata_kuliah_df.loc[mata_kuliah_df["Kodemk"] == mk_id, "smt"].values[0]
-        tipe_mk = mata_kuliah_df.loc[mata_kuliah_df["Kodemk"] == mk_id, "tipe_MK"].values[0]
-        available_classes = sorted(group["class"].unique())
 
-        # Assign a shared time slot for all classes of this course
-        shared_time_slot = assign_time_slot(adjusted_time_slots, None, time_slot_usage)
-        time_key = (shared_time_slot["day"], shared_time_slot["start_time"], shared_time_slot["end_time"])
+        # Assign a uniform time slot for this lecture
+        base_time_slot = assign_time_slot(adjusted_time_slots, time_slot_usage)
+        time_key = (base_time_slot["day"], base_time_slot["start_time"], base_time_slot["end_time"])
 
-        # Pre-assign all rooms needed for this course based on tipe_MK
-        if tipe_mk == 1:  # Praktikum
-            available_rooms = {key: val for key, val in room_data.items() if "P" in val["f_tiperuangan"]}
-        else:  # Non-Praktikum
-            available_rooms = {key: val for key, val in room_data.items() if "T" in val["f_tiperuangan"]}
+        # Assign rooms for each class
+        available_rooms = list(room_data.keys())
+        for class_label in group["class"].unique():
+            room = assign_room(room_time_usage, base_time_slot, available_rooms)
+            class_rooms[class_label] = room
 
-        class_rooms = {}
-        for class_label in available_classes:
-            class_rooms[class_label] = assign_special_room(room_time_usage, shared_time_slot, available_rooms)
-
-        # Handle Kelas Besar (they all share VCR-FIK-KB)
-        dosen_besar_row = group[group["is_dosen_kb"] == True]
-        if not dosen_besar_row.empty:
-            dosen_besar_id = dosen_besar_row["dosen_id"].iloc[0]
-            dosen_besar_name = dosen_data[str(dosen_besar_id)]["f_namapegawai"]
-
-            for class_label in available_classes:
+            # Add entries for Kelas Kecil
+            for _, row in group[group["class"] == class_label].iterrows():
+                jadwal_pertemuan = (
+                    f"{base_time_slot['day']} - "
+                    f"{base_time_slot['start_time'].strftime('%H:%M')}-"
+                    f"{base_time_slot['end_time'].strftime('%H:%M')} "
+                    f"( {room} )"
+                )
                 schedule.append({
                     "No": no,
                     "Kodemk": mk_id,
                     "Matakuliah": matakuliah_name,
                     "Kurikulum": kurikulum,
-                    "Kelas": f"Kelas Besar {class_label}",
-                    "Kap/Peserta": "0 / 35",
+                    "Kelas": f"Kelas Kecil {class_label}",
+                    "Kap/Peserta": "35 / 35",
                     "Sks": sks,
                     "Smt": semester,
-                    "Jadwal Pertemuan": f"{shared_time_slot['day']} - {shared_time_slot['start_time'].strftime('%H:%M')} - {shared_time_slot['end_time'].strftime('%H:%M')} (VCR-FIK-KB)",
-                    "Dosen": dosen_besar_name,
-                    "Dosen ID": dosen_besar_id,
+                    "Jadwal Pertemuan": jadwal_pertemuan,
+                    "Dosen": f"{dosen_data[str(row['dosen_id'])]['f_namapegawai']}",
+                    "Dosen ID": row["dosen_id"],
                 })
                 no += 1
 
-        # Handle Kelas Kecil
-        dosen_kecil_rows = group[group["is_dosen_kb"] == False]
-        if not dosen_kecil_rows.empty:
-            class_grouped_dosen = dosen_kecil_rows.groupby("class")
-
-            for class_label, class_group in class_grouped_dosen:
-                assigned_room = class_rooms[class_label]
-
-                for _, row in class_group.iterrows():
-                    dosen_kecil_id = row["dosen_id"]
-                    dosen_kecil_name = dosen_data[str(dosen_kecil_id)]["f_namapegawai"]
-
-                    schedule.append({
-                        "No": no,
-                        "Kodemk": mk_id,
-                        "Matakuliah": matakuliah_name,
-                        "Kurikulum": kurikulum,
-                        "Kelas": f"Kelas Kecil {class_label}",
-                        "Kap/Peserta": "0 / 35",
-                        "Sks": sks,
-                        "Smt": semester,
-                        "Jadwal Pertemuan": f"{shared_time_slot['day']} - {shared_time_slot['start_time'].strftime('%H:%M')} - {shared_time_slot['end_time'].strftime('%H:%M')} ({assigned_room})",
-                        "Dosen": dosen_kecil_name,
-                        "Dosen ID": dosen_kecil_id,
-                    })
-                    no += 1
+        # Add entry for Kelas Besar if applicable
+        dosen_kb_row = group[group["is_dosen_kb"] == True]
+        if not dosen_kb_row.empty:
+            dosen_kb_id = dosen_kb_row["dosen_id"].iloc[0]
+            dosen_kb_name = dosen_data[str(dosen_kb_id)]["f_namapegawai"]
+            jadwal_pertemuan_kb = (
+                f"{base_time_slot['day']} - "
+                f"{base_time_slot['start_time'].strftime('%H:%M')}-"
+                f"{base_time_slot['end_time'].strftime('%H:%M')} "
+                f"( VCR-FIK-KB-1 )"
+            )
+            schedule.append({
+                "No": no,
+                "Kodemk": mk_id,
+                "Matakuliah": matakuliah_name,
+                "Kurikulum": kurikulum,
+                "Kelas": "Kelas Besar",
+                "Kap/Peserta": "100 / 100",
+                "Sks": sks,
+                "Smt": semester,
+                "Jadwal Pertemuan": jadwal_pertemuan_kb,
+                "Dosen": f"{dosen_kb_name}",
+                "Dosen ID": dosen_kb_id,
+            })
+            no += 1
 
     return schedule
+
+
+
+
+
+
 
 
 def assign_special_room(room_time_usage, time_slot, available_rooms):
@@ -195,27 +193,35 @@ def calculate_fitness(schedule):
 
     return -penalties
 
-
-def assign_time_slot(adjusted_time_slots, dosen_id, time_usage):
-    """Assign a time slot that hasn't been used yet, or random if all are used."""
+def assign_time_slot(adjusted_time_slots, time_slot_usage):
     for time_slot in adjusted_time_slots:
         time_key = (time_slot["day"], time_slot["start_time"], time_slot["end_time"])
-        if time_key not in time_usage:
-            time_usage[time_key] = True
+        if time_key not in time_slot_usage:
+            time_slot_usage[time_key] = True
             return time_slot
-    # If all slots are used, pick a random one
+    # Fallback to random
     return random.choice(adjusted_time_slots)
 
-def assign_room(room_time_usage, time_slot):
-    """Assign an available room for a given time slot."""
+def assign_room(room_time_usage, time_slot, available_rooms):
     time_key = (time_slot["day"], time_slot["start_time"], time_slot["end_time"])
-    for room in room_data.keys():
+    for room in available_rooms:
         if time_key not in room_time_usage.get(room, set()):
             room_time_usage.setdefault(room, set()).add(time_key)
             return room
-    fallback_room = list(room_data.keys())[0]
-    room_time_usage.setdefault(fallback_room, set()).add(time_key)
-    return fallback_room
+    return random.choice(available_rooms)
+
+def parse_jadwal(jadwal):
+    try:
+        jadwal_parts = jadwal.split("(")
+        time_and_day = jadwal_parts[0].strip()
+        room = jadwal_parts[1][:-1].strip()  # Extract room, e.g., "FIKLAB-401"
+
+        day, time_range = time_and_day.split(" - ", 1)
+        start_time, end_time = time_range.split("-")
+        return day.strip(), start_time.strip(), end_time.strip(), room.strip()
+    except (IndexError, ValueError) as e:
+        print(f"Malformed Jadwal Pertemuan: {jadwal}")
+        return None, None, None, None
 
 
 def calculate_fitness(schedule):
@@ -226,7 +232,7 @@ def calculate_fitness(schedule):
     # Convert lecturer preferences to a dictionary for faster lookups
     lecturer_preferences = {}
     for _, row in lecturer_time_preferences_df.iterrows():
-        f_pegawai_id = str(row["f_pegawai_id"]).strip()  # Correct variable here
+        f_pegawai_id = str(row["f_pegawai_id"]).strip()
         day = row["day"]
         start_time = row["start_time"]
         end_time = row["end_time"]
@@ -242,21 +248,17 @@ def calculate_fitness(schedule):
 
     seen_slots = set()
     for entry in schedule:
-        f_pegawai_id = str(entry.get("Dosen ID", "")).strip()  # Ensure this is a string
-        jadwal = entry["Jadwal Pertemuan"]
+        f_pegawai_id = str(entry.get("Dosen ID", "")).strip()
+        jadwal = entry.get("Jadwal Pertemuan", "")
 
-        try:
-            # Split Jadwal Pertemuan into components
-            jadwal_parts = jadwal.split(" (")
-            time_and_day = jadwal_parts[0].strip()
-            room = jadwal_parts[1][:-1].strip()  # Extract room, e.g., "FIKLAB-401"
+        # Parse Jadwal Pertemuan
+        day, start_time, end_time, room = parse_jadwal(jadwal)
 
-            day, time_range = time_and_day.split(" - ", 1)
-            start_time, end_time = time_range.split(" - ")
-
-        except (IndexError, ValueError):
+        # Skip if parsing fails
+        if not day or not start_time or not end_time or not room:
             print(f"Malformed Jadwal Pertemuan: {jadwal}")
-            continue  # Skip malformed schedule entries
+            penalties += 50  # Penalize malformed entries heavily
+            continue
 
         time_key = (day, start_time, end_time)
 
@@ -300,6 +302,7 @@ def calculate_fitness(schedule):
         room_time_usage.setdefault(room, set()).add(time_key)
 
     return -penalties
+
 
 
 
@@ -353,11 +356,26 @@ def crossover(parent1, parent2):
 def mutate(schedule, mutation_rate=0.1):
     for entry in schedule:
         if random.random() < mutation_rate:
-            new_time_slot = random.choice(adjusted_time_slots)
-            new_room = random.choice(list(room_data.keys()))
-            entry[
-                "Jadwal Pertemuan"] = f"{new_time_slot['day']} - {new_time_slot['start_time'].strftime('%H:%M')} - {new_time_slot['end_time'].strftime('%H:%M')} ({new_room})"
+            new_time = random.choice(adjusted_time_slots)
+
+            # Assign new room based on class type
+            if "Kelas Kecil" in entry["Kelas"]:
+                class_label = entry["Kelas"].split(" ")[-1]
+                room_num = 300 + (ord(class_label) - ord('A'))
+                new_room = f"FIK-{room_num}"
+            else:  # For Kelas Besar
+                new_room = "VCR-FIK-KB-1"
+
+            # Update Jadwal Pertemuan
+            entry["Jadwal Pertemuan"] = (
+                f"{new_time['day']} - "
+                f"{new_time['start_time'].strftime('%H:%M')} - "
+                f"{new_time['end_time'].strftime('%H:%M')} "
+                f"( {new_room} )"
+            )
+
     return schedule
+
 
 
 # Run the genetic algorithm
@@ -371,6 +389,36 @@ def calculate_fitness_percentage(best_fitness, total_entries, penalties_per_entr
     fitness_percentage = (1 - abs(best_fitness) / worst_case_penalty) * 100
     return fitness_percentage
 
+def merge_schedule(schedule):
+    """
+    Merge rows with the same Kelas, aggregating Dosen and Dosen ID.
+    """
+    import pandas as pd
+
+    # Convert the schedule to a DataFrame
+    df = pd.DataFrame(schedule)
+
+    # Ensure 'Dosen ID' is treated as a string
+    df['Dosen ID'] = df['Dosen ID'].astype(str)
+
+    # Group by relevant columns and aggregate Dosen and Dosen ID
+    merged_df = df.groupby(
+        ["Kodemk", "Matakuliah", "Kurikulum", "Kelas", "Kap/Peserta", "Sks", "Smt", "Jadwal Pertemuan"],
+        as_index=False
+    ).agg({
+        "Dosen": lambda x: "; ".join(x),
+        "Dosen ID": lambda x: "; ".join(x)
+    })
+
+    # Renumber the "No" column
+    merged_df.insert(0, "No", range(1, len(merged_df) + 1))
+
+    # Convert back to a list of dictionaries if needed
+    merged_schedule = merged_df.to_dict(orient='records')
+    return merged_schedule
+
+
+
 
 total_entries = len(pengajaran_df)
 penalties_per_entry = 60
@@ -378,13 +426,14 @@ penalties_per_entry = 60
 # Run the genetic algorithm
 start_time = time.time()
 best_schedule, best_fitness = genetic_algorithm(population_size, generations, mutation_rate)
+merged_schedule = merge_schedule(best_schedule)
 end_time = time.time()
 
 # Calculate percentage fitness
 fitness_percentage = calculate_fitness_percentage(best_fitness, total_entries, penalties_per_entry)
 
 # Save the best schedule to a CSV file
-best_schedule_df = pd.DataFrame(best_schedule)
+best_schedule_df = pd.DataFrame(merged_schedule)
 best_schedule_df.to_csv("./datas/hasil/BestSchedule.csv", index=False)
 
 # Display results

@@ -26,23 +26,20 @@ for _, mk_row in mata_kuliah_df.iterrows():
     mk_id = mk_row["Kodemk"]
     available_classes = list(mk_row["kelas"].strip())
 
-    # Randomly decide if this course will have a KB (50% chance)
-    has_kb = np.random.choice([True, False])
-
+    # Assign a KB dosen if applicable
+    has_kb = np.random.choice([True, False])  # Randomly decide if this course has a KB
     if has_kb:
-        # Try to assign a KB dosen
         dosen_kb = dosen_df[dosen_df["is_dosen_kb"]].sample(n=1)
         if not dosen_kb.empty:
             dosen_kb_id = dosen_kb.iloc[0]["f_pegawai_id"]
-            # Add entries for all classes with same pengajaran_id
-            for class_label in available_classes:
-                pengajaran_data.append({
-                    "pengajaran_id": current_pengajaran_id,
-                    "dosen_id": dosen_kb_id,
-                    "mk_id": mk_id,
-                    "is_dosen_kb": True,
-                    "class": class_label
-                })
+            # Add a single entry for the KB dosen with `class` set to null
+            pengajaran_data.append({
+                "pengajaran_id": current_pengajaran_id,
+                "dosen_id": dosen_kb_id,
+                "mk_id": mk_id,
+                "is_dosen_kb": True,
+                "class": None
+            })
             current_pengajaran_id += 1
 
     # Assign regular dosen (2 per class)
