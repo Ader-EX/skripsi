@@ -8,10 +8,9 @@ FIK-303,417,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 3, R. 303",T,P,40,Y, ,"UPN "
 FIK-401,582,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 4, R. 401",T,P,40,Y, ,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-401|582
 FIK-402,583,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 4, R. 402",T,P,40,Y, ,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-402|583
 FIK-403,920,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 4, R. 403",T,M,40,Y,T,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-403
-FIK-V1,968,Virtual 1,SP,B,200,T,T,Fakultas ilmu Komputer,FIK-V1
-FIKLAB-201,77,FIKLAB-201,"P,T",P,40,Y,T,"Gedung Ki Hajar Dewantara  lantai 2, Ruang 201 Pondok Labu",FIKLAB-201|77
-FIKLAB-202,78,FIK LAB II-2,"P,T",P,40,Y,T,"Gedung Ki Hajar Dewantara lantai 2, Ruang 202 Pondok Labu",FIKLAB-202|78
-FIKLAB-203,79,FIK LAB II-3,"P,T",P,40,Y,T,"Gedung Ki Hajar Dewantara lantai 2, Ruang 203 Pondok Labu",FIKLAB-203|79
+FIKLAB-201,77,FIKLAB-201,"P",P,40,Y,T,"Gedung Ki Hajar Dewantara  lantai 2, Ruang 201 Pondok Labu",FIKLAB-201|77
+FIKLAB-202,78,FIK LAB II-2,"P",P,40,Y,T,"Gedung Ki Hajar Dewantara lantai 2, Ruang 202 Pondok Labu",FIKLAB-202|78
+FIKLAB-203,79,FIK LAB II-3,"P",P,40,Y,T,"Gedung Ki Hajar Dewantara lantai 2, Ruang 203 Pondok Labu",FIKLAB-203|79
 FIKLAB-301,460,FIK LAB III-1,P,L,40,Y,Y,"Gedung Ki Hajar Dewantara lantai 3, Ruang 301 Pondok Labu",FIKLAB-301|460
 FIKLAB-302,936,FIK LAB III-2,P,L,40,Y,T,"Gedung Ki Hajar Dewantara lantai 3, Ruang 302 Pondok Labu",FIKLAB-302|936
 FIKLAB-303,462,FIK LAB III-3,P,L,40,Y,Y,"Gedung Ki Hajar Dewantara lantai 3, Ruang 303 Pondok Labu",FIKLAB-303|462
@@ -19,4 +18,3 @@ FIKLAB-304,1186,FIK LAB III-4,P,L,40,Y,T,"Gedung Ki Hajar Dewantara lantai 3, Ru
 FIKLAB-401,669,FIK LAB IV-1,P,L,40,Y,T,"Gedung Ki Hajar Dewantara lantai 4, Ruang 401 Pondok Labu",FIKLAB-401|669
 FIKLAB-402,670,FIK LAB IV-2,P,L,40,Y,T,"Gedung Ki Hajar Dewantara lantai 4, Ruang 402 Pondok Labu",FIKLAB-402|670
 FIKLAB-403,940,FIK LAB IV-3,P,L,40,Y,T,"Gedung Ki Hajar Dewantara lantai 4, Ruang 403 Pondok Labu",FIKLAB-403|940
-MB PERMATA SARI,998,Merdeka Belajar Permata Sari,SP,V,0,Y,Y,,MB PERMATA SARI
