@@ -52,5 +52,6 @@
 
 The application will be available at:
 - Frontend: [http://localhost:3000](http://localhost:3000)
-- Backend: [http://localhost:8000](http://localhost:8000)
+  - Backend: [http://localhost:8000](http://localhost:8000) and
+  - [http://localhost:8000/docs](http://localhost:8000/docs) to access the backend documentation
 
