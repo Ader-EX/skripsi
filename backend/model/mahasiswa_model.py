@@ -1,6 +1,6 @@
-from database import Base
+from ..database import Base
 from sqlalchemy.orm import mapped_column, Mapped, relationship
-from sqlalchemy import Integer, String
+from sqlalchemy import Integer, String,ForeignKey
 
 class Mahasiswa(Base):
     __tablename__ = "mahasiswa"
@@ -10,6 +10,8 @@ class Mahasiswa(Base):
     tahun_masuk: Mapped[int] = mapped_column(Integer, nullable=False)
     semester: Mapped[int] = mapped_column(Integer, nullable=False)
     sks_diambil: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+
 
     user: Mapped["User"] = relationship("User", back_populates="mahasiswa", uselist=False)
     mahasiswa_timetable: Mapped[list["MahasiswaTimeTable"]] = relationship("MahasiswaTimeTable", back_populates="mahasiswa")

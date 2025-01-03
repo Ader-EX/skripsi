@@ -1,4 +1,4 @@
-from database import Base
+from ..database import Base
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 from sqlalchemy import String, ForeignKey, DateTime, Boolean, Integer, Date
 
@@ -19,11 +19,10 @@ class Dosen(Base):
     jabatan_id: Mapped[int] = mapped_column(Integer, nullable=True)
     is_sekdos: Mapped[bool] = mapped_column(Boolean, default=False)
     is_dosen_kb: Mapped[bool] = mapped_column(Boolean, default=False)
-    
+    user_id : Mapped[int] = mapped_column(ForeignKey("users.id"),nullable=False)
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="dosen")
     pengajaran: Mapped[list["Pengajaran"]] = relationship("Pengajaran", back_populates="dosen")
-    progdi: Mapped["Progdi"] = relationship("Progdi", back_populates="dosen")
-
+    preferences : Mapped[list["Preference"]] = relationship("Preference",back_populates="dosen")
     def __repr__(self):
         return f"<Dosen({self.nama}, {self.nidn})>"
