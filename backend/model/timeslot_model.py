@@ -7,11 +7,13 @@ class TimeSlot(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     day: Mapped[str] = mapped_column(String(50), nullable=False)  # e.g., "Monday"
-    start_time: Mapped[Time] = mapped_column(nullable=False)  # Start time
-    end_time: Mapped[Time] = mapped_column(nullable=False)  # End time
+    start_time: Mapped[str] = mapped_column(Time, nullable=False)
+    end_time: Mapped[str] = mapped_column(Time, nullable=False)
 
     # Relationships
     preferences: Mapped[list["preference"]] = relationship("Preference", back_populates="timeslot")
+    list_kelas: Mapped[list["ListKelas"]] = relationship("ListKelas", back_populates="timeslot")
+    timetables: Mapped[list["TimeTable"]] = relationship("TimeTable", back_populates="timeslot")  # Add this line
 
     def __repr__(self):
         return f"<TimeSlot(day={self.day}, start_time={self.start_time}, end_time={self.end_time})>"

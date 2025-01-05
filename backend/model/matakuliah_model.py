@@ -5,13 +5,14 @@ from sqlalchemy import Integer, String, ForeignKey
 class MataKuliah(Base):
     __tablename__ = "mata_kuliah"
     
-    id: Mapped[str] = mapped_column(String(10), primary_key=True)
-    nama: Mapped[str] = mapped_column(String(255), nullable=False)
+    kodemk: Mapped[str] = mapped_column(String(20), primary_key=True)
+    namamk: Mapped[str] = mapped_column(String(255), nullable=False)
     sks: Mapped[int] = mapped_column(Integer, nullable=False)
-    semester: Mapped[int] = mapped_column(Integer, nullable=False)
-    kurikulum: Mapped[str] = mapped_column(String(50), nullable=False)
+    smt: Mapped[int] = mapped_column(Integer, nullable=False)
+    kurikulum: Mapped[str] = mapped_column(String(20), nullable=False)
     status_mk: Mapped[str] = mapped_column(String(1), nullable=False)
     kelas: Mapped[str] = mapped_column(String(10), nullable=False)
+
     tipe_mk: Mapped[int] = mapped_column(Integer, nullable=False)
     
     # Relationships

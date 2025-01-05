@@ -1,0 +1,295 @@
+kodemk,namamk,sks,smt,kurikulum,status_mk,kelas,tipe_mk
+SIM024101,Dasar Pemrograman,2,1,501.2024,A,A,0
+SIM024103,Konsep Basis Data,2,1,501.2024,A,A,0
+SIM024107,Matematika Diskrit ,3,1,501.2024,A,A,0
+MKW024102,Pancasila,2,1,501.2024,A,A,0
+MKW024101,Pendidikan Agama,2,1,501.2024,A,A,0
+MKW024104,Pendidikan Bela Negara,2,1,501.2024,A,A,0
+SIM024102,Praktikum Dasar Pemrograman,2,1,501.2024,A,A,1
+SIM024104,Praktikum Konsep Basis Data,2,1,501.2024,A,A,1
+SIM024106,Praktikum Struktur Data,2,1,501.2024,A,A,1
+SIM024105,Struktur Data,1,1,501.2024,A,A,0
+SIM024203,Algoritma dan Pemrograman Berorientasi Objek,2,2,501.2024,A,A,0
+SIM024207,Analisis Dan Perancangan Sistem Informasi,2,2,501.2024,A,A,0
+SIM024201,Analisis Proses Bisnis,2,2,501.2024,A,A,0
+SIM024210,Bahasa Inggris,2,2,501.2024,A,A,0
+SIM024209,Konsep Sistem Informasi,2,2,501.2024,A,A,0
+SIM024204,Praktikum Algoritma dan Pemrograman Berorientasi Objek,2,2,501.2024,A,A,1
+SIM024208,Praktikum Analisis Dan Perancangan Sistem Informasi,2,2,501.2024,A,A,1
+SIM024206,Praktikum Sistem Basis Data,2,2,501.2024,A,A,1
+SIM024205,Sistem Basis Data,2,2,501.2024,A,A,0
+SIM024202,Sistem Informasi Manajemen,2,2,501.2024,A,A,0
+SIM024310,Analisis bisnis ,2,3,501.2024,A,A,0
+SIM024303,Interaksi Manusia Dan Komputer,1,3,501.2024,A,A,0
+SIM024312,Manajemen Proyek Sistem Informasi,2,3,501.2024,A,A,0
+SIM024305,Pemrograman Web,1,3,501.2024,A,A,0
+SIM024311,Pengantar Data Science,2,3,501.2024,A,A,0
+SIM024309,Pengantar Teknologi Informasi,2,3,501.2024,A,A,0
+SIM024304,Praktikum Interaksi Manusia Dan Komputer,2,3,501.2024,A,A,1
+SIM024306,Praktikum Pemrograman Web,2,3,501.2024,A,A,1
+SIM024302,Praktikum Sistem Operasi,2,3,501.2024,A,A,1
+SIM024301,Sistem Operasi,1,3,501.2024,A,A,0
+SIM024308,Statistik dan Probabilitas,2,3,501.2024,A,A,0
+SIM024307,Technopreneurship,2,3,501.2024,A,A,0
+SIM024413,Data Mining dan Data Warehouse*),3,4,501.2024,A,A,0
+SIM024406,Etika Profesi Sistem Informasi,2,4,501.2024,A,A,0
+SIM024408,Intelegensia Bisnis,2,4,501.2024,A,A,0
+SIM024401,Keamanan Sistem Informasi,1,4,501.2024,A,A,0
+SIM024415,Komunikasi Bisnis *),3,4,501.2024,A,A,0
+SIM024414,Manajemen Kualitas Bisnis *),3,4,501.2024,A,A,0
+SIM024407,Metode Penulisan & Seminar TA,2,4,501.2024,A,A,0
+SIM024402,Mobile Programming,1,4,501.2024,A,A,0
+SIM024404,Pemrograman Berorientasi Objek,1,4,501.2024,A,A,0
+SIM024411,Pemrograman Mobile Lanjut *),3,4,501.2024,A,A,0
+SIM024410,Pemrograman Web Lanjut *),3,4,501.2024,A,A,0
+SIM024403,Praktikum Mobile Programming,2,4,501.2024,A,A,1
+SIM024405,Praktikum Pemrograman Berorientasi Objek,2,4,501.2024,A,A,1
+SIM024409,Proyek Perangkat Lunak,2,4,501.2024,A,A,0
+SIM024412,Visualisasi Data *),3,4,501.2024,A,A,0
+SIM024509,Big Data,2,5,501.2024,A,A,0
+SIM024502,Desain Arsitektur enterprise,2,5,501.2024,A,A,0
+SIM024503,Jaringan Komputer,1,5,501.2024,A,A,0
+SIM024505,Keamanan Sistem Dan Aplikasi,1,5,501.2024,A,A,0
+SIM024501,Kerja Praktek (Magang),2,5,501.2024,A,A,0
+SIM024507,Manajemen data dan Informasi,2,5,501.2024,A,A,0
+KMO0424504,MBKM Asistensi Mengajar,4,5,501.2024,A,A,0
+KMO11245011,MBKM Bela Negara,4,5,501.2024,A,A,0
+KMO0524505,MBKM Magang / Praktik Kerja,4,5,501.2024,A,A,0
+KMO10245010,MBKM Membagun Desa/KKN Tematik,4,5,501.2024,A,A,0
+KMO0624506,MBKM Penelitian/Riset,4,5,501.2024,A,A,0
+KMO0224502,MBKM Pertukaran Mahasiswa Merdeka,4,5,501.2024,A,A,0
+KMO0124501,MBKM Pertukaran Pelajar IISMA,4,5,501.2024,A,A,0
+KMO0324503,MBKM Pertukaran Pelajar Lainnya,4,5,501.2024,A,A,0
+KMO0724507,MBKM Proyek Kemanusiaan,4,5,501.2024,A,A,0
+KMO0924509,MBKM Study Independen Bersertifikat,4,5,501.2024,A,A,0
+KMO0824508,MBKM Wirausaha Merdeka ,4,5,501.2024,A,A,0
+SIM024510,Perancangan ui/ux,2,5,501.2024,A,A,0
+SIM024504,Praktikum Jaringan Komputer ,2,5,501.2024,A,A,1
+SIM024506,Praktikum Keamanan Sistem Dan Aplikasi ,2,5,501.2024,A,A,1
+SIM024508,Praktikum Manajemen data dan Informasi,2,5,501.2024,A,A,1
+SIM024511,Praktikum perancangan ui/ux,2,5,501.2024,A,A,1
+MKW024603,Bahasa Indonesia,2,6,501.2024,A,A,0
+MKW024607,kewarganegaraan,2,6,501.2024,A,A,0
+SIM124601,Tugas Akhir/Proyek,4,6,501.2024,A,A,0
+MKW124103,Bahasa Indonesia,2,1,511.2024,A,A,0
+INF124101,Dasar Pemrograman,2,1,511.2024,A,A,0
+INF124107,Kalkulus,3,1,511.2024,A,A,0
+INF124105,Konsep Basis Data ,2,1,511.2024,A,A,0
+MKW124102,Pancasila,2,1,511.2024,A,A,0
+MKW124101,Pendidikan Agama,2,1,511.2024,A,A,0
+INF124104,Pengantar Teknologi Informasi,2,1,511.2024,A,A,0
+INF124102,Praktikum Dasar Pemrograman,1,1,511.2024,A,A,1
+INF124106,Praktikum Konsep Basis Data ,1,1,511.2024,A,A,1
+INF124103,Statistika dan Probabilitas,3,1,511.2024,A,A,0
+INF124201,Algoritma dan Pemrograman,2,2,511.2024,A,A,0
+INF124205,Aljabar Linier,3,2,511.2024,A,A,0
+INF124210,Arsitektur dan Organisasi Komputer,3,2,511.2024,A,A,0
+INF124209,Etika Profesi Teknologi Informasi,2,2,511.2024,A,A,0
+INF124206,Logika Matematika,3,2,511.2024,A,A,0
+INF124202,Praktikum Algoritma dan Pemrograman,1,2,511.2024,A,A,1
+INF124208,Praktikum Sistem Basis Data,1,2,511.2024,A,A,1
+INF124204,Praktikum Struktur Data,1,2,511.2024,A,A,1
+INF124207,Sistem Basis Data,2,2,511.2024,A,A,0
+INF124203,Struktur Data,2,2,511.2024,A,A,0
+INF124310,Interaksi Manusia dan Komputer,3,3,511.2024,A,A,0
+INF124302,Jaringan Komputer,2,3,511.2024,A,A,0
+INF124311,Keamanan Siber (CE.1),3,3,511.2024,A,A,0
+INF124307,Kompleksitas Algoritma,3,3,511.2024,A,A,0
+INF124313,Komputasi Awan (NE.1),3,3,511.2024,A,A,0
+INF124304,Manajemen Proyek Perangkat Lunak,3,3,511.2024,B,A,0
+INF124301,Metode Penelitian,3,3,511.2024,A,A,0
+INF124308,Pemrograman Berorientasi Objek,2,3,511.2024,A,A,0
+INF124303,Praktikum Jaringan Komputer,1,3,511.2024,A,A,1
+INF124309,Praktikum Pemrograman Berorientasi Objek,1,3,511.2024,A,A,1
+INF124306,Praktikum Sistem Operasi,1,3,511.2024,A,A,1
+INF124312,Realitas Virtual dan Realitas Augmentasi (SE.1),3,3,511.2024,A,A,0
+INF124305,Sistem Operasi,2,3,511.2024,A,A,0
+INF124404,Internet Of Thing,2,4,511.2024,A,A,0
+INF124401,Keamanan Data dan Jaringan,2,4,511.2024,A,A,0
+INF124406,Kecerdasan Buatan,3,4,511.2024,A,A,0
+INF124413,Komputasi Jaringan (NE.2),3,4,511.2024,A,A,0
+INF124411,Kriptografi (CE.2),3,4,511.2024,A,A,0
+INF124409,Matematika Diskrit,3,4,511.2024,A,A,0
+INF124412,Pembangunan Perangkat Lunak Berorientasi Service (SE.2),3,4,511.2024,A,A,0
+INF124407,Pemrograman Berbasis Platform,2,4,511.2024,A,A,0
+INF124402,Praktikum Keamanan Data dan Jaringan,1,4,511.2024,A,A,1
+INF124408,Praktikum Pemrograman berbasis Platform,1,4,511.2024,A,A,1
+INF124405,Pratikum Internet Of Thing,1,4,511.2024,A,A,0
+INF124403,Rekayasa Perangkat Lunak,3,4,511.2024,A,A,0
+INF124410,Technopreneuership,2,4,511.2024,A,A,0
+INF124501,Analisis dan Desain Perangkat Lunak,3,5,511.2024,A,A,0
+INF124504,Bahasa Inggris,3,5,511.2024,A,A,0
+POL124501,Cyber Politik dan Media Baru,3,5,511.2024,A,A,0
+INF124505,Forensik Digital (CE.3),3,5,511.2024,A,A,0
+HKM124701,Hukum Teknologi Informasi,2,5,511.2024,A,A,0
+INF124502,Komputasi Paralel dan Terdistribusi,3,5,511.2024,A,A,0
+INFMBKM02,Magang/Studi Independen,17,5,511.2024,A,A,0
+MNJ124305,Manajemen Resiko,3,5,511.2024,A,A,0
+SDT124307,Pembelajaran Mesin,3,5,511.2024,A,A,0
+INF124506,Pengembangan Aplikasi Permainan (SE.3),3,5,511.2024,A,A,0
+TKM120407,Sistem Kendali,3,5,511.2024,A,A,0
+SIM124109,Tata Kelolah TI,3,5,511.2024,A,A,0
+INF124503,Teori Bahasa dan Automata,3,5,511.2024,A,A,0
+INF124507,Wireless Network (NE.3),3,5,511.2024,A,A,0
+INF124639,AI Computing Platform,3,6,511.2024,A,A,0
+INF124637,Analisis Jejaring Sosial,3,6,511.2024,A,A,0
+INF124612,Big Data,2,6,511.2024,A,A,0
+INF124631,Communication Skill,1,6,511.2024,A,A,0
+INF124642,Computer Vision,3,6,511.2024,A,A,0
+INF124624,Data mining dan Data warehouse + Tutorial,2,6,511.2024,A,A,0
+INF124630,Deep Learning,3,6,511.2024,A,A,0
+INF124603,Disseminasi luaran,1,6,511.2024,A,A,0
+INF124623,Embedded System,2,6,511.2024,A,A,0
+INF124618,Ethical Hacking,2,6,511.2024,A,A,0
+INF124636,Financial Technology,3,6,511.2024,A,A,0
+INF124611,Informatika Sosial,2,6,511.2024,A,A,0
+INF124634,Inovasi dan Desain Thinking,3,6,511.2024,A,A,0
+INF124602,Kerja Praktik,2,6,511.2024,A,A,0
+INF124633,Manajemen Organisasi,3,6,511.2024,A,A,0
+INF124621,Mobile Programming,2,6,511.2024,A,A,0
+INF124628,Pengolahan Citra Digital,2,6,511.2024,A,A,0
+INF124614,Perangkat Sensor Jaringan tanpa kabel,3,6,511.2024,A,A,0
+INF124613,Praktikum Big Data,1,6,511.2024,A,A,1
+INF124622,Praktikum Mobile Programming,1,6,511.2024,A,A,1
+INF124629,Praktikum Pengolahan Citra Digital,1,6,511.2024,A,A,1
+INF124625,Pratikum Data Mining dan Data Warehouse,1,6,511.2024,A,A,0
+INF124632,Problem Solving,2,6,511.2024,A,A,0
+INF124601,Proyek Capstone,2,6,511.2024,A,A,0
+INF124641,Robotika,3,6,511.2024,A,A,0
+INF124619,Sistem Digital,2,6,511.2024,A,A,0
+INF124638,Sistem Media Interaktif,3,6,511.2024,A,A,0
+INF124615,Sistem Pakar,3,6,511.2024,A,A,0
+INF124610,Software Quality Assurance,3,6,511.2024,A,A,0
+INF124635,Strategi Algoritma,3,6,511.2024,A,A,0
+INF124617,Technology Blockchain,3,6,511.2024,A,A,0
+INF124620,Temu Kembali Informasi,3,6,511.2024,A,A,0
+INF124616,Visualisasi Data,3,6,511.2024,A,A,0
+INF124640,Web Semantic,3,6,511.2024,A,A,0
+MKW124706,Filsafat Ilmu dan Logika,2,7,511.2024,A,A,0
+MKW124705,Kepemimpinan,2,7,511.2024,A,A,0
+MKW124707,Kewarganegaraan,2,7,511.2024,A,A,0
+MKW124704,Pendidikan Bela Negara,2,7,511.2024,A,A,0
+INF124701,Proposal,2,7,511.2024,A,A,0
+INF124801,Tugas Akhir,4,8,511.2024,A,A,0
+SDT124102,Aljabar Linear,3,1,514.2024,A,A,0
+SDT124104,Dasar Pemrograman,3,1,514.2024,A,A,0
+SDT124101,Matematika Diskrit,3,1,514.2024,A,A,0
+SDT124105,Pengantar Basis Data,3,1,514.2024,A,A,0
+SDT124106,Pengantar Sains Data,3,1,514.2024,A,A,0
+SDT124107,Pengantar Teknologi Informasi,2,1,514.2024,A,A,0
+SDT124103,Statistik dan Probabilitas,3,1,514.2024,A,A,0
+SID124204,Algoritma dan Pemrograman Lanjut,3,2,514.2024,A,A,0
+SID124205,Matematika Sains Data,3,2,514.2024,A,A,0
+MKU123202,Pancasila,2,2,514.2024,A,A,0
+MKU123201,Pendidikan Bela Negara,2,2,514.2024,A,A,0
+SID124202,Pengantar Ilmu Kesehatan,2,2,514.2024,A,A,0
+SID124201,Sistem Operasi,3,2,514.2024,A,A,0
+SID124203,Struktur Data,3,2,514.2024,A,A,0
+SID124302,Analisis Big Data,2,3,514.2024,A,A,0
+SID124304,Bahasa Inggris,3,3,514.2024,A,A,0
+SID124305,Basis Data Lanjut,3,3,514.2024,A,A,0
+SID124306,Data Mining,3,3,514.2024,A,A,0
+SID124308,Interaksi Manusia dan Komputer,3,3,514.2024,A,A,0
+SID124307,Pembelajaran Mesin,3,3,514.2024,A,A,0
+SID124303,Pemrograman Web,3,3,514.2024,A,A,0
+SID124301,Rekayasa Data,2,3,514.2024,A,A,0
+SIM124108,Bahasa Inggris,3,1,512.2024,A,A,0
+SIM124102,Dasar Pemrograman,2,1,512.2024,A,A,0
+SIM124107,Konsep Sistem Informasi,2,1,512.2024,A,A,0
+SIM124106,Matematika Diskrit,3,1,512.2024,A,A,0
+SIM124104,Pengantar Basis Data,2,1,512.2024,A,A,0
+SIM124101,Pengantar Teknologi Informasi,2,1,512.2024,A,A,0
+SIM124103,Praktikum Dasar Pemrograman,2,1,512.2024,A,A,1
+SIM124105,Praktikum Pengantar Basis Data,1,1,512.2024,A,A,1
+SIM124109,Tata Kelola TI,3,1,512.2024,A,A,0
+SIM124206,Analisis Dan Perancangan Sistem Informasi ,3,2,512.2024,A,A,0
+SIM124208,Interaksi Manusia Dan Komputer,3,2,512.2024,A,A,0
+MKW124202,Pancasila ,2,2,512.2024,A,A,0
+MKW124201,Pendidikan Agama,2,2,512.2024,A,A,0
+SIM124207,Praktikum Analisis Dan Prancangan Sistem Informasi ,1,2,512.2024,A,A,1
+SIM124202,Praktikum Sistem Basisdata,1,2,512.2024,A,A,1
+SIM124205,Praktikum Struktur Data,1,2,512.2024,A,A,1
+SIM124201,Sistem Basisdata,2,2,512.2024,A,A,0
+SIM124203,Statistika Dan Probabilitas,3,2,512.2024,A,A,0
+SIM124204,Struktur Data,2,2,512.2024,A,A,0
+SIM124303,Audit Sistem Informasi,3,3,512.2024,A,A,0
+SIM124306,Etika Profesi Teknologi Informasi,2,3,512.2024,A,A,0
+SIM124305,Jaringan Komputer,3,3,512.2024,A,A,0
+SIM124311,Manajemen Risiko Sistem Informasi (Peminatan Au.1),3,3,512.2024,A,A,0
+SIM124301,Pemrograman Web,2,3,512.2024,A,A,0
+SIM124302,Praktikum Pemrograman Web,1,3,512.2024,A,A,1
+SIM124308,Praktikum Sistem Operasi,1,3,512.2024,A,A,1
+SIM124304,Sistem Informasi Manajemen,3,3,512.2024,A,A,0
+SIM124307,Sistem Operasi,2,3,512.2024,A,A,0
+SIM124312,Supply Chain Management (Es.1),3,3,512.2024,A,A,0
+SIM124309,Transformasi Digital,2,3,512.2024,A,A,0
+SIM124310,Ui/Ux Design (Peminatan Ad.1),3,3,512.2024,A,A,0
+SIM124406,Arsitektur Enterprise,3,4,512.2024,A,A,0
+SIM124402,Keamanan Jaringan,3,4,512.2024,A,A,0
+SIM124407,Manajemen Layanan Ti (Peminatan Au.2),3,4,512.2024,A,A,0
+SIM124401,Manajemen Proyek Sistem Informasi,3,4,512.2024,A,A,0
+SIM124403,Metode Penelitian,3,4,512.2024,A,A,0
+SIM124409,Pemrograman Aplikasi Bergerak (Peminatan Ad.2),2,4,512.2024,A,A,0
+SIM124404,Pemrograman Berorientasi Objek,2,4,512.2024,A,A,0
+MKW124404,Pendidikan Bela Negara,2,4,512.2024,A,A,0
+SIM124410,Praktikum Pemrograman Aplikasi Bergerak (Peminatan Ad.2),1,4,512.2024,A,A,1
+SIM124405,Praktikum Pemrograman Berorientasi Objek,1,4,512.2024,A,A,1
+SIM124408,Sistem ERP (Es.2),3,4,512.2024,A,A,0
+SIM124503,Big Data,2,5,512.2024,A,A,0
+SIM124507,Cloud Computing (Peminatan Ad.3),3,5,512.2024,A,A,0
+KOM124517,Communication Network and Big Data,3,5,512.2024,A,A,0
+SIM124505,Computer Assisted Audit Tools (Peminatan Au.3),3,5,512.2024,A,A,0
+SIM124506,Customer Relationship Management (Es.3),3,5,512.2024,A,A,0
+POL124501,Cyber Politik dan Media Baru,3,5,512.2024,A,A,0
+HKM124719,Hak Kekayaan Intelektual,3,5,512.2024,A,A,0
+INF124406,Kecerdasan Buatan,3,5,512.2024,A,A,0
+MNJ124305,Manajemen Resiko,3,5,512.2024,A,A,0
+SIMMBKM03,MBKM Magang/Studi Independent,17,5,512.2024,A,A,0
+SIM124504,Praktikum Big Data,1,5,512.2024,A,A,1
+SIM124502,Sistem Pendukung Keputusan,3,5,512.2024,A,A,0
+SIM124501,Technopreneurship,2,5,512.2024,A,A,0
+MKU124603,Bahasa Indonesia,2,6,512.2024,A,A,0
+SIM124612,Blockchain,3,6,512.2024,A,A,0
+SIM124610,Business Intelligence,3,6,512.2024,A,A,0
+SIM124604,Data Mining And Data Warehouse,3,6,512.2024,A,A,0
+SIM124602,Diseminasi Kerja Praktik,1,6,512.2024,A,A,0
+MKU124606,Filsafat Ilmu Dan Logika,2,6,512.2024,A,A,0
+SIM124611,Financial Technology,3,6,512.2024,A,A,0
+SIM124605,Internet Of Thing (Iot),3,6,512.2024,A,A,0
+MKU124605,Kepemimpinan ,2,6,512.2024,A,A,0
+SIM124601,Kerja Praktik ,2,6,512.2024,A,A,0
+MKU124607,Kewarganegaraan,2,6,512.2024,A,A,0
+SIM124607,Knowlegde Management,3,6,512.2024,A,A,0
+SIM124603,Manajemen Proses Bisnis ,3,6,512.2024,A,A,0
+SIM124606,Sistem Multimedia ,3,6,512.2024,A,A,0
+SIM124608,Sistem Rekomendasi ,3,6,512.2024,A,A,0
+SIM124609,Startup Digital,3,6,512.2024,A,A,0
+SIM124714,Ai Computing Platform,3,7,512.2024,A,A,0
+SIM124713,Analisis Jejaring Sosial,3,7,512.2024,A,A,0
+SIM124706,Analitik Dan Visualisasi Data,3,7,512.2024,A,A,0
+SIM124709,Communication Skill,3,7,512.2024,A,A,0
+SIM124704,Computational Thinking,2,7,512.2024,A,A,0
+SIM124727,Computer Ethical Hacking ,3,7,512.2024,A,A,0
+SIM124717,Data Cleansing,3,7,512.2024,A,A,0
+SIM124723,Data Engineering,3,7,512.2024,A,A,0
+SIM124721,Data Science,3,7,512.2024,A,A,0
+SIM124720,Digital Design,3,7,512.2024,A,A,0
+SIM124726,Digital Forensik,3,7,512.2024,A,A,0
+SIM124722,E-Business ,3,7,512.2024,A,A,0
+SIM124710,Fundamental Erp,3,7,512.2024,A,A,0
+SIM124711,Human Resource Management,3,7,512.2024,A,A,0
+SIM124701,Keamanan Sistem Informasi,3,7,512.2024,A,A,0
+SIM124724,Kecerdasan Bisnis,3,7,512.2024,A,A,0
+SIM124728,Kerja Tim,1,7,512.2024,A,A,0
+SIM124708,Komunikasi Dan Negosiasi,3,7,512.2024,A,A,0
+SIM124707,Machine Learning,3,7,512.2024,A,A,0
+SIM124725,Manajemen Data,3,7,512.2024,A,A,0
+SIM124718,Predictive Analytic ,3,7,512.2024,A,A,0
+SIM124705,Proposal,2,7,512.2024,A,A,0
+SIM124702,Proyek Sistem Aplikasi (Capstone Project),3,7,512.2024,A,A,0
+SIM124716,Sistem Basis Data Berorientasi Objek,3,7,512.2024,A,A,0
+SIM124715,Sistem Basis Data Terdistribusi,3,7,512.2024,A,A,0
+SIM124719,Sistem Informasi Geografis,3,7,512.2024,A,A,0
+SIM124703,Software Testing Dan Quality Assurance,2,7,512.2024,A,A,0
+SIM124712,Teknologi Ar/Vr,2,7,512.2024,A,A,0
+SIM124801,Tugas Akhir,4,8,512.2024,A,A,0

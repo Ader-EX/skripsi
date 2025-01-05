@@ -1,4 +1,4 @@
-from ..database import Base
+from database import Base
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 from sqlalchemy import String, ForeignKey, DateTime, Boolean, Integer, Date
 
@@ -10,8 +10,8 @@ class Dosen(Base):
     nip: Mapped[str] = mapped_column(String(50), nullable=True)
     nomor_ktp: Mapped[str] = mapped_column(String(20), nullable=True)
     nama: Mapped[str] = mapped_column(String(255), nullable=False)
-    tanggal_lahir: Mapped[Date] = mapped_column(Date, nullable=True)
-    progdi_id: Mapped[int] = mapped_column(ForeignKey("progdi.id"), nullable=False)
+    tanggal_lahir: Mapped[DateTime] = mapped_column(DateTime, nullable=True)
+    progdi_id: Mapped[str] = mapped_column(String(50), nullable=False)
     ijin_mengajar: Mapped[bool] = mapped_column(Boolean, default=True)
     jabatan: Mapped[str] = mapped_column(String(100), nullable=True)
     title_depan: Mapped[str] = mapped_column(String(20), nullable=True)

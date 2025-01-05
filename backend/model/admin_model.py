@@ -1,6 +1,6 @@
 from sqlalchemy import Integer, String, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from ..database import Base
+from database import Base
 
 class Admin(Base):
     __tablename__ = "admin"

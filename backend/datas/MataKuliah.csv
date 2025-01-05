@@ -1,4 +1,4 @@
-Kodemk,Namamk,sks,smt,kurikulum,status MK,kelas,kode_rencana,tipe_MK
+kodemk,namamk,sks,smt,kurikulum,status_mk,kelas,kode_rencana,tipe_mk
 INF124201,Algoritma dan Pemrograman,2,2,511.2024,A,ABCDE,0,0
 INF124205,Aljabar Linier,3,2,511.2024,A,ABCDE,0,0
 INF124210,Arsitektur dan Organisasi Komputer,3,2,511.2024,A,ABCDE,0,0

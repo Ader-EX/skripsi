@@ -1,26 +1,26 @@
-f_ruang_id,f_koderuang,f_namaruang,f_tiperuangan,f_jenisruang_id,f_kapasitas_kuliah,f_statusaktif_penggunaan,f_shareprogdi,f_alamatruang,f_koderuang_mapping
-419,FIK-201,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 2, R. 201",T,P,40,Y, ,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-201|419
-421,FIK-202,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 2, R. 202",T,P,40,Y, ,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-202|421
-446,FIK-203,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 2, R. 203",T,P,40,Y, ,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-203|446
-355,FIK-301,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 3, R. 301",T,P,40,Y, ,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-301|355
-356,FIK-302,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 3, R. 302",T,P,40,Y, ,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-302|356
-417,FIK-303,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 3, R. 303",T,P,40,Y, ,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-303|417
-582,FIK-401,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 4, R. 401",T,P,40,Y, ,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-401|582
-583,FIK-402,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 4, R. 402",T,P,40,Y, ,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-402|583
-920,FIK-403,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 4, R. 403",T,M,40,Y,T,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-403
-77,FIKLAB-201,FIKLAB-201,P,P,40,Y,T,"Gedung Ki Hajar Dewantara  lantai 2, Ruang 201 Pondok Labu",FIKLAB-201|77
-112,FIKLAB-201,"[UPNVJ-FIK] Gedung Kihajar Dewantara lantai 2, R. 201",T,P,40,Y,Y,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIKLAB-201|112
-78,FIKLAB-202,FIK LAB II-2,P,P,40,Y,T,"Gedung Ki Hajar Dewantara lantai 2, Ruang 202 Pondok Labu",FIKLAB-202|78
-578,FIKLAB-202,"[UPNVJ-FIK] Gedung Kihajar Dewantara lantai 2, R. 202",T,P,40,Y,Y,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIKLAB-202|578
-79,FIKLAB-203,FIK LAB II-3,P,P,40,Y,T,"Gedung Ki Hajar Dewantara lantai 2, Ruang 203 Pondok Labu",FIKLAB-203|79
-579,FIKLAB-203,"[UPNVJ-FIK] Gedung Kihajar Dewantara lantai 2, R. 203",T,P,40,Y,Y,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIKLAB-203|579
-460,FIKLAB-301,FIK LAB III-1,P,L,40,Y,Y,"Gedung Ki Hajar Dewantara lantai 3, Ruang 301 Pondok Labu",FIKLAB-301|460
-935,FIKLAB-301,FIK LAB III-1,P,L,40,Y,T,"Gedung Ki Hajar Dewantara lantai 3, Ruang 301 Pondok Labu",FIKLAB-301|935
-936,FIKLAB-302,FIK LAB III-2,P,L,40,Y,T,"Gedung Ki Hajar Dewantara lantai 3, Ruang 302 Pondok Labu",FIKLAB-302|936
-462,FIKLAB-303,FIK LAB III-3,P,L,40,Y,Y,"Gedung Ki Hajar Dewantara lantai 3, Ruang 303 Pondok Labu",FIKLAB-303|462
-1186,FIKLAB-304,FIK LAB III-4,P,L,40,Y,T,"Gedung Ki Hajar Dewantara lantai 3, Ruang 304 Pondok Labu",
-669,FIKLAB-401,FIK LAB IV-1,P,L,40,Y,T,"Gedung Ki Hajar Dewantara lantai 4, Ruang 401 Pondok Labu",FIKLAB-401|669
-670,FIKLAB-402,FIK LAB IV-2,P,L,40,Y,T,"Gedung Ki Hajar Dewantara lantai 4, Ruang 402 Pondok Labu",FIKLAB-402|670
-940,FIKLAB-403,FIK LAB IV-3,P,L,40,Y,T,"Gedung Ki Hajar Dewantara lantai 4, Ruang 403 Pondok Labu",FIKLAB-403|940
-968,FIK-V1,Virtual 1,SP,B,200,T,T,Fakultas ilmu Komputer,FIK-V1
-998,MB PERMATA SARI,Merdeka Belajar Permata Sari,SP,V,0,Y,Y,,MB PERMATA SARI
+f_ruang_id,f_koderuang,f_namaruang,f_tiperuangan,f_jenisruang_id,f_kapasitas_kuliah,f_statusaktif_penggunaan,f_shareprogdi,f_alamatruang,f_koderuang_mapping,gedung
+419,FIK-201,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 2, R. 201",T,P,40,Y,T,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-201|419,DS
+421,FIK-202,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 2, R. 202",T,P,40,Y,T,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-202|421,DS
+446,FIK-203,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 2, R. 203",T,P,40,Y,T,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-203|446,DS
+355,FIK-301,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 3, R. 301",T,P,40,Y,T,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-301|355,DS
+356,FIK-302,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 3, R. 302",T,P,40,Y,T,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-302|356,DS
+417,FIK-303,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 3, R. 303",T,P,40,Y,T,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-303|417,DS
+582,FIK-401,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 4, R. 401",T,P,40,Y,T,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-401|582,DS
+583,FIK-402,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 4, R. 402",T,P,40,Y,T,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-402|583,DS
+920,FIK-403,"[UPNVJ-FIK] Gedung Dewi Sartika lantai 4, R. 403",T,M,40,Y,T,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIK-403,DS
+77,FIKLAB-201,FIKLAB-201,P,P,40,Y,T,"Gedung Ki Hajar Dewantara  lantai 2, Ruang 201 Pondok Labu",FIKLAB-201|77,KHD
+112,FIKLAB-201,"[UPNVJ-FIK] Gedung Kihajar Dewantara lantai 2, R. 201",T,P,40,Y,Y,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIKLAB-201|112,KHD
+78,FIKLAB-202,FIK LAB II-2,P,P,40,Y,T,"Gedung Ki Hajar Dewantara lantai 2, Ruang 202 Pondok Labu",FIKLAB-202|78,KHD
+578,FIKLAB-202,"[UPNVJ-FIK] Gedung Kihajar Dewantara lantai 2, R. 202",T,P,40,Y,Y,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIKLAB-202|578,KHD
+79,FIKLAB-203,FIK LAB II-3,P,P,40,Y,T,"Gedung Ki Hajar Dewantara lantai 2, Ruang 203 Pondok Labu",FIKLAB-203|79,KHD
+579,FIKLAB-203,"[UPNVJ-FIK] Gedung Kihajar Dewantara lantai 2, R. 203",T,P,40,Y,Y,"UPN ""Veteran"" Jakarta Kampus Pondok Labu,   Fakultas Ilmu Komputer,   Jl. Rs. Fatmawati No.1  Pondok Labu,  Jakarta Selatan",FIKLAB-203|579,KHD
+460,FIKLAB-301,FIK LAB III-1,P,L,40,Y,Y,"Gedung Ki Hajar Dewantara lantai 3, Ruang 301 Pondok Labu",FIKLAB-301|460,KHD
+935,FIKLAB-301,FIK LAB III-1,P,L,40,Y,T,"Gedung Ki Hajar Dewantara lantai 3, Ruang 301 Pondok Labu",FIKLAB-301|935,KHD
+936,FIKLAB-302,FIK LAB III-2,P,L,40,Y,T,"Gedung Ki Hajar Dewantara lantai 3, Ruang 302 Pondok Labu",FIKLAB-302|936,KHD
+462,FIKLAB-303,FIK LAB III-3,P,L,40,Y,Y,"Gedung Ki Hajar Dewantara lantai 3, Ruang 303 Pondok Labu",FIKLAB-303|462,KHD
+1186,FIKLAB-304,FIK LAB III-4,P,L,40,Y,T,"Gedung Ki Hajar Dewantara lantai 3, Ruang 304 Pondok Labu",FIKLAB-303|1186,KHD
+669,FIKLAB-401,FIK LAB IV-1,P,L,40,Y,T,"Gedung Ki Hajar Dewantara lantai 4, Ruang 401 Pondok Labu",FIKLAB-401|669,KHD
+670,FIKLAB-402,FIK LAB IV-2,P,L,40,Y,T,"Gedung Ki Hajar Dewantara lantai 4, Ruang 402 Pondok Labu",FIKLAB-402|670,KHD
+940,FIKLAB-403,FIK LAB IV-3,P,L,40,Y,T,"Gedung Ki Hajar Dewantara lantai 4, Ruang 403 Pondok Labu",FIKLAB-403|940,KHD
+968,FIK-V1,Virtual 1,SP,B,200,T,T,Fakultas ilmu Komputer,FIK-V1,Other
+998,MB PERMATA SARI,Merdeka Belajar Permata Sari,SP,V,0,Y,Y,Fakultas ilmu Komputer,MB PERMATA SARI,Other
