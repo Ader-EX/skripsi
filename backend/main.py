@@ -26,14 +26,13 @@ app = FastAPI()
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Allow specific origin
-    allow_credentials=True,  # If you need to support credentials (e.g., cookies)
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
     allow_methods=["*"],  # Allow all methods (GET, POST, etc.)
     allow_headers=["*"],  # Allow all headers
 )
 
 
-# Call `create_tables()` when the app starts
 @app.on_event("startup")
 async def startup_event():
     create_tables()

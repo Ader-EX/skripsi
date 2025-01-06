@@ -4,17 +4,30 @@ from sqlalchemy.ext.declarative import declarative_base
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+# Set environment: "office" or "home"
+environment = "office"  # Default is office
 
-# Database Configuration
-user = os.getenv('DB_USER')
-password = os.getenv('DB_PASSWORD')
-host = os.getenv('DB_HOST')
-port = os.getenv('DB_PORT')
-database = os.getenv('DB_NAME')
+# Load environment-specific .env file
+ENV = os.getenv("ENV", environment)  # Default to the specified environment variable
+if ENV == "home":
+    load_dotenv(".env.personal")  # Load MySQL config for home
+else:
+    load_dotenv(".env.office")  # Load SQLite config for office
 
-# Create the SQLAlchemy engine for MySQL
-engine = create_engine(f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}")
+user = os.getenv("DB_USER")
+password = os.getenv("DB_PASSWORD")
+host = os.getenv("DB_HOST")
+port = os.getenv("DB_PORT")
+database = os.getenv("DB_NAME")
+
+if ENV == "home":
+    DATABASE_URL = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
+    connect_args = {}
+else:
+    DATABASE_URL = "sqlite:///C:/sqlite/penjadwalanOtomatis.db"
+    connect_args = {"check_same_thread": False}
+
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 
 # Create session and base
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -28,7 +41,7 @@ def get_db():
     finally:
         db.close()
 
-# Function to initialize database tables
+
 def create_tables():
     from model.dosen_model import Dosen
     from model.admin_model import Admin
