@@ -5,7 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Import all model
 from model.dosen_model import Dosen
-from model.admin_model import Admin
 from model.listkelas_model import ListKelas
 from model.mahasiswa_model import Mahasiswa
 from model.matakuliah_model import MataKuliah
@@ -21,6 +20,8 @@ from model.timetable_model import TimeTable
 from routes.user_routes import router as user_router
 from routes.dosen_routes import router as dosen_router
 from routes.matakuliah_routes import router as matakuliah_router
+from routes.ruangan_routes import router as ruangan_router
+from routes.mahasiswa_routes import router as mahasiswa_router
 
 # Initialize the FastAPI application
 app = FastAPI(
@@ -66,3 +67,5 @@ async def test_hello():
 app.include_router(user_router, prefix="/user", tags=["User"])
 app.include_router(dosen_router,prefix="/dosen", tags=["Dosen"])
 app.include_router(matakuliah_router, prefix="/matakuliah", tags=["MataKuliah"])
+app.include_router(ruangan_router, prefix="/ruangan", tags=["Ruangan"])
+app.include_router(mahasiswa_router, prefix="/mahasiswa", tags=["Mahasiswa"])

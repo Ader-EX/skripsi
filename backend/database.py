@@ -18,12 +18,14 @@ password = os.getenv("DB_PASSWORD")
 host = os.getenv("DB_HOST")
 port = os.getenv("DB_PORT")
 database = os.getenv("DB_NAME")
+sqliteDB = os.getenv("DATABASE_OFFICE_URL")
+print(sqliteDB)
 
 if ENV == "home":
     DATABASE_URL = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
     connect_args = {}
 else:
-    DATABASE_URL = "sqlite:///C:/sqlite/penjadwalanOtomatis.db"
+    DATABASE_URL = sqliteDB
     connect_args = {"check_same_thread": False}
 
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
@@ -43,7 +45,6 @@ def get_db():
 
 def create_tables():
     from model.dosen_model import Dosen
-    from model.admin_model import Admin
     from model.listkelas_model import ListKelas
     from model.mahasiswa_model import Mahasiswa
     from model.matakuliah_model import MataKuliah
@@ -54,6 +55,7 @@ def create_tables():
     from model.mahasiswatimetable_model import MahasiswaTimeTable
     from model.user_model import User
     from model.timetable_model import TimeTable
+    from model.openedclass_model import OpenedClass
 
     Base.metadata.create_all(bind=engine)
     print("Tables created successfully.")
