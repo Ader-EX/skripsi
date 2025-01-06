@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, status, Response
 from database import Base, SessionLocal, engine, create_tables
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -19,9 +19,26 @@ from model.timetable_model import TimeTable
 
 # Import all routes
 from routes.user_routes import router as user_router
+from routes.dosen_routes import router as dosen_router
+from routes.matakuliah_routes import router as matakuliah_router
 
 # Initialize the FastAPI application
-app = FastAPI()
+app = FastAPI(
+    swagger_ui_parameters={
+        "syntaxHighlight.theme": "monokai"
+    }
+)
+
+
+
+# Replace the default Swagger UI with the custom one
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui():
+    return custom_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=f"{app.title} - API Docs"
+    )
+
 
 # Add CORS middleware
 app.add_middleware(
@@ -47,3 +64,5 @@ async def test_hello():
 
 
 app.include_router(user_router, prefix="/user", tags=["User"])
+app.include_router(dosen_router,prefix="/dosen", tags=["Dosen"])
+app.include_router(matakuliah_router, prefix="/matakuliah", tags=["MataKuliah"])

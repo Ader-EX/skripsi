@@ -11,12 +11,13 @@ class MataKuliah(Base):
     smt: Mapped[int] = mapped_column(Integer, nullable=False)
     kurikulum: Mapped[str] = mapped_column(String(20), nullable=False)
     status_mk: Mapped[str] = mapped_column(String(1), nullable=False)
-    kelas: Mapped[str] = mapped_column(String(10), nullable=False)
+
+    program_studi: Mapped[str] = mapped_column(String(10), nullable=False)  # Example: "SIF", "SI", "DS", "D3SI"
 
     tipe_mk: Mapped[int] = mapped_column(Integer, nullable=False)
     
     # Relationships
-    pengajaran: Mapped[list["Pengajaran"]] = relationship("Pengajaran", back_populates="mata_kuliah")
+    opened_classes: Mapped[list["OpenedClass"]] = relationship("OpenedClass", back_populates="mata_kuliah")
 
-    def __repr__(self):
-        return f"<MataKuliah({self.id}, {self.nama}, {self.sks} SKS)>"
+def __repr__(self):
+    return f"<MataKuliah(kodemk={self.kodemk}, namamk={self.namamk}, program_studi={self.program_studi}, sks={self.sks})>"

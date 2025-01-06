@@ -8,12 +8,11 @@ class Pengajaran(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     dosen_id: Mapped[int] = mapped_column(ForeignKey("dosen.id"), nullable=False)
     is_dosen_kb: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    class_name: Mapped[str] = mapped_column(String(1), nullable=True)
-    kodemk: Mapped[str] = mapped_column(ForeignKey("mata_kuliah.kodemk"), nullable=False)
+    opened_class_id: Mapped[int] = mapped_column(ForeignKey("opened_class.id"))
 
     # Relationships
     dosen: Mapped["Dosen"] = relationship("Dosen", back_populates="pengajaran")
-    mata_kuliah: Mapped["MataKuliah"] = relationship("MataKuliah", back_populates="pengajaran")
+    opened_class: Mapped["OpenedClass"] = relationship("OpenedClass")
     list_kelas: Mapped[list["ListKelas"]] = relationship("ListKelas", back_populates="pengajaran")
 
     def __repr__(self):

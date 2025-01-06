@@ -5,14 +5,13 @@ from dotenv import load_dotenv
 import os
 
 # Set environment: "office" or "home"
-environment = "office"  # Default is office
+environment = "office"  # Default is home
 
-# Load environment-specific .env file
-ENV = os.getenv("ENV", environment)  # Default to the specified environment variable
+ENV = os.getenv("ENV", environment)
 if ENV == "home":
-    load_dotenv(".env.personal")  # Load MySQL config for home
+    load_dotenv(".env.personal")
 else:
-    load_dotenv(".env.office")  # Load SQLite config for office
+    load_dotenv(".env.office")
 
 user = os.getenv("DB_USER")
 password = os.getenv("DB_PASSWORD")
