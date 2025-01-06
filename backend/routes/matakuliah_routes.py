@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Query
 from sqlalchemy.orm import Session
 from database import get_db
 from model.matakuliah_model import MataKuliah
@@ -26,8 +26,14 @@ class MataKuliahRead(MataKuliahBase):
 router = APIRouter()
 
 @router.get("/matakuliah", response_model=List[MataKuliahRead], status_code=status.HTTP_200_OK)
-async def get_all_matakuliah(db: Session = Depends(get_db)):
-    matakuliahs = db.query(MataKuliah).all()
+async def get_all_matakuliah(program_studi : Optional[str]
+                             = Query(None,
+                                description= "Cari mata kuliah berdasarkan program studi ")
+                             ,db: Session = Depends(get_db)):
+    query = db.query(MataKuliah)
+    if program_studi:
+        query =query.filter(MataKuliah.program_studi == program_studi)
+    matakuliahs = query.all()
     return matakuliahs
 
 

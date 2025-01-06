@@ -7,7 +7,6 @@ class TimeTable(Base):
     
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     kelas_id: Mapped[int] = mapped_column(ForeignKey("list_kelas.id"), nullable=False)
-    pengajaran_id: Mapped[int] = mapped_column(ForeignKey("pengajaran.id"), nullable=False)
     ruangan_id: Mapped[int] = mapped_column(ForeignKey("ruangan.id"), nullable=False)
     timeslot_id: Mapped[int] = mapped_column(ForeignKey("timeslot.id"), nullable=False)
     is_conflicted: Mapped[bool] = mapped_column(Boolean, default=False)

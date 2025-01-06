@@ -13,4 +13,4 @@ class User(Base):
     # One-to-One Relationships
     mahasiswa: Mapped["Mahasiswa"] = relationship("Mahasiswa", back_populates="user", uselist=False)
     dosen: Mapped["Dosen"] = relationship("Dosen", back_populates="user", uselist=False)
-    admin: Mapped["Admin"] = relationship("Admin", back_populates="user", uselist=False)
+
