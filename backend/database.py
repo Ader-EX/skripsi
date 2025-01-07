@@ -56,6 +56,8 @@ def create_tables():
     from model.user_model import User
     from model.timetable_model import TimeTable
     from model.openedclass_model import OpenedClass
+    from model.programstudi_model import ProgramStudi
+    from model.matakuliah_programstudi import MataKuliahProgramStudi
 
     Base.metadata.create_all(bind=engine)
     print("Tables created successfully.")

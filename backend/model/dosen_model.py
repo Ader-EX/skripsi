@@ -21,6 +21,7 @@ class Dosen(Base):
     is_sekdos: Mapped[bool] = mapped_column(Boolean, default=False)
     is_dosen_kb: Mapped[bool] = mapped_column(Boolean, default=False)
     user_id : Mapped[int] = mapped_column(ForeignKey("users.id"),nullable=False)
+
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="dosen")
     pengajaran: Mapped[list["Pengajaran"]] = relationship("Pengajaran", back_populates="dosen")

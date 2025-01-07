@@ -12,3 +12,6 @@ from .matakuliah_model import MataKuliah
 from .pengajaran_model import Pengajaran
 from .preference_model import Preference
 from .ruangan_model import Ruangan
+from .openedclass_model import OpenedClass
+from .programstudi_model import ProgramStudi
+from .matakuliah_programstudi import MataKuliahProgramStudi

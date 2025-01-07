@@ -7,15 +7,14 @@ class OpenedClass(Base):
     __tablename__ = "opened_class"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    kodemk: Mapped[str] = mapped_column(ForeignKey("mata_kuliah.kodemk"), nullable=False)
-    program_studi: Mapped[str] = mapped_column(String(10), nullable=False)  # E.g., "SIF", "SI", etc.
+    mata_kuliah_program_studi_id: Mapped[int] = mapped_column(ForeignKey("mata_kuliah_program_studi.id"), nullable=False)
     kelas: Mapped[str] = mapped_column(String(10), nullable=False)  # E.g., "A", "B", "C", etc.
     kapasitas: Mapped[int] = mapped_column(Integer, nullable=False)  # Capacity of the class
 
     # Relationships
-    mata_kuliah: Mapped["MataKuliah"] = relationship("MataKuliah", back_populates="opened_classes")
+    mata_kuliah_program_studi: Mapped["MataKuliahProgramStudi"] = relationship("MataKuliahProgramStudi", back_populates="opened_classes")
     pengajaran: Mapped[list["Pengajaran"]] = relationship("Pengajaran", back_populates="opened_class")
 
 
 def __repr__(self):
-    return f"<OpenedClass(id={self.id}, kodemk={self.kodemk}, program_studi={self.program_studi}, kelas={self.kelas})>"
+    return f"<OpenedClass(id={self.id}, mata_kuliah_program_studi_id={self.mata_kuliah_program_studi_id}, kelas={self.kelas})>"

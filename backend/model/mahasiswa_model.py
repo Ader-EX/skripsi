@@ -11,9 +11,9 @@ class Mahasiswa(Base):
     semester: Mapped[int] = mapped_column(Integer, nullable=False)
     sks_diambil: Mapped[int] = mapped_column(Integer, nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-
+    program_studi_id: Mapped[int] = mapped_column(ForeignKey("program_studi.id"), nullable=False)
     user: Mapped["User"] = relationship("User", back_populates="mahasiswa", uselist=False)
-    mahasiswa_timetables: Mapped[list["MahasiswaTimeTable"]] = relationship("MahasiswaTimeTable", back_populates="mahasiswa")  # Add this line
-
+    mahasiswa_timetables: Mapped[list["MahasiswaTimeTable"]] = relationship("MahasiswaTimeTable", back_populates="mahasiswa")
+    program_studi: Mapped["ProgramStudi"] = relationship("ProgramStudi", back_populates="mahasiswa")  # Relationship to ProgramStudi
     def __repr__(self):
         return f"<Mahasiswa(id={self.id}, program_studi={self.program_studi}, tahun_masuk={self.tahun_masuk})>"

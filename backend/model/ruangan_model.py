@@ -18,7 +18,8 @@ class Ruangan(Base):
     alamat: Mapped[str] = mapped_column(String(500), nullable=True)
     kode_mapping: Mapped[str] = mapped_column(String(50), nullable=True)
     gedung : Mapped[str] = mapped_column(String(50), nullable=True)
-    
+    group_code: Mapped[str] = mapped_column(String(20), nullable=True)
+
     # Relationships
     timetables: Mapped[list["TimeTable"]] = relationship("TimeTable", back_populates="ruangan")
     list_kelas: Mapped[list["ListKelas"]] = relationship("ListKelas", back_populates="ruangan")

@@ -32,14 +32,6 @@ app = FastAPI(
 
 
 
-# Replace the default Swagger UI with the custom one
-@app.get("/docs", include_in_schema=False)
-async def custom_swagger_ui():
-    return custom_swagger_ui_html(
-        openapi_url=app.openapi_url,
-        title=f"{app.title} - API Docs"
-    )
-
 
 # Add CORS middleware
 app.add_middleware(
