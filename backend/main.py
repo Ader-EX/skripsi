@@ -4,17 +4,8 @@ from database import Base, SessionLocal, engine, create_tables
 from fastapi.middleware.cors import CORSMiddleware
 
 # Import all model
-from model.dosen_model import Dosen
-from model.listkelas_model import ListKelas
-from model.mahasiswa_model import Mahasiswa
-from model.matakuliah_model import MataKuliah
-from model.pengajaran_model import Pengajaran
-from model.preference_model import Preference
-from model.ruangan_model import Ruangan
-from model.timeslot_model import TimeSlot
-from model.mahasiswatimetable_model import MahasiswaTimeTable
-from model.user_model import User
-from model.timetable_model import TimeTable
+
+
 
 # Import all routes
 from routes.user_routes import router as user_router

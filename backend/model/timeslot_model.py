@@ -12,7 +12,6 @@ class TimeSlot(Base):
 
     # Relationships
     preferences: Mapped[list["preference"]] = relationship("Preference", back_populates="timeslot")
-    list_kelas: Mapped[list["ListKelas"]] = relationship("ListKelas", back_populates="timeslot")
     timetables: Mapped[list["TimeTable"]] = relationship("TimeTable", back_populates="timeslot")  # Add this line
 
     def __repr__(self):

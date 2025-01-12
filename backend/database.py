@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import os
 
 # Set environment: "office" or "home"
-environment = "office"  # Default is home
+environment = "home"  # Default is home
 
 ENV = os.getenv("ENV", environment)
 if ENV == "home":
@@ -45,7 +45,7 @@ def get_db():
 
 def create_tables():
     from model.dosen_model import Dosen
-    from model.listkelas_model import ListKelas
+
     from model.mahasiswa_model import Mahasiswa
     from model.matakuliah_model import MataKuliah
     from model.pengajaran_model import Pengajaran
@@ -58,6 +58,7 @@ def create_tables():
     from model.openedclass_model import OpenedClass
     from model.programstudi_model import ProgramStudi
     from model.matakuliah_programstudi import MataKuliahProgramStudi
+    from model.academicperiod_model import AcademicPeriods
 
     Base.metadata.create_all(bind=engine)
     print("Tables created successfully.")

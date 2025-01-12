@@ -2,7 +2,7 @@ from database import Base
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 from sqlalchemy import String, Integer, Boolean
 from model.timetable_model import TimeTable
-from model.listkelas_model import ListKelas
+
 
 class Ruangan(Base):
     __tablename__ = "ruangan"
@@ -22,6 +22,6 @@ class Ruangan(Base):
 
     # Relationships
     timetables: Mapped[list["TimeTable"]] = relationship("TimeTable", back_populates="ruangan")
-    list_kelas: Mapped[list["ListKelas"]] = relationship("ListKelas", back_populates="ruangan")
+   
     def __repr__(self):
         return f"<Ruangan({self.kode_ruangan}, {self.nama_ruang}, kapasitas={self.kapasitas})>"

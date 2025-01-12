@@ -12,9 +12,15 @@ class OpenedClass(Base):
     kapasitas: Mapped[int] = mapped_column(Integer, nullable=False)  # Capacity of the class
 
     # Relationships
-    mata_kuliah_program_studi: Mapped["MataKuliahProgramStudi"] = relationship("MataKuliahProgramStudi", back_populates="opened_classes")
+    mata_kuliah_program_studi: Mapped["MataKuliahProgramStudi"] = relationship(
+    "MataKuliahProgramStudi",
+    back_populates="opened_classes",
+    overlaps="mata_kuliah, opened_classes"  # Resolve conflict with mata_kuliah relationship
+)
+
+
+
     pengajaran: Mapped[list["Pengajaran"]] = relationship("Pengajaran", back_populates="opened_class")
 
-
-def __repr__(self):
-    return f"<OpenedClass(id={self.id}, mata_kuliah_program_studi_id={self.mata_kuliah_program_studi_id}, kelas={self.kelas})>"
+    def __repr__(self):
+        return f"<OpenedClass(id={self.id}, mata_kuliah_program_studi_id={self.mata_kuliah_program_studi_id}, kelas={self.kelas})>"

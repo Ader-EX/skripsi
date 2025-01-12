@@ -1,12 +1,13 @@
 import pandas as pd
 from sqlalchemy.orm import Session
+from sqlalchemy import select, insert
 from database import SessionLocal
 from model.matakuliah_model import MataKuliah
 from model.programstudi_model import ProgramStudi
-from model.matakuliah_model import mata_kuliah_program_studi
+from model.matakuliah_programstudi import MataKuliahProgramStudi
 
 # Path to the Excel file
-xlsx_file_path = "datas/merge/S1SI.xlsx"
+xlsx_file_path = "datas/merge/S1IF.xlsx"
 
 def determine_tipe_and_kelas_besar(nama_mk):
     """
@@ -21,7 +22,6 @@ def determine_tipe_and_kelas_besar(nama_mk):
 def load_xlsx_to_database(file_path, program_studi_name):
     duplicates = []
 
-    # Use SessionLocal from database.py
     session = SessionLocal()
 
     try:
@@ -58,24 +58,22 @@ def load_xlsx_to_database(file_path, program_studi_name):
                 session.commit()  # Commit to save the MataKuliah first
 
             # Check if the association with the program_studi already exists
-            association_exists = session.execute(
-                mata_kuliah_program_studi.select().where(
-                    (mata_kuliah_program_studi.c.mata_kuliah_id == mata_kuliah.kodemk) &
-                    (mata_kuliah_program_studi.c.program_studi_id == program_studi_id)
-                )
-            ).first()
+            stmt = select(MataKuliahProgramStudi).where(
+                (MataKuliahProgramStudi.mata_kuliah_id == mata_kuliah.kodemk) &
+                (MataKuliahProgramStudi.program_studi_id == program_studi_id)
+            )
+            association_exists = session.execute(stmt).first()
 
             if association_exists:
                 duplicates.append(row.to_dict())
                 continue
 
-            # Add the association to the mata_kuliah_program_studi table
-            session.execute(
-                mata_kuliah_program_studi.insert().values(
-                    mata_kuliah_id=mata_kuliah.kodemk,
-                    program_studi_id=program_studi_id
-                )
+            # Add the association to the MataKuliahProgramStudi table
+            stmt = insert(MataKuliahProgramStudi).values(
+                mata_kuliah_id=mata_kuliah.kodemk,
+                program_studi_id=program_studi_id
             )
+            session.execute(stmt)
 
         # Commit the session to save changes to the database
         session.commit()
@@ -93,4 +91,4 @@ def load_xlsx_to_database(file_path, program_studi_name):
         session.close()
 
 # Run the loader for D3SI
-load_xlsx_to_database(xlsx_file_path, "S1SI")
+load_xlsx_to_database(xlsx_file_path, "S1IF")

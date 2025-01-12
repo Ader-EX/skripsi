@@ -13,7 +13,6 @@ class Pengajaran(Base):
     # Relationships
     dosen: Mapped["Dosen"] = relationship("Dosen", back_populates="pengajaran")
     opened_class: Mapped["OpenedClass"] = relationship("OpenedClass")
-    list_kelas: Mapped[list["ListKelas"]] = relationship("ListKelas", back_populates="pengajaran")
-
+    timetables: Mapped[list["TimeTable"]] = relationship("TimeTable", back_populates="pengajaran")
     def __repr__(self):
         return f"<Pengajaran(id={self.id}, dosen_id={self.dosen_id}, mk_id={self.mk_id}, class={self.class_name})>"

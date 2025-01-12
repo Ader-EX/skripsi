@@ -9,9 +9,6 @@ class MahasiswaTimeTable(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     mahasiswa_id: Mapped[int] = mapped_column(ForeignKey("mahasiswa.id"), nullable=False)
     timetable_id: Mapped[int] = mapped_column(ForeignKey("timetable.id"), nullable=False)
-    semester: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
-    tahun_ajaran: Mapped[str] = mapped_column(String(9), nullable=False, index=True)
-    status : Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     mahasiswa: Mapped["Mahasiswa"] = relationship("Mahasiswa", back_populates="mahasiswa_timetables")
     timetable: Mapped["TimeTable"] = relationship("TimeTable", back_populates="mahasiswa_timetable")
