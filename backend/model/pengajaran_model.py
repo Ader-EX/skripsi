@@ -1,13 +1,13 @@
 from database import Base
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, ForeignKey, Boolean
+from sqlalchemy import String, ForeignKey, Boolean, JSON
 
 class Pengajaran(Base):
     __tablename__ = "pengajaran"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     dosen_id: Mapped[int] = mapped_column(ForeignKey("dosen.id"), nullable=False)
-    is_dosen_kb: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    roles: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=[])
     opened_class_id: Mapped[int] = mapped_column(ForeignKey("opened_class.id"))
 
     # Relationships

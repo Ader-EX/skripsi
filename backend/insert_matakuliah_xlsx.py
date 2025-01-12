@@ -7,7 +7,7 @@ from model.programstudi_model import ProgramStudi
 from model.matakuliah_programstudi import MataKuliahProgramStudi
 
 # Path to the Excel file
-xlsx_file_path = "datas/merge/S1IF.xlsx"
+xlsx_file_path = "datas/merge/D3SI.xlsx"
 
 def determine_tipe_and_kelas_besar(nama_mk):
     """
@@ -91,4 +91,4 @@ def load_xlsx_to_database(file_path, program_studi_name):
         session.close()
 
 # Run the loader for D3SI
-load_xlsx_to_database(xlsx_file_path, "S1IF")
+load_xlsx_to_database(xlsx_file_path, "D3SI")
