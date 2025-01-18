@@ -13,6 +13,15 @@ from routes.dosen_routes import router as dosen_router
 from routes.matakuliah_routes import router as matakuliah_router
 from routes.ruangan_routes import router as ruangan_router
 from routes.mahasiswa_routes import router as mahasiswa_router
+from routes.timeslot_routes import router as timeslot_router
+from routes.preference_routes import router as preference_router
+from routes.programstudi_routes import router as programstudi_router
+from routes.pengajaran_routes import router as pengajaran_router
+from routes.openedclass_routes import router as openedclass_router
+from routes.academicperiod_routes import router as academicperiod_router
+from routes.timetable_routes import router as timetable_router
+from routes.mahasiswatimetable_routes import router as mahasiswatimetable_router
+
 
 # Initialize the FastAPI application
 app = FastAPI(
@@ -52,3 +61,12 @@ app.include_router(dosen_router,prefix="/dosen", tags=["Dosen"])
 app.include_router(matakuliah_router, prefix="/matakuliah", tags=["MataKuliah"])
 app.include_router(ruangan_router, prefix="/ruangan", tags=["Ruangan"])
 app.include_router(mahasiswa_router, prefix="/mahasiswa", tags=["Mahasiswa"])
+app.include_router(timeslot_router, prefix="/timeslot", tags=["TimeSlot"])
+app.include_router(preference_router, prefix="/preference", tags=["Preference"])
+app.include_router(programstudi_router, prefix="/program-studi", tags=["Program Studi"])
+app.include_router(pengajaran_router, prefix="/pengajaran", tags=["Pengajaran"])
+app.include_router(openedclass_router, prefix="/opened-class", tags=["Opened Class"])
+app.include_router(academicperiod_router, prefix="/academic-period", tags=["Academic Period"])
+
+app.include_router(timetable_router, prefix="/timetable", tags=["Timetable"])
+app.include_router(mahasiswatimetable_router, prefix="/mahasiswa-timetable", tags=["Mahasiswa Timetable"])

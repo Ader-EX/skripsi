@@ -5,17 +5,31 @@ from database import get_db
 from model.user_model import User
 from pydantic import BaseModel
 from passlib.context import CryptContext
+from dotenv import load_dotenv
+import os
 import jwt
-# from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
+from enum import Enum  # Import Enum for predefined options
 
-SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+# Load environment variables from .env file
+load_dotenv()
+
+# Get configurations from .env
+SECRET_KEY = os.getenv("SECRET_KEY", "default_secret_key")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
+
 # Password hashing setup
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 router = APIRouter()
+
+
+# Enum for Role Options
+class RoleEnum(str, Enum):
+    mahasiswa = "mahasiswa"
+    dosen = "dosen"
+    admin = "admin"
 
 
 # Utility functions for password hashing and JWT
@@ -32,7 +46,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -43,7 +57,7 @@ class UserCreate(BaseModel):
     fullname: str
     email: str
     password: str
-    role: str
+    role: RoleEnum  # Use Enum for predefined options
 
 
 class UserRead(BaseModel):
@@ -68,23 +82,17 @@ class TokenData(BaseModel):
 # Routes
 @router.post("/users", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def create_user(user: UserCreate, db: Session = Depends(get_db)):
-    if user.role not in {"mahasiswa", "dosen", "admin"}:
-        raise HTTPException(status_code=400, detail="Invalid role")
-
-    # Check if the user already exists
     db_user = db.query(User).filter(User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # Hash the password
     hashed_password = hash_password(user.password)
 
-    # Create the user
     new_user = User(
         fullname=user.fullname,
         email=user.email,
         password=hashed_password,
-        role=user.role
+        role=user.role.value,  # Get the string value of the Enum
     )
     db.add(new_user)
     db.commit()
@@ -101,11 +109,11 @@ async def read_user(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/users", response_model=List[UserRead])
-async def get_all_users(role: Optional[str] = Query(None, description="Filter users by role"),
+async def get_all_users(role: Optional[RoleEnum] = Query(None, description="Filter users by role"),
                         db: Session = Depends(get_db)):
     query = db.query(User)
     if role:
-        query = query.filter(User.role == role)
+        query = query.filter(User.role == role.value)
     users = query.all()
     return users
 
@@ -128,7 +136,7 @@ async def update_user(user_id: int, updated_user: UserCreate, db: Session = Depe
     user.fullname = updated_user.fullname
     user.email = updated_user.email
     user.password = hash_password(updated_user.password)
-    user.role = updated_user.role
+    user.role = updated_user.role.value
     db.commit()
     db.refresh(user)
     return user

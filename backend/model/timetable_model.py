@@ -14,6 +14,7 @@ class TimeTable(Base):
     kapasitas: Mapped[int] = mapped_column(Integer, nullable=False, default=35)
     reason: Mapped[str] = mapped_column(String(255), nullable=True)  # Optional field for conflict reasons
     academic_period_id: Mapped[int] = mapped_column(ForeignKey("academic_periods.id"), nullable=False)
+    sks: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     # Relationships
     pengajaran: Mapped["Pengajaran"] = relationship("Pengajaran", back_populates="timetables")
