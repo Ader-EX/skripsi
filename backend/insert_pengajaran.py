@@ -8,7 +8,7 @@ from model.openedclass_model import OpenedClass
 from model.matakuliah_programstudi import MataKuliahProgramStudi
 
 # Path to the Excel file
-xlsx_file_path = "datas/openedclass/S1SI_updated.xlsx"
+
 
 # Set up logging
 logging.basicConfig(
@@ -19,16 +19,20 @@ logging.basicConfig(
 
 def remove_prefix(kodemk):
     """Remove the 'SI-' prefix from kodemk if it exists."""
-    return kodemk[3:] if kodemk.startswith("SI-") else kodemk
+    return kodemk[3:] if kodemk.startswith("D3-") else kodemk
 
-def determine_roles(dosen_counts, dosen_id):
+def determine_roles(dosen_counts, dosen_id, class_name):
     """
-    Determine roles for dosen_id based on the highest count.
-    - "besar" for the most frequent dosen_id
-    - "kecil" otherwise
+    Determine roles based on conditions:
+    - Classes with 'Praktikum' in their name: DK
+    - Otherwise:
+      - 'DB' for the most frequent dosen_id
+      - 'DK' otherwise
     """
+    if "praktikum" in class_name.lower():
+        return ["DK"]  # Always DK for Praktikum classes
     max_count = max(dosen_counts.values())
-    return ["besar"] if dosen_counts[dosen_id] == max_count else ["kecil"]
+    return ["DB"] if dosen_counts[dosen_id] == max_count else ["DK"]
 
 def process_pengajaran(file_path, program_studi_id):
     session = SessionLocal()
@@ -58,6 +62,7 @@ def process_pengajaran(file_path, program_studi_id):
                 try:
                     dosen_id = row["dosen_id"]
                     kelas = row["f_kelas"]
+                    class_name = row["f_namamk"]
 
                     # Step 1: Find mata_kuliah_program_studi_id filtered by program_studi_id
                     print(f"Looking up MataKuliahProgramStudi for mata_kuliah_id={kodemk}, program_studi_id={program_studi_id}...")
@@ -95,7 +100,7 @@ def process_pengajaran(file_path, program_studi_id):
                     print(f"Found OpenedClass with id={opened_class_id}.")
 
                     # Step 3: Determine roles
-                    roles = determine_roles(dosen_counts, dosen_id)
+                    roles = determine_roles(dosen_counts, dosen_id, class_name)
                     print(f"Assigned roles for dosen_id={dosen_id}: {roles}.")
 
                     # Step 4: Check for duplicates and insert Pengajaran
@@ -134,8 +139,8 @@ def process_pengajaran(file_path, program_studi_id):
 
 
 # Specify the file path and program_studi_id
-file_path = "datas/openedclass/S1SI_updated.xlsx"
-program_studi_id = 2
+file_path = "datas/openedclass/D3SI_updated.xlsx"
+program_studi_id = 1
 
 # Call the function
 process_pengajaran(file_path, program_studi_id)

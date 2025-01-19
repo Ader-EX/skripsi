@@ -5,7 +5,7 @@ from database import SessionLocal
 from model.dosen_model import Dosen  # Ensure the path to your Dosen model is correct
 
 # Path to the Excel file
-xlsx_file_path = "datas/openedclass/S1SI.xlsx"
+xlsx_file_path = "datas/openedclass/S1IF.xlsx"
 
 def load_xlsx_and_add_dosen_id(file_path):
     """
