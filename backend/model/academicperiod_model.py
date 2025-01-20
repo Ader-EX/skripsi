@@ -8,7 +8,7 @@ class AcademicPeriods(Base):
     tahun_ajaran: Mapped[int] = mapped_column(Integer, nullable=False)  # Example: "2024/2025"
     semester: Mapped[int] = mapped_column(Integer, nullable=False)  # Example: "1" or "2"
     start_date: Mapped[DateTime] = mapped_column(Date, nullable=False)
-    end_date: Mapped[DateTime] = mapped_column(Date, nullable=False)
+    end_date: Mapped[DateTime] = mapped_column(Date, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Relationships
