@@ -9,7 +9,7 @@ environment = "home"  # Default is home
 
 ENV = os.getenv("ENV", environment)
 if ENV == "home":
-    load_dotenv(".env.personal")
+    load_dotenv(".env")
 else:
     load_dotenv(".env.office")
 

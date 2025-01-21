@@ -1,6 +1,7 @@
+from typing import List
 from database import Base
 from sqlalchemy.orm import mapped_column, Mapped, relationship
-from sqlalchemy import String, Integer, ForeignKey, Boolean
+from sqlalchemy import JSON, String, Integer, ForeignKey, Boolean
 
 class TimeTable(Base):
     __tablename__ = "timetable"
@@ -8,7 +9,7 @@ class TimeTable(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     pengajaran_id: Mapped[int] = mapped_column(ForeignKey("pengajaran.id"), nullable=False)
     ruangan_id: Mapped[int] = mapped_column(ForeignKey("ruangan.id"), nullable=False)
-    timeslot_id: Mapped[int] = mapped_column(ForeignKey("timeslot.id"), nullable=False)
+    timeslot_ids: Mapped[List[int]] = mapped_column(JSON, nullable=False)
     is_conflicted: Mapped[bool] = mapped_column(Boolean, default=False)
     kelas: Mapped[str] = mapped_column(String(10), nullable=False)  # E.g., A, B, C, D
     kapasitas: Mapped[int] = mapped_column(Integer, nullable=False, default=35)
@@ -20,7 +21,6 @@ class TimeTable(Base):
     # Relationships
     pengajaran: Mapped["Pengajaran"] = relationship("Pengajaran", back_populates="timetables")
     ruangan: Mapped["Ruangan"] = relationship("Ruangan", back_populates="timetables")
-    timeslot: Mapped["TimeSlot"] = relationship("TimeSlot", back_populates="timetables")
     academic_period: Mapped["AcademicPeriods"] = relationship("AcademicPeriods", back_populates="timetables")
     mahasiswa_timetable: Mapped[list["MahasiswaTimeTable"]] = relationship("MahasiswaTimeTable", back_populates="timetable")
 

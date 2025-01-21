@@ -21,6 +21,7 @@ from routes.openedclass_routes import router as openedclass_router
 from routes.academicperiod_routes import router as academicperiod_router
 from routes.timetable_routes import router as timetable_router
 from routes.mahasiswatimetable_routes import router as mahasiswatimetable_router
+from routes.algorithm_routes import router as algorithm_router
 
 
 # Initialize the FastAPI application
@@ -70,3 +71,4 @@ app.include_router(academicperiod_router, prefix="/academic-period", tags=["Acad
 
 app.include_router(timetable_router, prefix="/timetable", tags=["Timetable"])
 app.include_router(mahasiswatimetable_router, prefix="/mahasiswa-timetable", tags=["Mahasiswa Timetable"])
+app.include_router(algorithm_router, prefix="/algorithm", tags=["Genetic Algorithm"])
