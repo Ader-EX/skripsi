@@ -9,6 +9,12 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # List of lecturers (dosen)
 lecturers = [
+    "Prasetyo Hadi"
+    "Erna Hernawati",
+    "Halim Mahfud",
+    "Cut Fitariana",
+    "Rosnani",
+    "Rangga Arya",
     "Ahmad Hidayatullah",
     "Ahmad Muzaki",
     "Hasan Basri",

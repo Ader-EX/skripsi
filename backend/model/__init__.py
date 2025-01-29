@@ -7,9 +7,10 @@ from .user_model import User
 from .mahasiswa_model import Mahasiswa
 
 from .mahasiswatimetable_model import MahasiswaTimeTable
+
 from .timeslot_model import TimeSlot
 from .matakuliah_model import MataKuliah
-from .pengajaran_model import Pengajaran
+
 from .preference_model import Preference
 from .ruangan_model import Ruangan
 from .openedclass_model import OpenedClass

@@ -19,6 +19,11 @@ fastapi-env/
 __pycache__/
 
 
+.next
+
+.__pycache__
+
+
 /frontend/node_modules/
 # Logs and debugging
 *.log
@@ -69,3 +74,5 @@ next-env.d.ts
 # Temporary files
 *.tmp
 
+backend/__pycache__/main.cpython-312.pyc
+backend/__pycache__/main.cpython-312.pyc

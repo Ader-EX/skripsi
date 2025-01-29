@@ -1,7 +1,7 @@
 from database import Base
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 from sqlalchemy import Integer, String, ForeignKey
-
+from .dosenopened_model import openedclass_dosen
 
 class OpenedClass(Base):
     __tablename__ = "opened_class"
@@ -12,15 +12,13 @@ class OpenedClass(Base):
     kapasitas: Mapped[int] = mapped_column(Integer, nullable=False)  # Capacity of the class
 
     # Relationships
+    dosens: Mapped[list["Dosen"]] = relationship("Dosen", secondary=openedclass_dosen, back_populates="opened_classes")
     mata_kuliah_program_studi: Mapped["MataKuliahProgramStudi"] = relationship(
-    "MataKuliahProgramStudi",
-    back_populates="opened_classes",
-    overlaps="mata_kuliah, opened_classes"  # Resolve conflict with mata_kuliah relationship
-)
-
-
-
-    pengajaran: Mapped[list["Pengajaran"]] = relationship("Pengajaran", back_populates="opened_class")
+        "MataKuliahProgramStudi",
+        back_populates="opened_classes",
+        overlaps="mata_kuliah, opened_classes"  # Resolve conflict with mata_kuliah relationship
+    )
+    timetables: Mapped[list["TimeTable"]] = relationship("TimeTable", back_populates="opened_class")  # Add this line
 
     def __repr__(self):
         return f"<OpenedClass(id={self.id}, mata_kuliah_program_studi_id={self.mata_kuliah_program_studi_id}, kelas={self.kelas})>"

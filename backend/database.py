@@ -48,7 +48,7 @@ def create_tables():
 
     from model.mahasiswa_model import Mahasiswa
     from model.matakuliah_model import MataKuliah
-    from model.pengajaran_model import Pengajaran
+
     from model.preference_model import Preference
     from model.ruangan_model import Ruangan
     from model.timeslot_model import TimeSlot
@@ -59,6 +59,7 @@ def create_tables():
     from model.programstudi_model import ProgramStudi
     from model.matakuliah_programstudi import MataKuliahProgramStudi
     from model.academicperiod_model import AcademicPeriods
+    from model.dosenopened_model import openedclass_dosen
 
     Base.metadata.create_all(bind=engine)
     print("Tables created successfully.")

@@ -2,6 +2,8 @@ from database import Base
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 from sqlalchemy import String, ForeignKey, DateTime, Boolean, Integer, Date
 
+from .dosenopened_model import openedclass_dosen
+
 class Dosen(Base):
     __tablename__ = "dosen"
     
@@ -24,7 +26,8 @@ class Dosen(Base):
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="dosen")
-    pengajaran: Mapped[list["Pengajaran"]] = relationship("Pengajaran", back_populates="dosen")
+    opened_classes: Mapped[list["OpenedClass"]] = relationship("OpenedClass", secondary=openedclass_dosen, back_populates="dosens")
     preferences : Mapped[list["Preference"]] = relationship("Preference",back_populates="dosen")
+
     def __repr__(self):
         return f"<Dosen({self.nama}, {self.nidn})>"

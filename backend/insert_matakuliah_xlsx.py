@@ -51,7 +51,7 @@ def load_xlsx_to_database(file_path, program_studi_name):
                     smt=row["f_semester"],
                     kurikulum=row["f_kurikulum"],
                     status_mk=row["f_statusaktifmk"],
-                    tipe_mk=tipe_mk,
+                    tipe_mk=have_kelas_besar,
                     have_kelas_besar=have_kelas_besar
                 )
                 session.add(mata_kuliah)

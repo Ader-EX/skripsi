@@ -4,7 +4,7 @@ from database import SessionLocal
 from model.timeslot_model import TimeSlot
 
 def create_timeslots():
-    days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+    days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
     start_morning = time(8, 0)
     end_morning = time(11, 40)
     start_afternoon = time(13, 0)

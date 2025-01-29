@@ -34,17 +34,18 @@ def insert_opened_classes(file_path, program_studi_id):
     try:
         # Read Excel file
         df = pd.read_excel(file_path)
+        logging.info(f"Successfully read Excel file: {file_path}")
 
         # Track the last processed row
         last_kodemk = None
         last_kelas = None
 
-        for _, row in df.iterrows():
+        for index, row in df.iterrows():
             try:
-                # Remove 'D3-' prefix from `f_kodemk`
+                # Remove 'IF-' prefix from `f_kodemk`
                 kodemk = row["f_kodemk"]
-                if kodemk.startswith("D3-"):
-                    kodemk = kodemk[3:]  # Remove 'D3-' prefix
+                if kodemk.startswith("IF-"):
+                    kodemk = kodemk[3:]  # Remove 'IF-' prefix
 
                 # Normalize class name
                 kelas = row["f_kelas"].strip().upper()
@@ -55,7 +56,7 @@ def insert_opened_classes(file_path, program_studi_id):
                     duplicates.append({"kodemk": kodemk, "kelas": kelas})
                     continue
 
-                logging.debug(f"Processing kodemk={kodemk}, kelas={kelas}")
+                logging.debug(f"Processing row {index + 1}: kodemk={kodemk}, kelas={kelas}")
 
                 # Find the matching MataKuliahProgramStudi entry
                 logging.debug(f"Querying MataKuliahProgramStudi with mata_kuliah_id={kodemk} and program_studi_id={program_studi_id}")
@@ -70,6 +71,7 @@ def insert_opened_classes(file_path, program_studi_id):
 
                 # Determine capacity based on course name
                 kapasitas = determine_capacity(row["f_namamk"])
+                logging.debug(f"Determined capacity for kodemk={kodemk}, kelas={kelas}: {kapasitas}")
 
                 # Check for existing OpenedClass entry in the database
                 existing_class = session.query(OpenedClass).filter_by(
@@ -97,10 +99,12 @@ def insert_opened_classes(file_path, program_studi_id):
                 last_kelas = kelas
 
             except Exception as row_error:
-                logging.error(f"Error processing row: {row_error}")
+                logging.error(f"Error processing row {index + 1}: {row_error}")
+                session.rollback()  # Rollback the session for the current row
 
         # Commit changes
         session.commit()
+        logging.info(f"Successfully committed changes. Inserted {len(inserted_rows)} rows, skipped {len(duplicates)} duplicates.")
 
     except Exception as e:
         logging.error(f"Error occurred: {e}")
@@ -109,4 +113,4 @@ def insert_opened_classes(file_path, program_studi_id):
         session.close()
 
 # Run the function
-insert_opened_classes("datas/openedclass/D3SI.xlsx", "3")
+insert_opened_classes("datas/openedclass/S1IF.xlsx", 1)

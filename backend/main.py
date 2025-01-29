@@ -16,7 +16,7 @@ from routes.mahasiswa_routes import router as mahasiswa_router
 from routes.timeslot_routes import router as timeslot_router
 from routes.preference_routes import router as preference_router
 from routes.programstudi_routes import router as programstudi_router
-from routes.pengajaran_routes import router as pengajaran_router
+
 from routes.openedclass_routes import router as openedclass_router
 from routes.academicperiod_routes import router as academicperiod_router
 from routes.timetable_routes import router as timetable_router
@@ -65,7 +65,7 @@ app.include_router(mahasiswa_router, prefix="/mahasiswa", tags=["Mahasiswa"])
 app.include_router(timeslot_router, prefix="/timeslot", tags=["TimeSlot"])
 app.include_router(preference_router, prefix="/preference", tags=["Preference"])
 app.include_router(programstudi_router, prefix="/program-studi", tags=["Program Studi"])
-app.include_router(pengajaran_router, prefix="/pengajaran", tags=["Pengajaran"])
+# app.include_router(pengajaran_router, prefix="/pengajaran", tags=["Pengajaran"])
 app.include_router(openedclass_router, prefix="/opened-class", tags=["Opened Class"])
 app.include_router(academicperiod_router, prefix="/academic-period", tags=["Academic Period"])
 

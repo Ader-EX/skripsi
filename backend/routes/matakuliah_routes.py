@@ -5,6 +5,7 @@ from typing import List
 from pydantic import BaseModel
 from model.matakuliah_model import MataKuliah
 from model.matakuliah_programstudi import MataKuliahProgramStudi
+from model.programstudi_model import ProgramStudi  # Assuming you have a ProgramStudi model
 
 router = APIRouter()
 
@@ -33,7 +34,11 @@ class MataKuliahCreate(MataKuliahBase):
 
 
 class MataKuliahRead(MataKuliahBase):
-    id: str
+    kodemk: str  # Use kodemk as the primary key
+    program_studi_ids : List[int]
+
+    class Config:
+        orm_mode = True
 
 
 # CRUD Routes
@@ -43,6 +48,11 @@ async def create_matakuliah(matakuliah: MataKuliahCreate, db: Session = Depends(
     existing_matakuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == matakuliah.kodemk).first()
     if existing_matakuliah:
         raise HTTPException(status_code=400, detail="MataKuliah with this kode already exists.")
+
+    # Validate program_studi_ids
+    for program_studi_id in matakuliah.program_studi_ids:
+        if not db.query(ProgramStudi).filter(ProgramStudi.id == program_studi_id).first():
+            raise HTTPException(status_code=400, detail=f"ProgramStudi with ID {program_studi_id} does not exist.")
 
     # Create MataKuliah
     new_matakuliah = MataKuliah(
@@ -73,7 +83,28 @@ async def create_matakuliah(matakuliah: MataKuliahCreate, db: Session = Depends(
 
 @router.get("/", response_model=List[MataKuliahRead])
 async def get_all_matakuliah(db: Session = Depends(get_db)):
-    return db.query(MataKuliah).all()
+    mata_kuliah_list = db.query(MataKuliah).all()
+    result = []
+    for mata_kuliah in mata_kuliah_list:
+        # Fetch associated program_studi_ids
+        program_studi_ids = [
+            association.program_studi_id
+            for association in mata_kuliah.program_studi_associations
+        ]
+        # Create a MataKuliahRead object with program_studi_ids
+        mata_kuliah_data = MataKuliahRead(
+            kodemk=mata_kuliah.kodemk,
+            namamk=mata_kuliah.namamk,
+            sks=mata_kuliah.sks,
+            smt=mata_kuliah.smt,
+            kurikulum=mata_kuliah.kurikulum,
+            status_mk=mata_kuliah.status_mk,
+            have_kelas_besar=mata_kuliah.have_kelas_besar,
+            tipe_mk=mata_kuliah.tipe_mk,
+            program_studi_ids=program_studi_ids,
+        )
+        result.append(mata_kuliah_data)
+    return result
 
 
 @router.get("/{matakuliah_id}", response_model=MataKuliahRead)
@@ -89,6 +120,11 @@ async def update_matakuliah(matakuliah_id: str, updated_data: MataKuliahCreate, 
     matakuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == matakuliah_id).first()
     if not matakuliah:
         raise HTTPException(status_code=404, detail="MataKuliah not found")
+
+    # Validate program_studi_ids
+    for program_studi_id in updated_data.program_studi_ids:
+        if not db.query(ProgramStudi).filter(ProgramStudi.id == program_studi_id).first():
+            raise HTTPException(status_code=400, detail=f"ProgramStudi with ID {program_studi_id} does not exist.")
 
     # Update MataKuliah fields
     for key, value in updated_data.dict(exclude={"program_studi_ids"}).items():
@@ -120,4 +156,4 @@ async def delete_matakuliah(matakuliah_id: str, db: Session = Depends(get_db)):
     # Delete MataKuliah
     db.delete(matakuliah)
     db.commit()
-    return {"message": "MataKuliah deleted successfully"}
+    return None  # FastAPI expects no content for 204 status

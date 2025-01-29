@@ -1,48 +1,33 @@
 import pandas as pd
 import logging
-from collections import Counter
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from model.pengajaran_model import Pengajaran
 from model.openedclass_model import OpenedClass
 from model.matakuliah_programstudi import MataKuliahProgramStudi
+from model.dosenopened_model import openedclass_dosen  # Import the association table
 
 # Path to the Excel file
 
-
 # Set up logging
 logging.basicConfig(
-    filename="pengajaran_errors.log",
+    filename="openedclass_dosen_errors.log",
     level=logging.DEBUG,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
 def remove_prefix(kodemk):
-    """Remove the 'SI-' prefix from kodemk if it exists."""
-    return kodemk[3:] if kodemk.startswith("D3-") else kodemk
+    """Remove the 'IF-' prefix from kodemk if it exists."""
+    return kodemk[3:] if kodemk.startswith("IF-") else kodemk
 
-def determine_roles(dosen_counts, dosen_id, class_name):
-    """
-    Determine roles based on conditions:
-    - Classes with 'Praktikum' in their name: DK
-    - Otherwise:
-      - 'DB' for the most frequent dosen_id
-      - 'DK' otherwise
-    """
-    if "praktikum" in class_name.lower():
-        return ["DK"]  # Always DK for Praktikum classes
-    max_count = max(dosen_counts.values())
-    return ["DB"] if dosen_counts[dosen_id] == max_count else ["DK"]
-
-def process_pengajaran(file_path, program_studi_id):
+def process_openedclass_dosen(file_path, program_studi_id):
     session = SessionLocal()
     try:
         # Read Excel data
         print("Reading Excel data...")
         df = pd.read_excel(file_path)
 
-        # Remove the 'SI-' prefix from f_kodemk
-        print("Removing 'SI-' prefix from f_kodemk...")
+        # Remove the 'IF-' prefix from f_kodemk
+        print("Removing 'IF-' prefix from f_kodemk...")
         df["f_kodemk"] = df["f_kodemk"].apply(remove_prefix)
 
         # Ensure dosen_id exists
@@ -51,84 +36,58 @@ def process_pengajaran(file_path, program_studi_id):
 
         print(f"Data contains {len(df)} rows.")
 
-        # Group data by f_kodemk (to assign roles within the same kodemk)
-        grouped = df.groupby("f_kodemk")
+        # Group data by f_kodemk and f_kelas (to handle each class separately)
+        grouped = df.groupby(["f_kodemk", "f_kelas"])
 
-        for kodemk, group in grouped:
-            print(f"\nProcessing kodemk: {kodemk} with {len(group)} rows...")
-            dosen_counts = Counter(group["dosen_id"])  # Count occurrences for roles
+        for (kodemk, kelas), group in grouped:
+            print(f"\nProcessing kodemk: {kodemk}, kelas: {kelas} with {len(group)} rows...")
 
-            for _, row in group.iterrows():
-                try:
-                    dosen_id = row["dosen_id"]
-                    kelas = row["f_kelas"]
-                    class_name = row["f_namamk"]
+            # Step 1: Find mata_kuliah_program_studi_id filtered by program_studi_id
+            print(f"Looking up MataKuliahProgramStudi for mata_kuliah_id={kodemk}, program_studi_id={program_studi_id}...")
+            mata_kuliah_program_studi = (
+                session.query(MataKuliahProgramStudi)
+                .filter_by(mata_kuliah_id=kodemk, program_studi_id=program_studi_id)
+                .first()
+            )
 
-                    # Step 1: Find mata_kuliah_program_studi_id filtered by program_studi_id
-                    print(f"Looking up MataKuliahProgramStudi for mata_kuliah_id={kodemk}, program_studi_id={program_studi_id}...")
-                    mata_kuliah_program_studi = (
-                        session.query(MataKuliahProgramStudi)
-                        .filter_by(mata_kuliah_id=kodemk, program_studi_id=program_studi_id)
-                        .first()
-                    )
+            if not mata_kuliah_program_studi:
+                print(f"ERROR: No MataKuliahProgramStudi found for kodemk={kodemk}, program_studi_id={program_studi_id}. Skipping group.")
+                logging.warning(f"No MataKuliahProgramStudi found for kodemk={kodemk}, program_studi_id={program_studi_id}.")
+                continue
 
-                    if not mata_kuliah_program_studi:
-                        print(f"ERROR: No MataKuliahProgramStudi found for kodemk={kodemk}, program_studi_id={program_studi_id}. Skipping row.")
-                        logging.warning(f"No MataKuliahProgramStudi found for kodemk={kodemk}, program_studi_id={program_studi_id}.")
-                        continue
+            mata_kuliah_program_studi_id = mata_kuliah_program_studi.id
+            print(f"Found MataKuliahProgramStudi with id={mata_kuliah_program_studi_id}.")
 
-                    mata_kuliah_program_studi_id = mata_kuliah_program_studi.id
-                    print(f"Found MataKuliahProgramStudi with id={mata_kuliah_program_studi_id}.")
+            # Step 2: Find opened_class_id
+            print(f"Looking up OpenedClass for mata_kuliah_program_studi_id={mata_kuliah_program_studi_id} and kelas={kelas.strip()}...")
+            opened_class = (
+                session.query(OpenedClass)
+                .filter(
+                    OpenedClass.mata_kuliah_program_studi_id == mata_kuliah_program_studi_id,
+                    OpenedClass.kelas == kelas.strip()
+                )
+                .first()
+            )
 
-                    # Step 2: Find opened_class_id
-                    print(f"Looking up OpenedClass for mata_kuliah_program_studi_id={mata_kuliah_program_studi_id} and kelas={kelas.strip()}...")
-                    opened_class = (
-                        session.query(OpenedClass)
-                        .filter(
-                            OpenedClass.mata_kuliah_program_studi_id == mata_kuliah_program_studi_id,
-                            OpenedClass.kelas == kelas.strip()
-                        )
-                        .first()
-                    )
+            if not opened_class:
+                print(f"ERROR: No OpenedClass found for kodemk={kodemk}, kelas={kelas.strip()}, mata_kuliah_program_studi_id={mata_kuliah_program_studi_id}.")
+                logging.warning(f"No OpenedClass found for kodemk={kodemk}, kelas={kelas.strip()}, mata_kuliah_program_studi_id={mata_kuliah_program_studi_id}.")
+                continue
 
-                    if not opened_class:
-                        print(f"ERROR: No OpenedClass found for kodemk={kodemk}, kelas={kelas.strip()}, mata_kuliah_program_studi_id={mata_kuliah_program_studi_id}.")
-                        logging.warning(f"No OpenedClass found for kodemk={kodemk}, kelas={kelas.strip()}, mata_kuliah_program_studi_id={mata_kuliah_program_studi_id}.")
-                        continue
+            opened_class_id = opened_class.id
+            print(f"Found OpenedClass with id={opened_class_id}.")
 
-                    opened_class_id = opened_class.id
-                    print(f"Found OpenedClass with id={opened_class_id}.")
-
-                    # Step 3: Determine roles
-                    roles = determine_roles(dosen_counts, dosen_id, class_name)
-                    print(f"Assigned roles for dosen_id={dosen_id}: {roles}.")
-
-                    # Step 4: Check for duplicates and insert Pengajaran
-                    print(f"Checking for existing Pengajaran entry with dosen_id={dosen_id}, opened_class_id={opened_class_id}...")
-                    existing_entry = (
-                        session.query(Pengajaran)
-                        .filter_by(dosen_id=dosen_id, opened_class_id=opened_class_id)
-                        .first()
-                    )
-
-                    if existing_entry:
-                        print(f"Duplicate found for dosen_id={dosen_id}, opened_class_id={opened_class_id}. Skipping insertion.")
-                        logging.info(f"Duplicate found for dosen_id={dosen_id}, opened_class_id={opened_class_id}.")
-                        continue
-
-                    print(f"Inserting new Pengajaran entry for dosen_id={dosen_id}, opened_class_id={opened_class_id}...")
-                    pengajaran = Pengajaran(
-                        dosen_id=dosen_id,
-                        roles=roles,
+            # Step 3: Insert into openedclass_dosen
+            for dosen_id in group["dosen_id"].unique():
+                print(f"Inserting into openedclass_dosen: opened_class_id={opened_class_id}, dosen_id={dosen_id}...")
+                session.execute(
+                    openedclass_dosen.insert().values(
                         opened_class_id=opened_class_id,
+                        dosen_id=dosen_id
                     )
-                    session.add(pengajaran)
-                    session.commit()  # Commit after each successful insert
+                )
 
-                except Exception as row_error:
-                    print(f"Error processing row {row}: {row_error}")
-                    logging.error(f"Error processing row {row}: {row_error}")
-                    session.rollback()  # Rollback the session for the current row
+            session.commit()  # Commit after processing each group
 
     except Exception as e:
         print(f"Error occurred: {e}")
@@ -139,8 +98,8 @@ def process_pengajaran(file_path, program_studi_id):
 
 
 # Specify the file path and program_studi_id
-file_path = "datas/openedclass/D3SI_updated.xlsx"
+file_path = "datas/openedclass/S1IF_updated.xlsx"
 program_studi_id = 1
 
 # Call the function
-process_pengajaran(file_path, program_studi_id)
+process_openedclass_dosen(file_path, program_studi_id)
