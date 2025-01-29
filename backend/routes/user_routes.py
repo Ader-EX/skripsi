@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from passlib.context import CryptContext
 from dotenv import load_dotenv
 import os
-import jwt
+from jwt import encode, decode
 from datetime import datetime, timedelta, timezone
 from enum import Enum  # Import Enum for predefined options
 
@@ -48,7 +48,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 
@@ -142,10 +142,14 @@ async def update_user(user_id: int, updated_user: UserCreate, db: Session = Depe
     return user
 
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
 @router.post("/token", response_model=Token)
-async def login(email: str, password: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == email).first()
-    if not user or not verify_password(password, user.password):
+async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == login_request.email).first()
+    if not user or not verify_password(login_request.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     access_token = create_access_token(data={"sub": user.email, "role": user.role})
     return {"access_token": access_token, "token_type": "bearer"}
