@@ -144,6 +144,11 @@ def calculate_fitness(timetable: List[Dict], opened_class_cache: Dict, room_cach
             logger.error(f"OpenedClass not found for ID: {opened_class_id}")
             continue
 
+        # Fetch room and mata_kuliah from caches
+        room = room_cache.get(ruangan_id)
+        mata_kuliah = opened_class.get("mata_kuliah")
+
+        # Check if room and mata_kuliah are valid
         if room and mata_kuliah:
             # Map tipe_mk to room type
             if mata_kuliah.tipe_mk == 1 and room.tipe_ruangan != "T":
@@ -174,8 +179,6 @@ def calculate_fitness(timetable: List[Dict], opened_class_cache: Dict, room_cach
         room_timeslot_map[ruangan_id].update(timeslot_ids)
 
         # Room type mismatch checks
-        room = room_cache.get(ruangan_id)
-        mata_kuliah = opened_class.get("mata_kuliah")
         if room and mata_kuliah and room.tipe_ruangan != mata_kuliah.tipe_mk:
             total_penalty += 20
             entry["is_conflicted"] = True
