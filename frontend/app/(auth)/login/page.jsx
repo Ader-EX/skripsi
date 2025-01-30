@@ -2,6 +2,12 @@
 import React from "react";
 import Image from "next/image";
 import { useForm } from "react-hook-form";
+import newImage from "@/public/login.jpg";
+import toast from "react-hot-toast";
+import useAuthStore from "@/hooks/useAuthStore";
+import Link from "next/link";
+import { Timer } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 const Login = () => {
   const {
@@ -10,27 +16,53 @@ const Login = () => {
     watch,
     formState: { errors },
   } = useForm();
+  const { setAuth } = useAuthStore();
+  const router = useRouter();
   const onSubmit = async (data) => {
+    toast.loading("Logging in...");
     console.log(data);
-    const response = await fetch("http://localhost:8000/user/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: data.username, // Ensure the key matches the Pydantic model
-        password: data.password,
-      }),
-    });
-    const result = await response.json();
-    console.log(result);
+    try {
+      const response = await fetch("http://localhost:8000/user/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: data.username,
+          password: data.password,
+        }),
+      });
+      const result = await response.json();
+      if (response.ok) {
+        toast.dismiss();
+        toast.success("Login successful!");
+        console.log(
+          "Setting auth:",
+          result.access_token,
+          result.token_type,
+          result.role
+        );
+        setAuth(result.access_token, result.token_type, result.role);
+
+        console.log(result.access_token);
+        router.push(`/${result.role}/dashboard`);
+      } else {
+        toast.dismiss();
+        toast.error(result.detail || "Invalid credentials");
+      }
+    } catch (error) {
+      toast.dismiss();
+      console.log(error.detail || "Invalid credentials");
+      toast.error("Something went wrong. Please try again.");
+    }
   };
   return (
     <div className="bg-gray-100 flex justify-center items-center h-screen">
       {/* Left: Image */}
-      <div className="w-1/2 h-screen hidden lg:block">
+      <div className="w-1/2 h-screen hidden lg:block relative">
+        <div className=" h-full absolute bg-primary w-full opacity-40"></div>
         <Image
-          src="https://placehold.co/800x/667fff/ffffff.png?text=Your+Image&font=Montserrat"
+          src={newImage}
           alt="Placeholder Image"
           width={800}
           height={600}
@@ -40,6 +72,13 @@ const Login = () => {
 
       {/* Right: Login Form */}
       <div className="lg:p-36 md:p-52 sm:20 p-8 w-full lg:w-1/2">
+        <Link href="/">
+          <h1 className="text-2xl font-bold text-primary flex gap-x-2 mb-4">
+            <Timer className="self-center" />
+            <span>GenPlan</span>
+          </h1>
+        </Link>
+
         <h1 className="text-2xl font-semibold mb-4">Login</h1>
         <form action="#" method="POST" onSubmit={handleSubmit(onSubmit)}>
           {/* Username Input */}

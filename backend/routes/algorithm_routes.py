@@ -11,6 +11,7 @@ from model.timetable_model import TimeTable
 import random
 import logging
 import time
+import math
 
 # Configure logging
 logging.basicConfig(
@@ -332,11 +333,112 @@ def check_conflicts(db: Session):
         "lecturer_conflicts": lecturer_conflicts,
         "overlapping_timeslots": overlapping_timeslots,
     }
+def simulated_annealing(
+    db: Session,
+    initial_temperature: float = 1000,
+    cooling_rate: float = 0.95,
+    iterations_per_temp: int = 100
+):
+    """Simulated Annealing algorithm for scheduling."""
+    clear_timetable(db)
+    logger.info("Starting Simulated Annealing for scheduling...")
+    
+    # Fetch required data
+    _, _, rooms, timeslots, _, opened_classes, opened_class_cache, room_cache, timeslot_cache = fetch_data(db)
+    
+    # Generate initial random solution
+    current_solution = initialize_population(opened_classes, rooms, timeslots, 1, opened_class_cache)[0]
+    current_fitness = calculate_fitness(current_solution, opened_class_cache, room_cache)
+    best_solution = current_solution
+    best_fitness = current_fitness
+    temperature = initial_temperature
+    
+    logger.debug(f"Initial Solution Fitness: {current_fitness}")
+    
+    while temperature > 1:
+        logger.debug(f"Current Temperature: {temperature:.2f}")
+        
+        for i in range(iterations_per_temp):
+            new_solution = generate_neighbor_solution(current_solution, opened_classes, rooms, timeslots, opened_class_cache)
+            new_fitness = calculate_fitness(new_solution, opened_class_cache, room_cache)
+            
+            logger.debug(f"Iteration {i + 1}: New Fitness = {new_fitness}, Current Fitness = {current_fitness}")
+            
+            # Calculate acceptance probability
+            if new_fitness < current_fitness:
+                acceptance_probability = 1.0  # Always accept better solution
+                logger.debug("New solution is better. Accepting it.")
+            else:
+                acceptance_probability = math.exp((current_fitness - new_fitness) / temperature)
+                logger.debug(f"Acceptance Probability: {acceptance_probability}")
+            
+            if random.random() < acceptance_probability:
+                current_solution = new_solution
+                current_fitness = new_fitness
+                logger.debug("Accepted new solution.")
+                
+                if current_fitness < best_fitness:
+                    best_solution = current_solution
+                    best_fitness = current_fitness
+                    logger.debug(f"New Best Fitness: {best_fitness}")
+        
+        temperature *= cooling_rate  # Cool down the temperature
+        logger.info(f"Temperature: {temperature:.2f}, Best Fitness: {best_fitness}")
+    
+    insert_timetable(db, best_solution, opened_class_cache, room_cache, timeslot_cache)
+    logger.info("Simulated Annealing completed. Best Fitness: %s", best_fitness)
+    return best_solution
+
+
+def generate_neighbor_solution(
+    current_solution: List[Dict], opened_classes, rooms, timeslots, opened_class_cache: Dict
+) -> List[Dict]:
+    """Generate a new neighboring solution by modifying a random assignment."""
+    new_solution = current_solution.copy()
+    entry = random.choice(new_solution)  # Select a random timetable entry
+    
+    # Get new random timeslot and room
+    timeslot_ids = [t.id for t in timeslots]
+    new_start_timeslot_idx = random.randint(0, len(timeslot_ids) - len(entry["timeslot_ids"]))
+    new_entry = entry.copy()
+    new_entry["timeslot_ids"] = timeslot_ids[new_start_timeslot_idx : new_start_timeslot_idx + len(entry["timeslot_ids"])]
+    new_entry["ruangan_id"] = random.choice(rooms).id  # Assign a new random room
+    
+    # Replace the entry in the new solution
+    new_solution.remove(entry)
+    new_solution.append(new_entry)
+    logger.debug(f"Generated Neighbor Solution: {new_entry}")
+    return new_solution
+
+
+def clear_timetable(db: Session):
+    """Deletes all entries in the timetable table."""
+    db.query(TimeTable).delete()
+    db.commit()
+
 
 from fastapi import APIRouter, Depends, HTTPException
 from database import get_db
 
 router = APIRouter()
+
+
+
+# FastAPI route for SA scheduling
+router = APIRouter()
+
+@router.post("/generate-schedule-sa")
+async def generate_schedule_sa(db: Session = Depends(get_db)):
+    try:
+        logger.info("Generating schedule using Simulated Annealing...")
+        best_timetable = simulated_annealing(db)
+        return {"message": "Schedule generated successfully using Simulated Annealing", "timetable": best_timetable}
+    except Exception as e:
+        logger.error(f"Error generating schedule: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 
 @router.post("/generate-schedule")
 async def generate_schedule(db: Session = Depends(get_db)):

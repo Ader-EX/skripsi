@@ -73,6 +73,7 @@ class UserRead(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    role: str
 
 
 class TokenData(BaseModel):
@@ -150,6 +151,6 @@ class LoginRequest(BaseModel):
 async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == login_request.email).first()
     if not user or not verify_password(login_request.password, user.password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="Username or password is incorrect")
     access_token = create_access_token(data={"sub": user.email, "role": user.role})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer", "role": user.role}
