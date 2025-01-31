@@ -8,6 +8,7 @@ import useAuthStore from "@/hooks/useAuthStore";
 import Link from "next/link";
 import { Timer } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Cookies from "js-cookie";
 
 const Login = () => {
   const {
@@ -42,8 +43,9 @@ const Login = () => {
           result.token_type,
           result.role
         );
-        setAuth(result.access_token, result.token_type, result.role);
-
+        Cookies.set("access_token", result.access_token);
+        Cookies.set("token_type", result.token_type);
+        Cookies.set("role", result.role);
         console.log(result.access_token);
         router.push(`/${result.role}/dashboard`);
       } else {

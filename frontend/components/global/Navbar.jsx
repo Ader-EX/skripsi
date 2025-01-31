@@ -6,21 +6,44 @@ import { Menu, Search, Timer } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import useAuthStore from "@/hooks/useAuthStore";
 import { useRouter } from "next/navigation";
+import Cookies from "js-cookie";
+import { jwtDecode } from "jwt-decode";
 
 export default function Navbar() {
   const [state, setState] = React.useState(false);
   const { token, logout } = useAuthStore();
-  console.log("Navbar token:", token);
   const router = useRouter();
 
-  React.useEffect(() => {
-    console.log("Token updated:", token);
-  }, [token]);
+  const hasil = Cookies.get("access_token");
+  console.log("Navbar token:", token);
+
+  // Decode token to get user role
+  let role = "guest";
+  if (hasil) {
+    try {
+      const decoded = jwtDecode(hasil);
+      role = decoded.role || "guest";
+    } catch (error) {
+      console.error("JWT Decode Error:", error);
+    }
+  }
+
+  // Define role-based dashboard URL
+  const dashboardUrl =
+    role === "mahasiswa"
+      ? "/mahasiswa/dashboard"
+      : role === "dosen"
+      ? "/dosen/dashboard"
+      : role === "admin"
+      ? "/admin/dashboard"
+      : "/";
 
   const handleLogout = () => {
     logout();
+    Cookies.remove("access_token");
     router.push("/");
   };
+
   return (
     <nav className="bg-white w-full border-b md:border-1">
       <div className="items-center px-4 max-w-screen-xl mx-auto md:flex md:px-8">
@@ -40,19 +63,26 @@ export default function Navbar() {
             </button>
           </div>
         </div>
+
+        {/* Navbar Menu */}
         <div
           className={`flex-1 justify-self-center pb-3 mt-8 md:block md:pb-0 md:mt-0 ${
             state ? "block" : "hidden"
           }`}
         >
           <ul className="justify-end items-center space-y-8 md:flex md:space-x-6 md:space-y-0">
-            {token ? (
+            {hasil ? (
               <>
-                <p className="text-primary font-bold">Admin</p>
-                <Avatar>
-                  <AvatarImage src="https://github.com/shadcn.png" />
-                  <AvatarFallback>CN</AvatarFallback>
-                </Avatar>
+                {/* Dashboard Button */}
+                <Link href={dashboardUrl}>
+                  <button className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/80 transition">
+                    Go to Dashboard
+                  </button>
+                </Link>
+
+                {/* User Avatar */}
+
+                {/* Logout Button */}
                 <button
                   onClick={handleLogout}
                   className="text-red-500 hover:underline"

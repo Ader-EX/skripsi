@@ -118,7 +118,6 @@ async def get_all_users(role: Optional[RoleEnum] = Query(None, description="Filt
     users = query.all()
     return users
 
-
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
