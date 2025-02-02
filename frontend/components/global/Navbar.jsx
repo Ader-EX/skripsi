@@ -15,10 +15,8 @@ export default function Navbar() {
   const router = useRouter();
 
   const hasil = Cookies.get("access_token");
-  console.log("Navbar token:", token);
 
-  // Decode token to get user role
-  let role = "guest";
+  let role = "";
   if (hasil) {
     try {
       const decoded = jwtDecode(hasil);

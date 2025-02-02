@@ -1,8 +1,9 @@
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from database import get_db
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from model.mahasiswa_model import Mahasiswa
 from model.user_model import User  # Import the User model
 
@@ -10,12 +11,25 @@ router = APIRouter()
 
 # Pydantic Models
 class MahasiswaBase(BaseModel):
-    program_studi: str
     program_studi_id: int
     tahun_masuk: int
     semester: int
     sks_diambil: int
     user_id: int
+    nama: str
+    tgl_lahir: date
+    kota_lahir: str
+    jenis_kelamin: str
+    kewarganegaraan: str
+    alamat: str
+    kode_pos: Optional[int] = None
+    hp: str
+    email: EmailStr
+    nama_ayah: Optional[str] = None
+    nama_ibu: Optional[str] = None
+    pekerjaan_ayah: Optional[str] = None
+    pekerjaan_ibu: Optional[str] = None
+    status_kawin: Optional[bool] = False
 
 class MahasiswaCreate(MahasiswaBase):
     pass

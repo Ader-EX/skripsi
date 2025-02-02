@@ -1,5 +1,6 @@
 "use client";
-import React from "react";
+
+import React, { useEffect, useState } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -38,22 +39,34 @@ const AppSidebar = () => {
   const router = useRouter();
   const pathname = usePathname();
 
-  const getUserInfo = () => {
-    console.log(Cookies.get("access_token"));
-    const token = Cookies.get("access_token");
+  const [email, setEmail] = useState(null);
+  const [role, setRole] = useState(null);
 
-    try {
-      const decoded = jwtDecode(token);
-      return {
-        email: decoded.sub,
-        role: decoded.role,
-      };
-    } catch (error) {
-      console.log(error);
-      router.push("/login");
-    }
-  };
-  const { email, role } = getUserInfo();
+  useEffect(() => {
+    const getUserInfo = () => {
+      console.log(Cookies.get("access_token"));
+      const token = Cookies.get("access_token");
+      if (!token) {
+        console.log("No token found, redirecting to login...");
+        router.push("/login");
+        return;
+      }
+
+      try {
+        const decoded = jwtDecode(token);
+        setEmail(decoded.sub);
+        setRole(decoded.role);
+      } catch (error) {
+        console.log(error);
+        router.push("/login");
+      }
+    };
+
+    getUserInfo();
+  }, [router]);
+
+  if (!role) return null;
+
   const rolePrefix =
     role === "mahasiswa"
       ? "/mahasiswa"
@@ -63,9 +76,7 @@ const AppSidebar = () => {
       ? "/admin"
       : "/guest";
 
-  // Define sidebar items for each role
   let sidebarItems = [];
-
   if (role === "mahasiswa") {
     sidebarItems = [
       { title: "Dashboard", url: `${rolePrefix}/dashboard`, icon: Home },
@@ -95,6 +106,7 @@ const AppSidebar = () => {
       },
     ];
   }
+
   return (
     <Sidebar className="bg-sidebar text-sidebar-foreground min-h-screen w-64 border-r border-sidebar-border">
       <SidebarHeader className="p-4">
@@ -136,7 +148,6 @@ const AppSidebar = () => {
         </SidebarGroup>
       </SidebarContent>
 
-      {/* Sidebar Footer */}
       <SidebarFooter className="mt-auto p-4">
         <SidebarMenu>
           <SidebarMenuItem>
@@ -145,7 +156,7 @@ const AppSidebar = () => {
                 <SidebarMenuButton className="py-3 text-sm flex items-center gap-x-3 w-full">
                   <Avatar className="size-8">
                     <AvatarImage src="https://github.com/shadcn.png" />
-                    <AvatarFallback>CN</AvatarFallback>
+                    <AvatarFallback>C N</AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col text-text-secondary">
                     <p className="text-text-primary font-semibold">{email}</p>
@@ -158,12 +169,6 @@ const AppSidebar = () => {
                 side="top"
                 className="w-[--radix-popper-anchor-width]"
               >
-                <DropdownMenuItem>
-                  <span>Account</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <span>Billing</span>
-                </DropdownMenuItem>
                 <DropdownMenuItem
                   className="text-error font-medium"
                   onClick={() => Cookies.remove("access_token")}

@@ -56,6 +56,11 @@ async def read_preference(preference_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Preference not found")
     return preference
 
+@router.get("/dosen/{dosen_id}", response_model=List[PreferenceRead])
+async def read_dosen_preference( dosen_id: int, db: Session = Depends(get_db)):
+    preferences = db.query(Preference).filter(Preference.dosen_id == dosen_id).all()
+    return preferences
+
 
 # Read All Preferences
 @router.get("/", response_model=List[PreferenceRead])
