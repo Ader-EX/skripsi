@@ -1,5 +1,5 @@
-from typing import Dict, List
-from sqlalchemy import String, text
+from typing import Any, Dict, List, Optional
+from sqlalchemy import String, or_, text
 from sqlalchemy.orm import Session
 from model.matakuliah_model import MataKuliah
 from model.dosen_model import Dosen
@@ -417,7 +417,7 @@ def clear_timetable(db: Session):
     db.commit()
 
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from database import get_db
 
 router = APIRouter()
@@ -437,9 +437,6 @@ async def generate_schedule_sa(db: Session = Depends(get_db)):
         logger.error(f"Error generating schedule: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-
-
 @router.post("/generate-schedule")
 async def generate_schedule(db: Session = Depends(get_db)):
     try:
@@ -457,95 +454,125 @@ async def reset_schedule(db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"Error resetting schedule: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 from sqlalchemy import func
 from typing import List, Dict
-@router.get("/timetable", response_model=List[Dict])
-async def get_timetable(db: Session = Depends(get_db)):
-    try:
-        # Fetch timetable data with related entities
-        timetable_data = (
-            db.query(TimeTable)
-            .join(OpenedClass, TimeTable.opened_class_id == OpenedClass.id)
-            .join(MataKuliah, OpenedClass.mata_kuliah_program_studi.has(mata_kuliah_id=MataKuliah.kodemk))
-            .join(Ruangan, TimeTable.ruangan_id == Ruangan.id)
-            .join(Dosen, OpenedClass.dosens)  # Adjust based on your schema
-            .all()
-        )
 
-        # Fetch all timeslots and cache them
+@router.get("/timetable", response_model=Dict[str, Any])
+async def get_timetable(
+    db: Session = Depends(get_db),
+    page: int = Query(1, description="Page number", ge=1),
+    limit: int = Query(10, description="Number of items per page", ge=1, le=100),
+    filter: Optional[str] = Query(None, description="Filter by Mata Kuliah name or Kodemk")
+):
+    try:
+        # Base query
+        query = db.query(TimeTable).join(OpenedClass, TimeTable.opened_class_id == OpenedClass.id) \
+            .join(MataKuliah, OpenedClass.mata_kuliah_program_studi.has(mata_kuliah_id=MataKuliah.kodemk)) \
+            .join(Ruangan, TimeTable.ruangan_id == Ruangan.id) \
+            .join(Dosen, OpenedClass.dosens.any(Dosen.id == Dosen.id))
+
+        # Apply filter (matches either Mata Kuliah name or Kodemk)
+        if filter:
+            query = query.filter(
+                or_(
+                    MataKuliah.namamk.ilike(f"%{filter}%"),
+                    MataKuliah.kodemk.ilike(f"%{filter}%")
+                )
+            )
+
+        # Count total records after filtering
+        total_records = query.distinct().count()
+        total_pages = (total_records + limit - 1) // limit
+
+        # Fetch paginated data
+        timetable_data = query.distinct().offset((page - 1) * limit).limit(limit).all()
+        print(f"Total Records: {total_records}")
+        print(f"Fetched Records: {len(timetable_data)}")
+        print(f"Query Filter: {filter}")
+
+        # Fetch timeslots once and cache them
         timeslot_cache = {ts.id: ts for ts in db.query(TimeSlot).all()}
 
         # Format the data
         formatted_timetable = []
-        for idx, entry in enumerate(timetable_data, start=1):
+        for idx, entry in enumerate(timetable_data, start=(page - 1) * limit + 1):
             mata_kuliah = entry.opened_class.mata_kuliah_program_studi.mata_kuliah
-            dosens = ", ".join([f"{dosen.title_depan} {dosen.nama} {dosen.title_belakang}" for dosen in entry.opened_class.dosens])
+            dosens = ", ".join(
+                [f"{dosen.title_depan} {dosen.nama} {dosen.title_belakang}" for dosen in entry.opened_class.dosens]
+            )
 
             # Fetch timeslots using timeslot_ids
-            timeslots = []
-            for ts_id in entry.timeslot_ids:
-                timeslot = timeslot_cache.get(ts_id)
-                if timeslot:
-                    timeslots.append(timeslot)
-
-            # Sort timeslots by start_time to ensure proper grouping
+            timeslots = [timeslot_cache.get(ts_id) for ts_id in entry.timeslot_ids if timeslot_cache.get(ts_id)]
             timeslots.sort(key=lambda ts: ts.start_time)
 
-            # Group consecutive timeslots for the same day and room
+            # Group consecutive timeslots
             grouped_timeslots = []
             current_group = []
             for i, ts in enumerate(timeslots):
                 if not current_group:
                     current_group.append(ts)
                 else:
-                    # Check if the current timeslot is consecutive with the previous one
                     prev_ts = current_group[-1]
                     if (
                         ts.day == prev_ts.day
-                        and entry.ruangan_id == entry.ruangan_id  # Use ruangan_id from TimeTable
                         and ts.start_time == prev_ts.end_time
                     ):
                         current_group.append(ts)
                     else:
-                        # End of current group, add to grouped_timeslots
                         grouped_timeslots.append(current_group)
                         current_group = [ts]
 
-            # Add the last group
             if current_group:
                 grouped_timeslots.append(current_group)
 
             # Format grouped timeslots
-            formatted_timeslots = []
-            for group in grouped_timeslots:
-                start_time = group[0].start_time
-                end_time = group[-1].end_time
-                day = group[0].day
-                ruangan = entry.ruangan.kode_ruangan  # Use ruangan from TimeTable
-                gedung = entry.ruangan.gedung 
-                formatted_timeslots.append(f"{day} - {start_time}-{end_time} ({ruangan} || {gedung})")
+            formatted_timeslots = [
+                f"{group[0].day} - {group[0].start_time}-{group[-1].end_time} ({entry.ruangan.kode_ruangan} || {entry.ruangan.gedung})"
+                for group in grouped_timeslots
+            ]
+
+            # Add timeslots in detailed format
+            timeslot_details = [
+                {
+                    "id": ts.id,
+                    "day": ts.day,
+                    "start_time": ts.start_time.strftime("%H:%M"),
+                    "end_time": ts.end_time.strftime("%H:%M"),
+                    "room": entry.ruangan.kode_ruangan,
+                    "building": entry.ruangan.gedung,
+                }
+                for ts in timeslots
+            ]
 
             formatted_entry = {
-                "No": idx,
-                "Kodemk": mata_kuliah.kodemk,
-                "Matakuliah": mata_kuliah.namamk,
-                "Kurikulum": mata_kuliah.kurikulum,
-                "Kelas": entry.opened_class.kelas,
-                "Kap/Peserta": f"{entry.opened_class.kapasitas} / {entry.kuota}",
-                "Sks": mata_kuliah.sks,
-                "Smt": mata_kuliah.smt,
-                "Jadwal Pertemuan": " ".join(formatted_timeslots),
-                "Dosen": dosens,
+                "timetable_id": entry.id,
+                "no": idx,
+                "kodemk": mata_kuliah.kodemk,
+                "matakuliah": mata_kuliah.namamk,
+                "kurikulum": mata_kuliah.kurikulum,
+                "kelas": entry.opened_class.kelas,
+                "kap_peserta": f"{entry.opened_class.kapasitas} / {entry.kuota}",
+                "sks": mata_kuliah.sks,
+                "smt": mata_kuliah.smt,
+                "jadwal_pertemuan": " ".join(formatted_timeslots),
+                "dosen": dosens,
+                "timeslots": timeslot_details,  
             }
             formatted_timetable.append(formatted_entry)
 
-        return formatted_timetable
+        return {
+            "page": page,
+            "limit": limit,
+            "total_pages": total_pages,
+            "total_records": total_records,
+            "data": formatted_timetable,
+        }
 
     except Exception as e:
         logger.error(f"Error fetching timetable: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
-# Example usage in FastAPI route
+
 @router.get("/check-conflicts")
 async def check_timetable_conflicts(db: Session = Depends(get_db)):
     conflicts = check_conflicts(db)
