@@ -11,8 +11,8 @@
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-rgb));
+  color: 255, 255, 255;
+  background: 255, 255, 255;
   font-family: "Inter", sans-serif;
 }
 
@@ -57,6 +57,6 @@ code {
     color: rgb(var(--foreground-rgb));
   }
   .bg-background {
-    background-color: rgb(var(--background-rgb));
+    background-color: 255, 255, 255;
   }
 }

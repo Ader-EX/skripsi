@@ -24,6 +24,17 @@ const MahasiswaProfile = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
+  const jobOptions = [
+    "PNS",
+    "Wiraswasta",
+    "Petani",
+    "Buruh",
+    "Pegawai Swasta",
+    "Guru/Dosen",
+    "Dokter",
+    "Polisi/TNI",
+    "Lainnya",
+  ];
   const [formData, setFormData] = useState({
     nama: "",
     tglLahir: "",
@@ -212,15 +223,16 @@ const MahasiswaProfile = () => {
                     Jenis Kelamin
                   </Label>
                   <Select
+                    className=""
                     value={formData.jenisKelamin}
                     onValueChange={(value) =>
                       handleSelectChange(value, "jenisKelamin")
                     }
                   >
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger className="w-full ">
                       <SelectValue placeholder="Pilih jenis kelamin" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       <SelectItem value="Laki-laki">Laki-laki</SelectItem>
                       <SelectItem value="Perempuan">Perempuan</SelectItem>
                     </SelectContent>
@@ -253,7 +265,7 @@ const MahasiswaProfile = () => {
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Pilih status perkawinan" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       <SelectItem value="Belum Kawin">Belum Kawin</SelectItem>
                       <SelectItem value="Kawin">Kawin</SelectItem>
                       <SelectItem value="Cerai Hidup">Cerai Hidup</SelectItem>

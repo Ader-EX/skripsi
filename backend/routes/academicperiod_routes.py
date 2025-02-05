@@ -91,6 +91,19 @@ async def get_all_academic_periods(db: Session = Depends(get_db)):
     return db.query(AcademicPeriods).all()
 
 
+@router.get("/active", status_code=status.HTTP_200_OK)
+async def get_active_academic_period(db: Session = Depends(get_db)):
+    active_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
+    
+    if not active_period:
+        raise HTTPException(status_code=404, detail="No active academic period found")
+
+    return {
+        "semester": active_period.semester,
+        "tahun_ajaran": active_period.tahun_ajaran
+    }
+
+
 @router.get("/{academic_period_id}", response_model=AcademicPeriodRead)
 async def get_academic_period_by_id(academic_period_id: int, db: Session = Depends(get_db)):
     academic_period = db.query(AcademicPeriods).filter(AcademicPeriods.id == academic_period_id).first()
@@ -135,6 +148,8 @@ async def update_academic_period(
     return academic_period
 
 
+
+
 @router.delete("/{academic_period_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_academic_period(academic_period_id: int, db: Session = Depends(get_db)):
     academic_period = db.query(AcademicPeriods).filter(AcademicPeriods.id == academic_period_id).first()
@@ -144,3 +159,5 @@ async def delete_academic_period(academic_period_id: int, db: Session = Depends(
     db.delete(academic_period)
     db.commit()
     return {"message": "Academic period deleted successfully"}
+
+
