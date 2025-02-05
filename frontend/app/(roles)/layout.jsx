@@ -9,7 +9,7 @@ const layout = async ({ children }) => {
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
       <AppSidebar />
-      <main>
+      <main className="flex w-full">
         <SidebarTrigger />
         {children}
       </main>

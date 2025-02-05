@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
+from model.user_model import User
 from database import get_db
 from model.dosen_model import Dosen
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional, List
 from pydantic import BaseModel, validator, field_validator
 
@@ -53,6 +54,23 @@ class DosenRead(DosenBase):
         orm_mode = True
 
 
+class DosenUpdate(BaseModel):
+    nidn: Optional[str]
+    pegawai_id: Optional[int]
+    nip: Optional[str]
+    nomor_ktp: Optional[str]
+    nama: str
+    progdi_id: Optional[int]
+    tanggal_lahir: Optional[date]
+    ijin_mengajar: Optional[bool] = True
+    jabatan: Optional[str]
+    title_depan: Optional[str]
+    title_belakang: Optional[str]
+    jabatan_id: Optional[int]
+    is_sekdos: Optional[bool] = False
+    is_dosen_kb: Optional[bool] = False
+    
+
 router = APIRouter()
 
 
@@ -71,7 +89,7 @@ async def create_dosen(dosen: DosenCreate = Body(...), db: Session = Depends(get
     return db_dosen
 
 
-@router.get("/dosen/{dosen_id}", response_model=DosenRead, status_code=status.HTTP_200_OK)
+@router.get("/{dosen_id}", response_model=DosenRead, status_code=status.HTTP_200_OK)
 async def get_dosen(dosen_id: int, db: Session = Depends(get_db)):
     dosen = db.query(Dosen).filter(Dosen.id == dosen_id).first()
     if not dosen:
@@ -83,3 +101,20 @@ async def get_dosen(dosen_id: int, db: Session = Depends(get_db)):
 async def get_all_dosen(db: Session = Depends(get_db)):
     dosen = db.query(Dosen).all()
     return dosen
+
+@router.put("/{dosen_id}", response_model=DosenRead)
+async def update_dosen(dosen_id: int, dosen: DosenUpdate, db: Session = Depends(get_db)):
+    db_dosen = db.query(Dosen).filter(Dosen.id == dosen_id).first()
+    if not db_dosen:
+        raise HTTPException(status_code=404, detail="Dosen not found")
+
+    # Exclude 'id' and 'user_id' from being updated
+    update_data = dosen.dict(exclude_unset=True, exclude={"user_id", "id"})
+
+    for key, value in update_data.items():
+        setattr(db_dosen, key, value)
+
+    db.commit()
+    db.refresh(db_dosen)
+    return db_dosen
+

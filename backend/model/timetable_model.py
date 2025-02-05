@@ -1,7 +1,10 @@
 from typing import List
+from model.timeslot_model import TimeSlot
 from database import Base
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 from sqlalchemy import JSON, String, Integer, ForeignKey, Boolean
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import object_session
 
 class TimeTable(Base):
     __tablename__ = "timetable"
@@ -23,3 +26,10 @@ class TimeTable(Base):
     academic_period: Mapped["AcademicPeriods"] = relationship("AcademicPeriods", back_populates="timetables")
     mahasiswa_timetable: Mapped[list["MahasiswaTimeTable"]] = relationship("MahasiswaTimeTable", back_populates="timetable")
     opened_class: Mapped["OpenedClass"] = relationship("OpenedClass", back_populates="timetables")  # Add this line
+    
+    @hybrid_property
+    def timeslots(self):
+        session = object_session(self)
+        if session is None:
+            raise Exception("No session found for this object.")
+        return session.query(TimeSlot).filter(TimeSlot.id.in_(self.timeslot_ids)).all()

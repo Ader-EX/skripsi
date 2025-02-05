@@ -11,20 +11,21 @@ import { jwtDecode } from "jwt-decode";
 
 export default function Navbar() {
   const [state, setState] = React.useState(false);
+  const [role, setRole] = React.useState("guest"); // Initialize role state
   const { token, logout } = useAuthStore();
   const router = useRouter();
 
-  const hasil = Cookies.get("access_token");
-
-  let role = "";
-  if (hasil) {
-    try {
-      const decoded = jwtDecode(hasil);
-      role = decoded.role || "guest";
-    } catch (error) {
-      console.error("JWT Decode Error:", error);
+  React.useEffect(() => {
+    const hasil = Cookies.get("access_token");
+    if (hasil) {
+      try {
+        const decoded = jwtDecode(hasil);
+        setRole(decoded.role || "guest"); // Update role state
+      } catch (error) {
+        console.error("JWT Decode Error:", error);
+      }
     }
-  }
+  }, []); // Empty dependency array ensures this runs only once on mount
 
   // Define role-based dashboard URL
   const dashboardUrl =
@@ -39,7 +40,7 @@ export default function Navbar() {
   const handleLogout = () => {
     logout();
     Cookies.remove("access_token");
-    router.push("/");
+    router.refresh();
   };
 
   return (
@@ -65,11 +66,11 @@ export default function Navbar() {
         {/* Navbar Menu */}
         <div
           className={`flex-1 justify-self-center pb-3 mt-8 md:block md:pb-0 md:mt-0 ${
-            state ? "block" : "hidden"
+            state ? "hidden" : "block"
           }`}
         >
-          <ul className="justify-end items-center space-y-8 md:flex md:space-x-6 md:space-y-0">
-            {hasil ? (
+          <ul className="flex flex-col sm:flex-row justify-end items-center space-y-4 sm:space-y-0 sm:space-x-6">
+            {role !== "guest" ? (
               <>
                 {/* Dashboard Button */}
                 <Link href={dashboardUrl}>
@@ -77,8 +78,6 @@ export default function Navbar() {
                     Go to Dashboard
                   </button>
                 </Link>
-
-                {/* User Avatar */}
 
                 {/* Logout Button */}
                 <button

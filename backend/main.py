@@ -19,7 +19,7 @@ from routes.programstudi_routes import router as programstudi_router
 
 from routes.openedclass_routes import router as openedclass_router
 from routes.academicperiod_routes import router as academicperiod_router
-from routes.timetable_routes import router as timetable_router
+
 from routes.mahasiswatimetable_routes import router as mahasiswatimetable_router
 from routes.algorithm_routes import router as algorithm_router
 
@@ -72,6 +72,5 @@ app.include_router(programstudi_router, prefix="/program-studi", tags=["Program 
 app.include_router(openedclass_router, prefix="/opened-class", tags=["Opened Class"])
 app.include_router(academicperiod_router, prefix="/academic-period", tags=["Academic Period"])
 
-app.include_router(timetable_router, prefix="/timetable", tags=["Timetable"])
 app.include_router(mahasiswatimetable_router, prefix="/mahasiswa-timetable", tags=["Mahasiswa Timetable"])
 app.include_router(algorithm_router, prefix="/algorithm", tags=["Genetic Algorithm"])

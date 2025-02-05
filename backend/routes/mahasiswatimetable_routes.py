@@ -75,7 +75,7 @@ async def add_lecture_to_timetable(entry: MahasiswaTimeTableCreate, db: Session 
 async def get_timetable_by_mahasiswa(mahasiswa_id: int, db: Session = Depends(get_db)):
     timetable_entries = db.query(MahasiswaTimeTable).filter(MahasiswaTimeTable.mahasiswa_id == mahasiswa_id).all()
     if not timetable_entries:
-        raise HTTPException(status_code=404, detail="No timetable entries found for this mahasiswa")
+        raise HTTPException(status_code=200, detail="No timetable entries found for this mahasiswa")
     return timetable_entries
 
 

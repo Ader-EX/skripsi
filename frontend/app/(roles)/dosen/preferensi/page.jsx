@@ -47,8 +47,8 @@ const DosenPreferensi = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPreference, setSelectedPreference] = useState(null);
   const [isSpecialNeeds, setIsSpecialNeeds] = useState(false);
-  const [userId, setUserId] = useState(null); // Add state for userId
-  const [userRole, setUserRole] = useState(null); // Add state for userRole
+  const [userId, setUserId] = useState(null);
+  const [userRole, setUserRole] = useState(null);
 
   useEffect(() => {
     const token = Cookies.get("access_token");
@@ -59,8 +59,8 @@ const DosenPreferensi = () => {
         fetch(`http://localhost:8000/user/details?email=${encodedEmail}`)
           .then((response) => response.json())
           .then((data) => {
-            setUserId(data.id); // Set the user ID
-            setUserRole(data.role); // Set the user role
+            setUserId(data.id);
+            setUserRole(data.role);
           })
           .catch((error) => {
             console.error("Error fetching user details:", error);
@@ -69,7 +69,6 @@ const DosenPreferensi = () => {
     }
   }, []);
 
-  // Predefined reasons
   const reasonOptions = [
     "Personal preference",
     "Research project",
@@ -136,24 +135,28 @@ const DosenPreferensi = () => {
     }
   };
 
-  const handlePreferenceClick = (timeSlotId) => {
+  const handlePreferenceClick = (timeSlotId, isChecked) => {
     const existingPref = preferences.find((p) => p.timeslot_id === timeSlotId);
-    if (existingPref) {
-      setSelectedPreference(existingPref);
+
+    if (isChecked) {
+      // If the checkbox is checked, open the modal
+      setSelectedPreference(existingPref || { timeslot_id: timeSlotId });
       setIsModalOpen(true);
     } else {
-      handlePreferenceChange(timeSlotId);
+      // If the checkbox is unchecked, delete the preference
+      if (existingPref) {
+        handlePreferenceChange(timeSlotId, { delete: true });
+      }
     }
   };
 
   const handlePreferenceChange = async (timeSlotId, prefData = {}) => {
-    console.log(userId + "preference data + " + " + timeSlotId " + timeSlotId);
     try {
       const existingPref = preferences.find(
         (p) => p.timeslot_id === timeSlotId
       );
 
-      if (existingPref && !prefData) {
+      if (prefData.delete) {
         // DELETE preference if unchecked
         await fetch(`http://localhost:8000/preference/${existingPref.id}`, {
           method: "DELETE",
@@ -171,8 +174,8 @@ const DosenPreferensi = () => {
             body: JSON.stringify({
               ...existingPref,
               ...prefData,
-              dosen_id: userId, // ✅ Ensure dosen_id is sent
-              timeslot_id: timeSlotId, // ✅ Ensure timeslot_id is sent
+              dosen_id: userId,
+              timeslot_id: timeSlotId,
             }),
           }
         );
@@ -190,8 +193,8 @@ const DosenPreferensi = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            dosen_id: userId, // ✅ Include dosen_id
-            timeslot_id: timeSlotId, // ✅ Include timeslot_id
+            dosen_id: userId,
+            timeslot_id: timeSlotId,
             is_special_needs: isSpecialNeeds,
             is_high_priority: false,
             ...prefData,
@@ -211,7 +214,6 @@ const DosenPreferensi = () => {
   const handleSpecialNeedsChange = async (checked) => {
     setIsSpecialNeeds(checked);
     try {
-      // Update all existing preferences
       const updatePromises = preferences.map((pref) =>
         fetch(`http://localhost:8000/preference/${pref.id}`, {
           method: "PUT",
@@ -226,7 +228,7 @@ const DosenPreferensi = () => {
       );
 
       await Promise.all(updatePromises);
-      await fetchPreferences(); // Refresh preferences
+      await fetchPreferences();
     } catch (error) {
       console.error("Error updating special needs status:", error);
       setError("Failed to update special needs status");
@@ -334,8 +336,8 @@ const DosenPreferensi = () => {
                             <div className="flex items-center justify-center">
                               <Checkbox
                                 checked={!!preference}
-                                onCheckedChange={() =>
-                                  handlePreferenceClick(timeSlot.id)
+                                onCheckedChange={(checked) =>
+                                  handlePreferenceClick(timeSlot.id, checked)
                                 }
                                 className={`h-4 w-4 ${
                                   preference?.is_high_priority
@@ -384,6 +386,7 @@ const DosenPreferensi = () => {
                       reason: value,
                     }));
                   }}
+                  disabled={!selectedPreference?.is_high_priority}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Pilih alasan" />
