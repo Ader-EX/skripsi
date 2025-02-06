@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Body
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from model.user_model import User
 from database import get_db
 from model.dosen_model import Dosen
 from datetime import date, datetime
-from typing import Optional, List
+from typing import Any, Dict, Optional, List
 from pydantic import BaseModel, validator, field_validator
 
 
@@ -118,3 +119,36 @@ async def update_dosen(dosen_id: int, dosen: DosenUpdate, db: Session = Depends(
     db.refresh(db_dosen)
     return db_dosen
 
+@router.get("/get-dosen/names", response_model=Dict[str, Any], status_code=status.HTTP_200_OK)
+async def get_dosen_names(
+    db: Session = Depends(get_db),
+    page: int = Query(1, description="Page number", ge=1),
+    limit: int = Query(20, description="Number of items per page", ge=1, le=100),
+    filter: Optional[str] = Query(None, description="Filter by name or id")
+):
+    query = db.query(Dosen.id, Dosen.nama)
+
+    if filter:
+        try:
+            filter_id = int(filter)
+            query = query.filter(
+                or_(
+                    Dosen.nama.ilike(f"%{filter}%"),
+                    Dosen.id == filter_id
+                )
+            )
+        except ValueError:
+            query = query.filter(Dosen.nama.ilike(f"%{filter}%"))
+
+    total_records = query.count()
+    total_pages = (total_records + limit - 1) // limit
+
+    dosen_names = query.offset((page - 1) * limit).limit(limit).all()
+
+    return {
+        "page": page,
+        "limit": limit,
+        "total_pages": total_pages,
+        "total_records": total_records,
+        "data": [{"id": dosen.id, "nama": dosen.nama} for dosen in dosen_names]
+    }

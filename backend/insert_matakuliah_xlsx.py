@@ -1,13 +1,11 @@
 import pandas as pd
 from sqlalchemy.orm import Session
-from sqlalchemy import select, insert
 from database import SessionLocal
 from model.matakuliah_model import MataKuliah
 from model.programstudi_model import ProgramStudi
-from model.matakuliah_programstudi import MataKuliahProgramStudi
 
 # Path to the Excel file
-xlsx_file_path = "datas/merge/D3SI.xlsx"
+xlsx_file_path = "datas/merge/S1IF.xlsx"
 
 def determine_tipe_and_kelas_besar(nama_mk):
     """
@@ -25,62 +23,48 @@ def load_xlsx_to_database(file_path, program_studi_name):
     session = SessionLocal()
 
     try:
-        # Get the program_studi ID from the database
+        # Get the Program Studi from the database
         program_studi = session.query(ProgramStudi).filter_by(name=program_studi_name).first()
         if not program_studi:
             raise ValueError(f"Program Studi '{program_studi_name}' not found in the database.")
-
-        program_studi_id = program_studi.id
 
         # Read the Excel file
         df = pd.read_excel(file_path)
 
         for _, row in df.iterrows():
-            kodemk = row["f_kodemk"]
+            kodemk = f"IF-{row['f_kodemk']}"  # Prefix kodemk with IF-
 
-            # Check if the MataKuliah already exists
-            mata_kuliah = session.query(MataKuliah).filter_by(kodemk=kodemk).first()
+            # Check if the MataKuliah already exists **WITH THE SAME PROGRAM STUDI**
+            existing_mata_kuliah = session.query(MataKuliah).filter_by(
+                kodemk=kodemk, 
+                program_studi_id=program_studi.id
+            ).first()
 
-            if not mata_kuliah:
-                # If MataKuliah doesn't exist, create it
-                tipe_mk, have_kelas_besar = determine_tipe_and_kelas_besar(row["f_namamk"])
-                mata_kuliah = MataKuliah(
-                    kodemk=kodemk,
-                    namamk=row["f_namamk"],
-                    sks=row["f_sks_kurikulum"],
-                    smt=row["f_semester"],
-                    kurikulum=row["f_kurikulum"],
-                    status_mk=row["f_statusaktifmk"],
-                    tipe_mk=have_kelas_besar,
-                    have_kelas_besar=have_kelas_besar
-                )
-                session.add(mata_kuliah)
-                session.commit()  # Commit to save the MataKuliah first
-
-            # Check if the association with the program_studi already exists
-            stmt = select(MataKuliahProgramStudi).where(
-                (MataKuliahProgramStudi.mata_kuliah_id == mata_kuliah.kodemk) &
-                (MataKuliahProgramStudi.program_studi_id == program_studi_id)
-            )
-            association_exists = session.execute(stmt).first()
-
-            if association_exists:
+            if existing_mata_kuliah:
                 duplicates.append(row.to_dict())
-                continue
+                continue  # Skip duplicates
 
-            # Add the association to the MataKuliahProgramStudi table
-            stmt = insert(MataKuliahProgramStudi).values(
-                mata_kuliah_id=mata_kuliah.kodemk,
-                program_studi_id=program_studi_id
+            # If MataKuliah doesn't exist, create it
+            tipe_mk, have_kelas_besar = determine_tipe_and_kelas_besar(row["f_namamk"])
+            mata_kuliah = MataKuliah(
+                kodemk=kodemk,
+                namamk=row["f_namamk"],
+                sks=row["f_sks_kurikulum"],
+                smt=row["f_semester"],
+                kurikulum=row["f_kurikulum"],
+                status_mk=row["f_statusaktifmk"],
+                tipe_mk=tipe_mk,  # Fix: Use the correct "T" or "P"
+                have_kelas_besar=have_kelas_besar,
+                program_studi_id=program_studi.id  # ✅ Direct association to Program Studi
             )
-            session.execute(stmt)
+            session.add(mata_kuliah)
 
-        # Commit the session to save changes to the database
+        # Commit changes
         session.commit()
 
         # Log duplicates
         if duplicates:
-            print("Duplicate associations found:")
+            print("Duplicate courses found:")
             for dup in duplicates:
                 print(dup)
 
@@ -90,5 +74,5 @@ def load_xlsx_to_database(file_path, program_studi_name):
     finally:
         session.close()
 
-# Run the loader for D3SI
-load_xlsx_to_database(xlsx_file_path, "D3SI")
+# Run the loader for S1IF
+load_xlsx_to_database(xlsx_file_path, "S1IF")

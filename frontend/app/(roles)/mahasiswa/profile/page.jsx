@@ -37,19 +37,19 @@ const MahasiswaProfile = () => {
   ];
   const [formData, setFormData] = useState({
     nama: "",
-    tglLahir: "",
-    kotaLahir: "",
-    jenisKelamin: "Laki-laki",
+    tgl_lahir: "",
+    kota_lahir: "",
+    jenis_kelamin: "Laki-laki",
     alamat: "",
-    kodePos: "",
+    kode_pos: "",
     hp: "",
     email: "",
     kewarganegaraan: "",
-    namaAyah: "",
-    namaIbu: "",
-    pekerjaanAyah: "",
-    pekerjaanIbu: "",
-    statusKawin: "Belum Kawin",
+    nama_ayah: "",
+    nama_ibu: "",
+    pekerjaan_ayah: "",
+    pekerjaan_ibu: "",
+    status_kawin: 0,
   });
 
   useEffect(() => {
@@ -82,16 +82,18 @@ const MahasiswaProfile = () => {
       setFormData((prev) => ({
         ...prev,
         ...data,
-        tglLahir: data.tgl_lahir || "",
-        kotaLahir: data.kota_lahir || "",
-        jenisKelamin: data.jenis_kelamin || "Laki-laki",
-        kodePos: data.kode_pos || "",
-        namaAyah: data.nama_ayah || "",
-        namaIbu: data.nama_ibu || "",
-        pekerjaanAyah: data.pekerjaan_ayah || "",
-        pekerjaanIbu: data.pekerjaan_ibu || "",
-        statusKawin: data.status_kawin || "Belum Kawin",
+
+        tgl_lahir: data.tgl_lahir || "",
+        kota_lahir: data.kota_lahir || "",
+        jenis_kelamin: data.jenis_kelamin || "Laki-laki",
+        kode_pos: data.kode_pos || "",
+        nama_ayah: data.nama_ayah || "",
+        nama_ibu: data.nama_ibu || "",
+        pekerjaan_ayah: data.pekerjaan_ayah || "",
+        pekerjaan_ibu: data.pekerjaan_ibu || "",
+        status_kawin: data.status_kawin || 0,
       }));
+      console.log(formData);
     } catch (err) {
       setError(err.message);
       console.error("Error fetching user data:", err);
@@ -112,6 +114,7 @@ const MahasiswaProfile = () => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
+      [field]: value === "Belum Kawin" ? 0 : 1,
     }));
   };
 
@@ -119,7 +122,7 @@ const MahasiswaProfile = () => {
     e.preventDefault();
     setError(null);
     setSuccessMessage("");
-
+    console.log(formData);
     try {
       if (!userId) {
         throw new Error("User ID not found");
@@ -193,25 +196,25 @@ const MahasiswaProfile = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="tglLahir" className="text-gray-700">
+                  <Label htmlFor="tgl_lahir" className="text-gray-700">
                     Tanggal Lahir
                   </Label>
                   <Input
                     type="date"
-                    id="tglLahir"
-                    value={formData.tglLahir}
+                    id="tgl_lahir"
+                    value={formData.tgl_lahir}
                     onChange={handleChange}
                     className="w-full"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="kotaLahir" className="text-gray-700">
+                  <Label htmlFor="kota_lahir" className="text-gray-700">
                     Kota Lahir
                   </Label>
                   <Input
-                    id="kotaLahir"
-                    value={formData.kotaLahir}
+                    id="kota_lahir"
+                    value={formData.kota_lahir}
                     onChange={handleChange}
                     placeholder="Masukkan kota lahir"
                     className="w-full"
@@ -219,14 +222,14 @@ const MahasiswaProfile = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="jenisKelamin" className="text-gray-700">
+                  <Label htmlFor="jenis_kelamin" className="text-gray-700">
                     Jenis Kelamin
                   </Label>
                   <Select
                     className=""
-                    value={formData.jenisKelamin}
+                    value={formData.jenis_kelamin}
                     onValueChange={(value) =>
-                      handleSelectChange(value, "jenisKelamin")
+                      handleSelectChange(value, "jenis_kelamin")
                     }
                   >
                     <SelectTrigger className="w-full ">
@@ -253,13 +256,17 @@ const MahasiswaProfile = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="statusKawin" className="text-gray-700">
+                  <Label htmlFor="status_kawin" className="text-gray-700">
                     Status Perkawinan
                   </Label>
                   <Select
-                    value={formData.statusKawin}
+                    value={
+                      formData.status_kawin === 0
+                        ? "Belum Kawin"
+                        : "Sudah Kawin"
+                    }
                     onValueChange={(value) =>
-                      handleSelectChange(value, "statusKawin")
+                      handleSelectChange(value, "status_kawin")
                     }
                   >
                     <SelectTrigger className="w-full">
@@ -267,9 +274,7 @@ const MahasiswaProfile = () => {
                     </SelectTrigger>
                     <SelectContent className="bg-white">
                       <SelectItem value="Belum Kawin">Belum Kawin</SelectItem>
-                      <SelectItem value="Kawin">Kawin</SelectItem>
-                      <SelectItem value="Cerai Hidup">Cerai Hidup</SelectItem>
-                      <SelectItem value="Cerai Mati">Cerai Mati</SelectItem>
+                      <SelectItem value="Sudah Kawin">Sudah Kawin</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -296,13 +301,13 @@ const MahasiswaProfile = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="kodePos" className="text-gray-700">
+                  <Label htmlFor="kode_pos" className="text-gray-700">
                     Kode Pos
                   </Label>
                   <Input
-                    type="text"
-                    id="kodePos"
-                    value={formData.kodePos}
+                    type="number"
+                    id="kode_pos"
+                    value={formData.kode_pos}
                     onChange={handleChange}
                     placeholder="Masukkan kode pos"
                     pattern="[0-9]*"
@@ -349,12 +354,12 @@ const MahasiswaProfile = () => {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="namaAyah" className="text-gray-700">
+                  <Label htmlFor="nama_ayah" className="text-gray-700">
                     Nama Ayah
                   </Label>
                   <Input
-                    id="namaAyah"
-                    value={formData.namaAyah}
+                    id="nama_ayah"
+                    value={formData.nama_ayah}
                     onChange={handleChange}
                     placeholder="Masukkan nama ayah"
                     className="w-full"
@@ -362,12 +367,12 @@ const MahasiswaProfile = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="namaIbu" className="text-gray-700">
+                  <Label htmlFor="nama_ibu" className="text-gray-700">
                     Nama Ibu
                   </Label>
                   <Input
-                    id="namaIbu"
-                    value={formData.namaIbu}
+                    id="nama_ibu"
+                    value={formData.nama_ibu}
                     onChange={handleChange}
                     placeholder="Masukkan nama ibu"
                     className="w-full"
@@ -375,12 +380,12 @@ const MahasiswaProfile = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="pekerjaanAyah" className="text-gray-700">
+                  <Label htmlFor="pekerjaan_ayah" className="text-gray-700">
                     Pekerjaan Ayah
                   </Label>
                   <Input
-                    id="pekerjaanAyah"
-                    value={formData.pekerjaanAyah}
+                    id="pekerjaan_ayah"
+                    value={formData.pekerjaan_ayah}
                     onChange={handleChange}
                     placeholder="Masukkan pekerjaan ayah"
                     className="w-full"
@@ -388,12 +393,12 @@ const MahasiswaProfile = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="pekerjaanIbu" className="text-gray-700">
+                  <Label htmlFor="pekerjaan_ibu" className="text-gray-700">
                     Pekerjaan Ibu
                   </Label>
                   <Input
-                    id="pekerjaanIbu"
-                    value={formData.pekerjaanIbu}
+                    id="pekerjaan_ibu"
+                    value={formData.pekerjaan_ibu}
                     onChange={handleChange}
                     placeholder="Masukkan pekerjaan ibu"
                     className="w-full"

@@ -55,14 +55,23 @@ class RuanganRead(BaseModel):
     kapasitas: int
     alamat: Optional[str]
     kode_mapping: Optional[str]
-    gedung: str
-    group_code: str
+    gedung: Optional[str]
+    group_code: Optional[str]
+
+    class Config:
+        orm_mode = True
+
+class PaginatedRuangan(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    data: List[RuanganRead]
 
     class Config:
         orm_mode = True
 
 # CRUD Operations
-@router.post("/ruangan", response_model=RuanganRead, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=RuanganRead, status_code=status.HTTP_201_CREATED)
 async def create_ruangan(ruangan: RuanganCreate, db: Session = Depends(get_db)):
     # Check if ruangan already exists
     db_ruangan = db.query(Ruangan).filter(Ruangan.kode_ruangan == ruangan.kode_ruangan).first()
@@ -75,30 +84,47 @@ async def create_ruangan(ruangan: RuanganCreate, db: Session = Depends(get_db)):
     db.refresh(new_ruangan)
     return new_ruangan
 
-@router.get("/ruangan/{ruangan_id}", response_model=RuanganRead)
+
+
+@router.get("/", response_model=PaginatedRuangan)
+async def get_all_ruangan(
+    jenis: Optional[str] = Query(None, description="Filter by jenis ruang"),
+    name: Optional[str] = Query(None, description="Search by name"),
+    gedung: Optional[str] = Query(None, description="Filter by gedung"),
+    group_code: Optional[str] = Query(None, description="Filter by group code"),
+    page: int = Query(1, description="Page number", gt=0),
+    page_size: int = Query(10, description="Page size", gt=0),
+    db: Session = Depends(get_db),
+):
+    query = db.query(Ruangan)
+    
+    if jenis and jenis != "Semua":
+        query = query.filter(Ruangan.jenis_ruang == jenis)
+    if name:
+        query = query.filter(Ruangan.nama_ruang.ilike(f"%{name}%"))
+    if gedung and gedung != "Semua":
+        query = query.filter(Ruangan.gedung == gedung)
+    if group_code and group_code != "Semua":
+        query = query.filter(Ruangan.group_code == group_code)
+    
+    total = query.count()
+    ruangan_list = query.offset((page - 1) * page_size).limit(page_size).all()
+    
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "data": ruangan_list
+    }
+
+@router.get("/{ruangan_id}", response_model=RuanganRead)
 async def get_ruangan(ruangan_id: int, db: Session = Depends(get_db)):
     ruangan = db.query(Ruangan).filter(Ruangan.id == ruangan_id).first()
     if not ruangan:
         raise HTTPException(status_code=404, detail="Ruangan not found")
     return ruangan
 
-@router.get("/ruangan", response_model=List[RuanganRead])
-async def get_all_ruangan(
-    jenis: Optional[JenisRuanganEnum] = Query(None, description="Filter by jenis ruang"),
-    gedung: Optional[GedungEnum] = Query(None, description="Filter by gedung"),
-    group_code: Optional[GroupCodeEnum] = Query(None, description="Filter by group code"),
-    db: Session = Depends(get_db),
-):
-    query = db.query(Ruangan)
-    if jenis:
-        query = query.filter(Ruangan.jenis_ruang == jenis.value)
-    if gedung:
-        query = query.filter(Ruangan.gedung == gedung.value)
-    if group_code:
-        query = query.filter(Ruangan.group_code == group_code.value)
-    return query.all()
-
-@router.put("/ruangan/{ruangan_id}", response_model=RuanganRead)
+@router.put("/{ruangan_id}", response_model=RuanganRead)
 async def update_ruangan(ruangan_id: int, updated_ruangan: RuanganCreate, db: Session = Depends(get_db)):
     ruangan = db.query(Ruangan).filter(Ruangan.id == ruangan_id).first()
     if not ruangan:
@@ -111,7 +137,7 @@ async def update_ruangan(ruangan_id: int, updated_ruangan: RuanganCreate, db: Se
     db.refresh(ruangan)
     return ruangan
 
-@router.delete("/ruangan/{ruangan_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{ruangan_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_ruangan(ruangan_id: int, db: Session = Depends(get_db)):
     ruangan = db.query(Ruangan).filter(Ruangan.id == ruangan_id).first()
     if not ruangan:

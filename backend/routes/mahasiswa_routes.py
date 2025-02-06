@@ -31,6 +31,26 @@ class MahasiswaBase(BaseModel):
     pekerjaan_ibu: Optional[str] = None
     status_kawin: Optional[bool] = False
 
+class MahasiswaUpdate(BaseModel):
+    program_studi_id: Optional[int] = None
+    tahun_masuk: Optional[int] = None
+    semester: Optional[int] = None
+    sks_diambil: Optional[int] = None
+    nama: Optional[str] = None
+    tgl_lahir: Optional[date] = None
+    kota_lahir: Optional[str] = None
+    jenis_kelamin: Optional[str] = None
+    kewarganegaraan: Optional[str] = None
+    alamat: Optional[str] = None
+    kode_pos: Optional[int] = None
+    hp: Optional[str] = None
+    email: Optional[EmailStr] = None
+    nama_ayah: Optional[str] = None
+    nama_ibu: Optional[str] = None
+    pekerjaan_ayah: Optional[str] = None
+    pekerjaan_ibu: Optional[str] = None
+    status_kawin: Optional[bool] = False
+
 class MahasiswaCreate(MahasiswaBase):
     pass
 
@@ -75,17 +95,17 @@ async def read_all_mahasiswa(db: Session = Depends(get_db)):
 
 # Update Mahasiswa
 @router.put("/{mahasiswa_id}", response_model=MahasiswaRead)
-async def update_mahasiswa(mahasiswa_id: int, mahasiswa: MahasiswaCreate, db: Session = Depends(get_db)):
+async def update_mahasiswa(mahasiswa_id: int, mahasiswa: MahasiswaUpdate, db: Session = Depends(get_db)):
     db_mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.id == mahasiswa_id).first()
     if not db_mahasiswa:
         raise HTTPException(status_code=404, detail="Mahasiswa not found")
 
     # Ensure the User exists
-    user = db.query(User).filter(User.id == mahasiswa.user_id).first()
+    user = db.query(User).filter(User.id == db_mahasiswa.user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User with the given user_id not found")
 
-    for key, value in mahasiswa.dict().items():
+    for key, value in mahasiswa.dict(exclude_unset=True).items():
         setattr(db_mahasiswa, key, value)
 
     db.commit()

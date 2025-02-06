@@ -1,40 +1,37 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, logger, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from model.dosen_model import Dosen
 from model.timeslot_model import TimeSlot
-from model.matakuliah_programstudi import MataKuliahProgramStudi
 from model.openedclass_model import OpenedClass
 from model.matakuliah_model import MataKuliah
+from model.mahasiswatimetable_model import MahasiswaTimeTable
+from model.mahasiswa_model import Mahasiswa
+from model.timetable_model import TimeTable
 from database import get_db
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
-from model.mahasiswatimetable_model import MahasiswaTimeTable
-from model.mahasiswa_model import Mahasiswa
-from model.timetable_model import TimeTable
-
 router = APIRouter()
 
-# Pydantic Models
+# 🔹 **Pydantic Models**
 class MahasiswaTimeTableBase(BaseModel):
     mahasiswa_id: int
     timetable_id: int
     semester: int
-    tahun_ajaran: int
+    tahun_ajaran: str
 
 class MahasiswaTimeTableCreate(MahasiswaTimeTableBase):
     pass
 
 class MahasiswaTimeTableRead(MahasiswaTimeTableBase):
     id: int
-    
 
     class Config:
         orm_mode = True
 
 
-# Routes
+# ✅ **POST: Add Mahasiswa to Timetable**
 @router.post("/", response_model=MahasiswaTimeTableRead, status_code=status.HTTP_201_CREATED)
 async def add_lecture_to_timetable(entry: MahasiswaTimeTableCreate, db: Session = Depends(get_db)):
     # Check if Mahasiswa exists
@@ -52,15 +49,8 @@ async def add_lecture_to_timetable(entry: MahasiswaTimeTableCreate, db: Session 
     if not opened_class:
         raise HTTPException(status_code=404, detail="Opened Class not found")
 
-    # Get the MataKuliahProgramStudi associated with the OpenedClass
-    mata_kuliah_program_studi = db.query(MataKuliahProgramStudi).filter(
-        MataKuliahProgramStudi.id == opened_class.mata_kuliah_program_studi_id
-    ).first()
-    if not mata_kuliah_program_studi:
-        raise HTTPException(status_code=404, detail="Mata Kuliah Program Studi not found")
-
-    # Retrieve the MataKuliah associated with the MataKuliahProgramStudi
-    mata_kuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == mata_kuliah_program_studi.mata_kuliah_id).first()
+    # Get MataKuliah directly from OpenedClass
+    mata_kuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == opened_class.mata_kuliah_kodemk).first()
     if not mata_kuliah:
         raise HTTPException(status_code=404, detail="Mata Kuliah not found")
 
@@ -71,7 +61,7 @@ async def add_lecture_to_timetable(entry: MahasiswaTimeTableCreate, db: Session 
     ).first()
 
     if existing_entry:
-        raise HTTPException(status_code=400, detail="Timetable already added to the mahasiswa's timetable")
+        raise HTTPException(status_code=400, detail="Timetable already added to the mahasiswa's schedule")
 
     # Check if the class is full
     current_enrollment = db.query(MahasiswaTimeTable).filter(
@@ -81,62 +71,50 @@ async def add_lecture_to_timetable(entry: MahasiswaTimeTableCreate, db: Session 
     if current_enrollment >= timetable.kapasitas:
         raise HTTPException(status_code=400, detail="Class is full, cannot add more students")
 
-    # Update the Mahasiswa's sks_diambil
-    mahasiswa.sks_diambil += mata_kuliah.sks  # Add the SKS from MataKuliah
-    db.commit()  # Commit the update to Mahasiswa
+    # Update Mahasiswa's `sks_diambil`
+    mahasiswa.sks_diambil += mata_kuliah.sks  # Add SKS from MataKuliah
+    db.commit()  # Commit update to Mahasiswa
 
     # Create a new MahasiswaTimeTable entry
     new_entry = MahasiswaTimeTable(
         mahasiswa_id=entry.mahasiswa_id,
         timetable_id=entry.timetable_id,
         semester=entry.semester,
-        tahun_ajaran=entry.tahun_ajaran
+        tahun_ajaran=str(entry.tahun_ajaran)  # Ensure tahun_ajaran is a string
     )
     db.add(new_entry)
     db.commit()  # Commit the new entry
-    db.refresh(new_entry)  # Refresh to get the latest data
+    db.refresh(new_entry)
+
+    # Ensure tahun_ajaran is a string in the response
+    new_entry.tahun_ajaran = str(new_entry.tahun_ajaran)
 
     return new_entry
 
-
-
-
-
-
+# ✅ **GET: Get Mahasiswa's Timetable**
 @router.get("/{mahasiswa_id}", response_model=List[MahasiswaTimeTableRead])
 async def get_timetable_by_mahasiswa(mahasiswa_id: int, db: Session = Depends(get_db)):
-    # Query for timetable entries
     timetable_entries = db.query(MahasiswaTimeTable).filter(MahasiswaTimeTable.mahasiswa_id == mahasiswa_id).all()
-    
-    # Log the retrieved entries for debugging
-    print(f"Retrieved timetable entries for mahasiswa_id {mahasiswa_id}: {timetable_entries}")
 
-    # Check if any entries were found
     if not timetable_entries:
         raise HTTPException(status_code=404, detail="No timetable entries found for this mahasiswa")
-
-    # Optionally, you can return the sks_diambil from the Mahasiswa model
-    mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.id == mahasiswa_id).first()
-    if mahasiswa:
-        for entry in timetable_entries:
-            entry.sks_diambil = mahasiswa.sks_diambil  # Add sks_diambil to each entry if needed
 
     return timetable_entries
 
 
+# ✅ **GET: Get Formatted Timetable by Mahasiswa**
 @router.get("/timetable/{mahasiswa_id}", response_model=Dict[str, Any])
 async def get_timetable_by_mahasiswa(
     mahasiswa_id: int,
     db: Session = Depends(get_db),
     filter: Optional[str] = Query(None, description="Filter by Mata Kuliah name or Kodemk")
 ):
-    # Check if Mahasiswa exists
     mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.id == mahasiswa_id).first()
     if not mahasiswa:
         raise HTTPException(status_code=404, detail="Mahasiswa not found")
 
     try:
-        # Base query optimized for MySQL (including title_depan & title_belakang)
+        # ✅ Fetch timetable data with timeslot information
         query = db.query(
             TimeTable.id, 
             TimeTable.opened_class_id,
@@ -145,7 +123,7 @@ async def get_timetable_by_mahasiswa(
             TimeTable.kelas,
             TimeTable.kapasitas,
             TimeTable.kuota,
-            OpenedClass.mata_kuliah_program_studi,
+            OpenedClass.mata_kuliah_kodemk,  
             MataKuliah.kodemk,
             MataKuliah.namamk,
             MataKuliah.kurikulum,
@@ -155,15 +133,14 @@ async def get_timetable_by_mahasiswa(
                 func.concat_ws(" ", Dosen.title_depan, Dosen.nama, Dosen.title_belakang)
                 .distinct()
                 .op('SEPARATOR')('||')
-            ).label("dosen_names")  # Properly formatted dosen names
+            ).label("dosen_names")  
         ).join(OpenedClass, TimeTable.opened_class_id == OpenedClass.id) \
-         .join(MataKuliah, OpenedClass.mata_kuliah_program_studi.has(mata_kuliah_id=MataKuliah.kodemk)) \
+         .join(MataKuliah, OpenedClass.mata_kuliah_kodemk == MataKuliah.kodemk) \
          .join(Dosen, OpenedClass.dosens) \
          .join(MahasiswaTimeTable, MahasiswaTimeTable.timetable_id == TimeTable.id) \
          .filter(MahasiswaTimeTable.mahasiswa_id == mahasiswa_id) \
          .group_by(TimeTable.id, OpenedClass.id, MataKuliah.kodemk, MataKuliah.namamk, MataKuliah.kurikulum, MataKuliah.sks, MataKuliah.smt)
 
-        # Apply filter if provided
         if filter:
             query = query.filter(
                 or_(
@@ -172,10 +149,9 @@ async def get_timetable_by_mahasiswa(
                 )
             )
 
-        # Fetch the data
         timetable_data = query.all()
 
-        # Fetch timeslot details in a single query
+        # ✅ Fetch timeslot details in a single query
         timeslot_ids = set(
             ts_id for entry in timetable_data for ts_id in entry.timeslot_ids if ts_id
         )
@@ -183,17 +159,15 @@ async def get_timetable_by_mahasiswa(
             ts.id: ts for ts in db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
         }
 
-        # Format the data
         formatted_timetable = []
         for entry in timetable_data:
-            # Format Dosen names into a numbered list
-            if entry.dosen_names:
-                dosen_list = entry.dosen_names.split("||")
-                formatted_dosen = "\n".join([f"{i+1}. {dosen.strip()}" for i, dosen in enumerate(dosen_list)])
-            else:
-                formatted_dosen = "-"
+            # ✅ Format Dosen names into a numbered list
+            formatted_dosen = (
+                "\n".join([f"{i+1}. {dosen.strip()}" for i, dosen in enumerate(entry.dosen_names.split("||"))])
+                if entry.dosen_names else "-"
+            )
 
-            # Format timeslots
+            # ✅ Fetch timeslot details
             formatted_timeslots = [
                 {
                     "id": ts.id,
@@ -213,8 +187,8 @@ async def get_timetable_by_mahasiswa(
                 "kap_peserta": f"{entry.kapasitas} / {entry.kuota}",
                 "sks": entry.sks,
                 "smt": entry.smt,
-                "dosen": formatted_dosen,  # Now properly formatted with titles
-                "timeslots": formatted_timeslots,  # Includes full timeslot details
+                "dosen": formatted_dosen,
+                "timeslots": formatted_timeslots,  # ✅ Now includes full timeslot details
             }
             formatted_timetable.append(formatted_entry)
 
@@ -224,40 +198,50 @@ async def get_timetable_by_mahasiswa(
         }
 
     except Exception as e:
-        logger.error(f"Error fetching timetable: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_timetable_entry(entry_id: int, db: Session = Depends(get_db)):
-    timetable_entry = db.query(MahasiswaTimeTable).filter(MahasiswaTimeTable.id == entry_id).first()
-    if not timetable_entry:
+@router.delete("/timetable/{mahasiswa_id}/{timetable_id}", status_code=status.HTTP_200_OK)
+async def delete_timetable_entry(mahasiswa_id: int, timetable_id: int, db: Session = Depends(get_db)):
+    """
+    Deletes a specific timetable entry for a mahasiswa.
+    """
+    # Check if Mahasiswa exists
+    mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.id == mahasiswa_id).first()
+    if not mahasiswa:
+        raise HTTPException(status_code=404, detail="Mahasiswa not found")
+
+    # Check if Timetable exists
+    timetable = db.query(TimeTable).filter(TimeTable.id == timetable_id).first()
+    if not timetable:
         raise HTTPException(status_code=404, detail="Timetable entry not found")
 
-    db.delete(timetable_entry)
+    # Check if Mahasiswa is enrolled in this timetable
+    entry = db.query(MahasiswaTimeTable).filter(
+        MahasiswaTimeTable.mahasiswa_id == mahasiswa_id,
+        MahasiswaTimeTable.timetable_id == timetable_id
+    ).first()
 
-    # Update total_sks for remaining entries
-    remaining_entries = db.query(MahasiswaTimeTable).filter(
-        MahasiswaTimeTable.mahasiswa_id == timetable_entry.mahasiswa_id
-    ).order_by(MahasiswaTimeTable.id.asc()).all()
-    updated_sks = 0
-    for entry in remaining_entries:
-        updated_sks += entry.timetable.sks
-        entry.total_sks = updated_sks
-        db.add(entry)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Timetable entry not found for this mahasiswa")
+
+    # Remove the timetable entry
+    db.delete(entry)
+
+    # ✅ Update mahasiswa's total SKS
+    mata_kuliah = (
+        db.query(MataKuliah)
+        .join(OpenedClass, OpenedClass.mata_kuliah_kodemk == MataKuliah.kodemk)
+        .join(TimeTable, TimeTable.opened_class_id == OpenedClass.id)
+        .filter(TimeTable.id == timetable_id)
+        .first()
+    )
+
+    if mata_kuliah:
+        mahasiswa.sks_diambil -= mata_kuliah.sks  # Deduct SKS
+        if mahasiswa.sks_diambil < 0:
+            mahasiswa.sks_diambil = 0  # Prevent negative SKS
 
     db.commit()
+
     return {"message": "Timetable entry deleted successfully"}
-
-
-@router.delete("/reset/{mahasiswa_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def reset_timetable(mahasiswa_id: int, db: Session = Depends(get_db)):
-    timetable_entries = db.query(MahasiswaTimeTable).filter(MahasiswaTimeTable.mahasiswa_id == mahasiswa_id).all()
-    if not timetable_entries:
-        raise HTTPException(status_code=404, detail="No timetable entries found for this mahasiswa")
-
-    for entry in timetable_entries:
-        db.delete(entry)
-
-    db.commit()
-    return {"message": "Timetable reset successfully"}

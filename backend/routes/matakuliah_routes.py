@@ -1,19 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from database import get_db
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 from model.matakuliah_model import MataKuliah
-from model.matakuliah_programstudi import MataKuliahProgramStudi
 from model.programstudi_model import ProgramStudi  # Assuming you have a ProgramStudi model
 
 router = APIRouter()
 
 # Pydantic Models
-class MataKuliahProgramStudiCreate(BaseModel):
-    program_studi_id: int
-
-
 class MataKuliahBase(BaseModel):
     kodemk: str
     namamk: str
@@ -22,138 +17,147 @@ class MataKuliahBase(BaseModel):
     kurikulum: str
     status_mk: str
     have_kelas_besar: bool
-    tipe_mk: int
-    program_studi_ids: List[int]  # List of program_studi IDs to associate
+    program_studi_id: int  # Single foreign key reference
 
     class Config:
         orm_mode = True
-
 
 class MataKuliahCreate(MataKuliahBase):
     pass
 
-
-class MataKuliahRead(MataKuliahBase):
-    kodemk: str  # Use kodemk as the primary key
-    program_studi_ids : List[int]
+class MataKuliahRead(BaseModel):
+    kodemk: str
+    namamk: str
+    sks: int
+    smt: int
+    kurikulum: str
+    status_mk: str
+    have_kelas_besar: bool
+    program_studi_id: int
+    program_studi_name: Optional[str]
 
     class Config:
         orm_mode = True
 
+class PaginatedMataKuliah(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    data: List[MataKuliahRead]
 
-# CRUD Routes
-@router.post("/", response_model=MataKuliahRead, status_code=status.HTTP_201_CREATED)
+# Create MataKuliah
+@router.post("/", response_model=MataKuliahRead)
 async def create_matakuliah(matakuliah: MataKuliahCreate, db: Session = Depends(get_db)):
-    # Check if the MataKuliah already exists
-    existing_matakuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == matakuliah.kodemk).first()
-    if existing_matakuliah:
-        raise HTTPException(status_code=400, detail="MataKuliah with this kode already exists.")
-
-    # Validate program_studi_ids
-    for program_studi_id in matakuliah.program_studi_ids:
-        if not db.query(ProgramStudi).filter(ProgramStudi.id == program_studi_id).first():
-            raise HTTPException(status_code=400, detail=f"ProgramStudi with ID {program_studi_id} does not exist.")
+    # Check if the ProgramStudi exists
+    program_studi = db.query(ProgramStudi).filter(ProgramStudi.id == matakuliah.program_studi_id).first()
+    if not program_studi:
+        raise HTTPException(status_code=404, detail="Program Studi not found")
 
     # Create MataKuliah
-    new_matakuliah = MataKuliah(
-        kodemk=matakuliah.kodemk,
-        namamk=matakuliah.namamk,
-        sks=matakuliah.sks,
-        smt=matakuliah.smt,
-        kurikulum=matakuliah.kurikulum,
-        status_mk=matakuliah.status_mk,
-        have_kelas_besar=matakuliah.have_kelas_besar,
-        tipe_mk=matakuliah.tipe_mk
-    )
+    new_matakuliah = MataKuliah(**matakuliah.dict())
     db.add(new_matakuliah)
     db.commit()
     db.refresh(new_matakuliah)
 
-    # Create associations with program_studi in MataKuliahProgramStudi
-    for program_studi_id in matakuliah.program_studi_ids:
-        association = MataKuliahProgramStudi(
-            mata_kuliah_id=new_matakuliah.kodemk,
-            program_studi_id=program_studi_id
-        )
-        db.add(association)
+    return MataKuliahRead(**new_matakuliah.__dict__, program_studi_name=program_studi.name)
 
-    db.commit()
-    return new_matakuliah
-
-
-@router.get("/", response_model=List[MataKuliahRead])
-async def get_all_matakuliah(db: Session = Depends(get_db)):
-    mata_kuliah_list = db.query(MataKuliah).all()
-    result = []
-    for mata_kuliah in mata_kuliah_list:
-        # Fetch associated program_studi_ids
-        program_studi_ids = [
-            association.program_studi_id
-            for association in mata_kuliah.program_studi_associations
-        ]
-        # Create a MataKuliahRead object with program_studi_ids
-        mata_kuliah_data = MataKuliahRead(
-            kodemk=mata_kuliah.kodemk,
-            namamk=mata_kuliah.namamk,
-            sks=mata_kuliah.sks,
-            smt=mata_kuliah.smt,
-            kurikulum=mata_kuliah.kurikulum,
-            status_mk=mata_kuliah.status_mk,
-            have_kelas_besar=mata_kuliah.have_kelas_besar,
-            tipe_mk=mata_kuliah.tipe_mk,
-            program_studi_ids=program_studi_ids,
-        )
-        result.append(mata_kuliah_data)
-    return result
-
-
+# ✅ **Get MataKuliah by ID**
 @router.get("/{matakuliah_id}", response_model=MataKuliahRead)
 async def get_matakuliah(matakuliah_id: str, db: Session = Depends(get_db)):
     matakuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == matakuliah_id).first()
     if not matakuliah:
         raise HTTPException(status_code=404, detail="MataKuliah not found")
-    return matakuliah
 
+    program_studi_name = db.query(ProgramStudi.name).filter(ProgramStudi.id == matakuliah.program_studi_id).scalar()
 
+    return MataKuliahRead(**matakuliah.__dict__, program_studi_name=program_studi_name)
+
+# ✅ **Update MataKuliah**
 @router.put("/{matakuliah_id}", response_model=MataKuliahRead)
 async def update_matakuliah(matakuliah_id: str, updated_data: MataKuliahCreate, db: Session = Depends(get_db)):
     matakuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == matakuliah_id).first()
     if not matakuliah:
         raise HTTPException(status_code=404, detail="MataKuliah not found")
 
-    # Validate program_studi_ids
-    for program_studi_id in updated_data.program_studi_ids:
-        if not db.query(ProgramStudi).filter(ProgramStudi.id == program_studi_id).first():
-            raise HTTPException(status_code=400, detail=f"ProgramStudi with ID {program_studi_id} does not exist.")
+    # Validate new program_studi_id
+    program_studi = db.query(ProgramStudi).filter(ProgramStudi.id == updated_data.program_studi_id).first()
+    if not program_studi:
+        raise HTTPException(status_code=400, detail=f"ProgramStudi with ID {updated_data.program_studi_id} does not exist.")
 
     # Update MataKuliah fields
-    for key, value in updated_data.dict(exclude={"program_studi_ids"}).items():
+    for key, value in updated_data.dict().items():
         setattr(matakuliah, key, value)
-
-    # Update MataKuliahProgramStudi associations
-    db.query(MataKuliahProgramStudi).filter(MataKuliahProgramStudi.mata_kuliah_id == matakuliah.kodemk).delete()
-    for program_studi_id in updated_data.program_studi_ids:
-        association = MataKuliahProgramStudi(
-            mata_kuliah_id=matakuliah.kodemk,
-            program_studi_id=program_studi_id
-        )
-        db.add(association)
 
     db.commit()
     db.refresh(matakuliah)
-    return matakuliah
 
+    return MataKuliahRead(**matakuliah.__dict__, program_studi_name=program_studi.name)
 
-@router.delete("/{matakuliah_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_matakuliah(matakuliah_id: str, db: Session = Depends(get_db)):
-    matakuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == matakuliah_id).first()
+# ✅ **Delete MataKuliah**
+@router.delete("/{kodemk}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_matakuliah(kodemk: str, db: Session = Depends(get_db)):
+    matakuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == kodemk).first()
     if not matakuliah:
         raise HTTPException(status_code=404, detail="MataKuliah not found")
 
-    # Delete associations in MataKuliahProgramStudi
-    db.query(MataKuliahProgramStudi).filter(MataKuliahProgramStudi.mata_kuliah_id == matakuliah.kodemk).delete()
-
-    # Delete MataKuliah
     db.delete(matakuliah)
     db.commit()
-    return None  # FastAPI expects no content for 204 status
+    return {
+        "id" : kodemk,
+        "detail" : "MataKuliah deleted successfully"
+
+    }  # FastAPI expects no content for 204 status
+
+
+@router.get("/", response_model=PaginatedMataKuliah)
+async def get_all_matakuliah(
+    semester: Optional[int] = Query(None, description="Filter by semester"),
+    kurikulum: Optional[str] = Query(None, description="Filter by kurikulum"),
+    status_mk: Optional[str] = Query(None, description="Filter by status mk"),
+    have_kelas_besar: Optional[str] = Query(None, description="Filter by have kelas besar"),
+    program_studi_id: Optional[int] = Query(None, description="Filter by program studi id"),
+    search: Optional[str] = Query(None, description="Search by kodemk or namamk"),
+    page: int = Query(1, description="Page number", gt=0),
+    page_size: int = Query(10, description="Page size", gt=0),
+    db: Session = Depends(get_db),
+):
+    query = db.query(MataKuliah)
+    
+    if semester and semester != "Semua":
+        query = query.filter(MataKuliah.smt == semester)
+    if kurikulum:
+        query = query.filter(MataKuliah.kurikulum.ilike(f"%{kurikulum}%"))
+    if status_mk and status_mk != "Semua":
+        query = query.filter(MataKuliah.status_mk == status_mk)
+    if have_kelas_besar and have_kelas_besar != "Semua":
+        query = query.filter(MataKuliah.have_kelas_besar == (have_kelas_besar.lower() == "true"))
+    if program_studi_id and program_studi_id != 99:
+        query = query.filter(MataKuliah.program_studi_id == program_studi_id)
+    if search:
+        query = query.filter((MataKuliah.kodemk.ilike(f"%{search}%")) | (MataKuliah.namamk.ilike(f"%{search}%")))
+    
+    total = query.count()
+    mata_kuliah_list = query.offset((page - 1) * page_size).limit(page_size).all()
+    
+    result = [
+        MataKuliahRead(
+            id=mk.kodemk,
+            kodemk=mk.kodemk,
+            namamk=mk.namamk,
+            sks=mk.sks,
+            smt=mk.smt,
+            kurikulum=mk.kurikulum,
+            status_mk=mk.status_mk,
+            have_kelas_besar=mk.have_kelas_besar,
+            program_studi_id=mk.program_studi_id,
+            program_studi_name=db.query(ProgramStudi.name).filter(ProgramStudi.id == mk.program_studi_id).scalar()
+        )
+        for mk in mata_kuliah_list
+    ]
+    
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "data": result
+    }

@@ -60,3 +60,8 @@ code {
     background-color: 255, 255, 255;
   }
 }
+
+.high-priority[data-state="checked"] {
+  background-color: rgb(239 68 68) !important; /* red-500 */
+  border-color: rgb(239 68 68) !important;
+}

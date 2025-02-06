@@ -11,7 +11,7 @@ router = APIRouter()
 
 # Pydantic Models
 class AcademicPeriodBase(BaseModel):
-    tahun_ajaran: int
+    tahun_ajaran: str
     semester: int
     start_date: date
     end_date: date
@@ -32,58 +32,58 @@ class AcademicPeriodRead(AcademicPeriodBase):
 async def create_academic_period(
     academic_period: AcademicPeriodCreate, db: Session = Depends(get_db)
 ):
-    # Validate dates
     if academic_period.start_date >= academic_period.end_date:
-        raise HTTPException(
-            status_code=400,
-            detail="Start date must be earlier than end date"
-        )
+        raise HTTPException(status_code=400, detail="Start date must be earlier than end date")
 
-    # Ensure only one active period exists
+    # If the new period is set as active, deactivate any existing active period
     if academic_period.is_active:
         active_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
         if active_period:
-            raise HTTPException(
-                status_code=400,
-                detail="Only one academic period can be active at a time"
-            )
+            active_period.is_active = False  # Deactivate old active period
+            db.commit()
 
-    # Create a new academic period
     new_period = AcademicPeriods(**academic_period.dict())
     db.add(new_period)
     db.commit()
     db.refresh(new_period)
+
     return new_period
 
-@router.put("/academic-period/{academic_period_id}/activate", status_code=status.HTTP_200_OK)
-async def activate_academic_period(academic_period_id: int, db: Session = Depends(get_db)):
-    # Fetch the academic period to activate
+
+@router.put("/{academic_period_id}", response_model=AcademicPeriodRead)
+async def update_academic_period(
+    academic_period_id: int,
+    updated_period: AcademicPeriodCreate,
+    db: Session = Depends(get_db)
+):
     academic_period = db.query(AcademicPeriods).filter(AcademicPeriods.id == academic_period_id).first()
+    
     if not academic_period:
         raise HTTPException(status_code=404, detail="Academic period not found")
 
-    # Check if the period is already active
-    if academic_period.is_active:
-        raise HTTPException(status_code=400, detail="This academic period is already active")
+    # Validate dates
+    if updated_period.start_date >= updated_period.end_date:
+        raise HTTPException(status_code=400, detail="Start date must be earlier than end date")
 
-    # Deactivate the current active period
-    active_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
-    if active_period:
-        active_period.is_active = False
-        db.commit()
+    # If the updated period is marked as active, deactivate the current active one
+    if updated_period.is_active:
+        active_period = db.query(AcademicPeriods).filter(
+            AcademicPeriods.is_active == True, AcademicPeriods.id != academic_period_id
+        ).first()
+        if active_period:
+            active_period.is_active = False  # Deactivate the previously active period
+            db.commit()
 
-    # Activate the new academic period
-    academic_period.is_active = True
+    # Update fields
+    for key, value in updated_period.dict().items():
+        setattr(academic_period, key, value)
+
     db.commit()
+    db.refresh(academic_period)
 
-    # Update timetables associated with the previous active period
-    if active_period:
-        timetables = db.query(TimeTable).filter(TimeTable.academic_period_id == active_period.id).all()
-        for timetable in timetables:
-            timetable.is_conflicted = True  # Example: Mark timetables as inactive or conflicted
-        db.commit()
+    return academic_period
 
-    return {"message": f"Academic period {academic_period.tahun_ajaran}/{academic_period.semester} is now active"}
+
 
 
 @router.get("/", response_model=List[AcademicPeriodRead])

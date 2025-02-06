@@ -108,6 +108,30 @@ const MahasiswaDashboard = () => {
     fetchAvailableCourses(1, searchValue); // Call API with search value
   };
 
+  const handleRemoveCourse = async (course, mahasiswa_id) => {
+    const toastId = toast.loading("Menghapus jadwal...");
+    try {
+      const response = await fetch(
+        `${BASE_URL}/mahasiswa-timetable/timetable/${mahasiswa_id}/${course.timetable_id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to delete timetable entry");
+      }
+
+      setSelectedCourses((prevCourses) =>
+        prevCourses.filter((c) => c.timetable_id !== course.timetable_id)
+      );
+      toast.success("Jadwal berhasil dihapus", { id: toastId });
+    } catch (error) {
+      console.error("Error deleting course:", error);
+      toast.error("Terjadi kesalahan saat menghapus jadwal", { id: toastId });
+    }
+  };
+
   const fetchAvailableCourses = async (pageNumber = 1, filterText = "") => {
     try {
       setIsCoursesLoading(true);
@@ -293,46 +317,49 @@ const MahasiswaDashboard = () => {
                     </td>
                   </tr>
                 ) : (
-                  selectedCourses.map((course, index) => (
-                    <tr
-                      key={`${course.kodemk}-${index}`}
-                      className={`border-b border-border hover:bg-surface/80 transition-colors
+                  selectedCourses.map((course, index) => {
+                    console.log("Course:", course);
+                    return (
+                      <tr
+                        key={`${course.kodemk}-${index}`}
+                        className={`border-b border-border hover:bg-surface/80 transition-colors
                         ${index % 2 === 0 ? "bg-white" : "bg-surface"}`}
-                    >
-                      <td className="p-3 text-text-primary">
-                        {course.kodemk || "-"}
-                      </td>
-                      <td className="p-3 text-text-primary">
-                        {course.matakuliah || "-"}
-                      </td>
-                      <td className="p-3 text-text-primary">
-                        {course.kelas || "-"}
-                      </td>
-                      <td className="p-3 text-text-primary">
-                        {course.sks || "-"}
-                      </td>
-                      <td className="p-3 text-text-primary">
-                        {course.timeslots[0].day} {" - "}
-                        {course.timeslots.length > 0
-                          ? `${course.timeslots[0].start_time} - ${
-                              course.timeslots[course.timeslots.length - 1]
-                                .end_time
-                            }`
-                          : "-"}
-                      </td>
-                      <td className="p-3 text-text-primary">
-                        {course.dosen.split("\n").map((dosen, index) => (
-                          <div key={index}>{dosen}</div>
-                        ))}
-                      </td>
-                      <td className="p-3">
-                        <Trash
-                          onClick={() => removeCourse(course)}
-                          className="text-red-600 size-4 cursor-pointer"
-                        />
-                      </td>
-                    </tr>
-                  ))
+                      >
+                        <td className="p-3 text-text-primary">
+                          {course.kodemk || "-"}
+                        </td>
+                        <td className="p-3 text-text-primary">
+                          {course.matakuliah || "-"}
+                        </td>
+                        <td className="p-3 text-text-primary">
+                          {course.kelas || "-"}
+                        </td>
+                        <td className="p-3 text-text-primary">
+                          {course.sks || "-"}
+                        </td>
+                        <td className="p-3 text-text-primary">
+                          {course.timeslots[0]?.day || ""} {" - "}
+                          {course.timeslots.length > 0
+                            ? `${course.timeslots[0].start_time} - ${
+                                course.timeslots[course.timeslots.length - 1]
+                                  .end_time
+                              }`
+                            : "-"}
+                        </td>
+                        <td className="p-3 text-text-primary">
+                          {course.dosen.split("\n").map((dosen, index) => (
+                            <div key={index}>{dosen}</div>
+                          ))}
+                        </td>
+                        <td className="p-3">
+                          <Trash
+                            onClick={() => handleRemoveCourse(course, userId)}
+                            className="text-red-600 size-4 cursor-pointer"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

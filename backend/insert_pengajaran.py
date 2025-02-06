@@ -63,7 +63,7 @@ def process_openedclass_dosen(file_path, program_studi_id):
             opened_class = (
                 session.query(OpenedClass)
                 .filter(
-                    OpenedClass.mata_kuliah_program_studi_id == mata_kuliah_program_studi_id,
+                    OpenedClass.mata_kuliah_kodemk == mata_kuliah_program_studi_id,
                     OpenedClass.kelas == kelas.strip()
                 )
                 .first()

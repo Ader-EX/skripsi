@@ -11,7 +11,7 @@ class ProgramStudi(Base):
     name: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
 
     # Relationships
-    mata_kuliah_associations: Mapped[list["MataKuliahProgramStudi"]] = relationship("MataKuliahProgramStudi", back_populates="program_studi")
+    mata_kuliah: Mapped[list["MataKuliah"]] = relationship("MataKuliah", back_populates="program_studi")
     mahasiswa: Mapped[list["Mahasiswa"]] = relationship("Mahasiswa", back_populates="program_studi")
 
     def __repr__(self):

@@ -22,7 +22,7 @@ sqliteDB = os.getenv("DATABASE_OFFICE_URL")
 print(sqliteDB)
 
 if ENV == "home":
-    DATABASE_URL = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
+    DATABASE_URL = f"mysql+pymysql://{user}@{host}:{port}/{database}"
     connect_args = {}
 else:
     DATABASE_URL = sqliteDB
@@ -57,7 +57,7 @@ def create_tables():
     from model.timetable_model import TimeTable
     from model.openedclass_model import OpenedClass
     from model.programstudi_model import ProgramStudi
-    from model.matakuliah_programstudi import MataKuliahProgramStudi
+    # from model.matakuliah_programstudi import MataKuliahProgramStudi
     from model.academicperiod_model import AcademicPeriods
     from model.dosenopened_model import openedclass_dosen
 

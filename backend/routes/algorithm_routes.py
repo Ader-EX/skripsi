@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 from numpy import number
 from sqlalchemy import String, or_, text
 from sqlalchemy.orm import Session
-from model.matakuliah_programstudi import MataKuliahProgramStudi
+# from model.matakuliah_programstudi import MataKuliahProgramStudi
 from model.matakuliah_model import MataKuliah
 from model.dosen_model import Dosen
 from model.ruangan_model import Ruangan
@@ -55,31 +55,33 @@ def fetch_data(db: Session):
     opened_class_cache = {}
     for oc in opened_classes:
         try:
-            # Ensure the relationship path exists
-            if not oc.mata_kuliah_program_studi or not oc.mata_kuliah_program_studi.mata_kuliah:
-                logger.warning(f"OpenedClass {oc.id} is missing MataKuliahProgramStudi or MataKuliah. Skipping.")
+            if not oc.mata_kuliah_kodemk:
+                logger.warning(f"⚠️ OpenedClass {oc.id} is missing MataKuliah reference. Skipping.")
                 continue
 
             # Get the associated MataKuliah
-            mata_kuliah = oc.mata_kuliah_program_studi.mata_kuliah
+            mata_kuliah = mata_kuliah_cache.get(oc.mata_kuliah_kodemk)
 
-            # Add to cache
+            if not mata_kuliah:
+                logger.warning(f"⚠️ No MataKuliah found for OpenedClass {oc.id}. Skipping.")
+                continue
+
             opened_class_cache[oc.id] = {
-                "dosen_ids": [dosen.id for dosen in oc.dosens],  # Get all dosen_ids for this opened_class
+                "dosen_ids": [dosen.id for dosen in oc.dosens],  
                 "kelas": oc.kelas,
-                "sks": mata_kuliah.sks,  # Get SKS from MataKuliah
+                "sks": mata_kuliah.sks,  
                 "kapasitas": oc.kapasitas,
-                "mata_kuliah": mata_kuliah,  # Store the entire MataKuliah object
+                "mata_kuliah": mata_kuliah,  
             }
         except AttributeError as e:
-            logger.error(f"Error processing OpenedClass {oc.id}: {e}")
+            logger.error(f"❌ Error processing OpenedClass {oc.id}: {e}")
             continue
 
     # Cache rooms and timeslots
     room_cache = {r.id: r for r in rooms}
     timeslot_cache = {t.id: t for t in timeslots}
 
-    logger.debug(f"Fetched data in {time.time() - start_time:.2f} seconds")
+    logger.debug(f"✅ Fetched data in {time.time() - start_time:.2f} seconds")
     return courses, lecturers, rooms, timeslots, preferences, opened_classes, opened_class_cache, room_cache, timeslot_cache
 def initialize_population(
     opened_classes, rooms, timeslots, population_size: int, opened_class_cache: Dict
@@ -92,8 +94,12 @@ def initialize_population(
         timetable = []
         for opened_class in opened_classes:
             try:
-                mata_kuliah = opened_class_cache[opened_class.id]["mata_kuliah"]
-                sks = opened_class_cache[opened_class.id]["sks"]
+                mata_kuliah = opened_class_cache.get(opened_class.id, {}).get("mata_kuliah")
+                sks = opened_class_cache.get(opened_class.id, {}).get("sks", 1)
+
+                if not mata_kuliah:
+                    logger.warning(f"⚠️ OpenedClass {opened_class.id} is missing MataKuliah. Skipping.")
+                    continue
 
                 # Filter rooms based on tipe_mk
                 if mata_kuliah.tipe_mk == 1:
@@ -106,13 +112,17 @@ def initialize_population(
                     valid_rooms = rooms  # Default to all rooms if tipe_mk is unknown
 
                 if not valid_rooms:
-                    logger.warning(f"No valid rooms found for opened class {opened_class.id} with tipe_mk {mata_kuliah.tipe_mk}")
-                    continue
+                    logger.warning(f"⚠️ No valid rooms found for OpenedClass {opened_class.id} with tipe_mk {mata_kuliah.tipe_mk}. Skipping.")
+                    continue  # Skip to the next class if no rooms are available
 
                 room = random.choice(valid_rooms)
 
                 # Ensure consecutive timeslots
-                start_timeslot_idx = random.randint(0, len(timeslot_ids) - sks)
+                if len(timeslot_ids) < sks:
+                    logger.warning(f"⚠️ Not enough timeslots for OpenedClass {opened_class.id}. Skipping.")
+                    continue  # Skip to the next class if there aren’t enough timeslots
+
+                start_timeslot_idx = random.randint(0, max(0, len(timeslot_ids) - sks))
                 assigned_timeslots = timeslot_ids[start_timeslot_idx : start_timeslot_idx + sks]
 
                 timetable.append({
@@ -123,12 +133,13 @@ def initialize_population(
                     "is_conflicted": False,
                 })
             except KeyError as e:
-                logger.error(f"Missing key in opened_class_cache for opened class {opened_class.id}: {e}")
+                logger.error(f"❌ Missing key in opened_class_cache for OpenedClass {opened_class.id}: {e}")
                 continue
 
         population.append(timetable)
 
     return population
+
 
 
 def calculate_fitness(timetable: List[Dict], opened_class_cache: Dict, room_cache: Dict) -> int:
@@ -417,9 +428,12 @@ def generate_neighbor_solution(
     return new_solution
 
 
+from model.mahasiswatimetable_model import MahasiswaTimeTable
+
 def clear_timetable(db: Session):
     """Deletes all entries in the timetable table."""
-    db.query(TimeTable).delete()
+    db.execute(text("DELETE FROM mahasiswa_timetable"))
+    db.execute(text("DELETE FROM timetable"))
     db.commit()
 
 
@@ -472,8 +486,8 @@ def format_timetable(timetable: TimeTable) -> dict:
     return {
         "id": timetable.id,
         "subject": {
-            "code": timetable.opened_class.mata_kuliah_program_studi.mata_kuliah.kodemk,
-            "name": timetable.opened_class.mata_kuliah_program_studi.mata_kuliah.namamk  # Fixed this line
+            "code": timetable.opened_class.mata_kuliah_kodemk.mata_kuliah.kodemk,
+            "name": timetable.opened_class.mata_kuliah_kodemk.mata_kuliah.namamk  
         },
         "class": timetable.kelas,
         "room": {
@@ -511,14 +525,16 @@ async def get_timetable(
         db.query(TimeTable)
         .join(TimeTable.opened_class)
         .join(TimeTable.ruangan)
-        .join(OpenedClass.mata_kuliah_program_studi)
-        .join(MataKuliahProgramStudi.mata_kuliah)
+        .join(MataKuliah.kodemk)
         .join(OpenedClass.dosens)
         .filter(TimeTable.academic_period_id == academic_period_id)
         .all()
     )
     
     return [format_timetable(t) for t in timetables]
+
+
+
 @router.get("/timetable", response_model=Dict[str, Any])
 async def get_timetable(
     db: Session = Depends(get_db),
@@ -536,7 +552,7 @@ async def get_timetable(
             TimeTable.kelas,
             TimeTable.kapasitas,
             TimeTable.kuota,
-            OpenedClass.mata_kuliah_program_studi,
+            OpenedClass.mata_kuliah_kodemk,
             MataKuliah.kodemk,
             MataKuliah.namamk,
             MataKuliah.kurikulum,
@@ -548,7 +564,7 @@ async def get_timetable(
                 .op('SEPARATOR')('||')
             ).label("dosen_names")  # ✅ Properly formatted dosen names
         ).join(OpenedClass, TimeTable.opened_class_id == OpenedClass.id) \
-         .join(MataKuliah, OpenedClass.mata_kuliah_program_studi.has(mata_kuliah_id=MataKuliah.kodemk)) \
+         .join(MataKuliah, OpenedClass.mata_kuliah_kodemk == MataKuliah.kodemk) \
          .join(Dosen, OpenedClass.dosens) \
          .group_by(TimeTable.id, OpenedClass.id, MataKuliah.kodemk, MataKuliah.namamk, MataKuliah.kurikulum, MataKuliah.sks, MataKuliah.smt)
 
@@ -623,6 +639,8 @@ async def get_timetable(
     except Exception as e:
         logger.error(f"Error fetching timetable: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
 
 
 
