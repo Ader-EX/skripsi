@@ -1,90 +1,72 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from typing import List, Optional
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import or_
+from sqlalchemy.orm import Session, joinedload
 from database import get_db
 from model.openedclass_model import OpenedClass
-# from model.matakuliah_programstudi import MataKuliahProgramStudi
-from pydantic import BaseModel
+from model.matakuliah_model import MataKuliah
+from model.dosen_model import Dosen
+from model.user_model import User
+from typing import Dict, Any, Optional
 
 router = APIRouter()
 
-# Pydantic Models
-class OpenedClassBase(BaseModel):
-    mata_kuliah_program_studi_id: int
-    kelas: str
-    kapasitas: int
+@router.get("/get-all", response_model=Dict[str, Any])  # ✅ Fix response model
+async def get_opened_classes(
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(10, ge=1, le=100, description="Items per page"),
+    search: Optional[str] = Query(None, description="Search by mata kuliah name or kode mk")
+):
+    query = (
+        db.query(OpenedClass)
+        .join(OpenedClass.mata_kuliah)
+        .options(
+            joinedload(OpenedClass.mata_kuliah),  # Load mata kuliah details
+            joinedload(OpenedClass.dosens).joinedload(Dosen.user)  # Load dosens and their user info
+        )
+    )
 
-class OpenedClassCreate(OpenedClassBase):
-    pass
+    if search:
+        query = query.filter(
+            or_(
+                MataKuliah.namamk.ilike(f"%{search}%"),
+                MataKuliah.kodemk.ilike(f"%{search}%")
+            )
+        )
 
-class OpenedClassRead(OpenedClassBase):
-    id: int
+    total_records = query.count()
+    total_pages = (total_records + limit - 1) // limit
 
-    class Config:
-        orm_mode = True
+    opened_classes = query.offset((page - 1) * limit).limit(limit).all()
 
+    result = []
+    for opened_class in opened_classes:
+        result.append({
+            "id": opened_class.id,
+            "mata_kuliah": {
+                "kode": opened_class.mata_kuliah.kodemk,
+                "nama": opened_class.mata_kuliah.namamk,
+                "sks": opened_class.mata_kuliah.sks,
+                "semester": opened_class.mata_kuliah.smt,
+                "tipe_mk": opened_class.mata_kuliah.tipe_mk  # ✅ Include Tipe MK
+            },
+            "kelas": opened_class.kelas,
+            "kapasitas": opened_class.kapasitas,
+            "dosens": [
+                {
+                    "id": dosen.id,
+                    "fullname": dosen.user.fullname,  # ✅ Get fullname from User
+                    "nidn": dosen.nidn,
+                    "jabatan": dosen.jabatan
+                }
+                for dosen in opened_class.dosens
+            ]
+        })
 
-# Create OpenedClass
-# @router.post("/", response_model=OpenedClassRead, status_code=status.HTTP_201_CREATED)
-# async def create_opened_class(opened_class: OpenedClassCreate, db: Session = Depends(get_db)):
-#     # Check if MataKuliahProgramStudi exists
-#     mata_kuliah_program_studi = db.query(MataKuliahProgramStudi).filter(
-#         MataKuliahProgramStudi.id == opened_class.mata_kuliah_program_studi_id
-#     ).first()
-#     if not mata_kuliah_program_studi:
-#         raise HTTPException(status_code=404, detail="MataKuliahProgramStudi not found")
-
-#     # Create the OpenedClass
-#     new_opened_class = OpenedClass(**opened_class.dict())
-#     db.add(new_opened_class)
-#     db.commit()
-#     db.refresh(new_opened_class)
-#     return new_opened_class
-
-
-# # Read OpenedClass by ID
-# @router.get("/{opened_class_id}", response_model=OpenedClassRead)
-# async def read_opened_class(opened_class_id: int, db: Session = Depends(get_db)):
-#     opened_class = db.query(OpenedClass).filter(OpenedClass.id == opened_class_id).first()
-#     if not opened_class:
-#         raise HTTPException(status_code=404, detail="OpenedClass not found")
-#     return opened_class
-
-
-# # Read All OpenedClasses
-# @router.get("/", response_model=List[OpenedClassRead])
-# async def read_all_opened_classes(
-#     mata_kuliah_program_studi_id: Optional[int] = Query(None, description="Filter by MataKuliahProgramStudi ID"),
-#     db: Session = Depends(get_db),
-# ):
-#     query = db.query(OpenedClass)
-#     if mata_kuliah_program_studi_id:
-#         query = query.filter(OpenedClass.mata_kuliah_program_studi_id == mata_kuliah_program_studi_id)
-#     return query.all()
-
-
-# # Update OpenedClass
-# @router.put("/{opened_class_id}", response_model=OpenedClassRead)
-# async def update_opened_class(opened_class_id: int, updated_opened_class: OpenedClassCreate, db: Session = Depends(get_db)):
-#     opened_class = db.query(OpenedClass).filter(OpenedClass.id == opened_class_id).first()
-#     if not opened_class:
-#         raise HTTPException(status_code=404, detail="OpenedClass not found")
-
-#     for key, value in updated_opened_class.dict().items():
-#         setattr(opened_class, key, value)
-
-#     db.commit()
-#     db.refresh(opened_class)
-#     return opened_class
-
-
-# # Delete OpenedClass
-# @router.delete("/{opened_class_id}", status_code=status.HTTP_204_NO_CONTENT)
-# async def delete_opened_class(opened_class_id: int, db: Session = Depends(get_db)):
-#     opened_class = db.query(OpenedClass).filter(OpenedClass.id == opened_class_id).first()
-#     if not opened_class:
-#         raise HTTPException(status_code=404, detail="OpenedClass not found")
-
-#     db.delete(opened_class)
-#     db.commit()
-#     return {"message": "OpenedClass deleted successfully"}
+    return dict(
+        page=page,
+        limit=limit,
+        total_pages=total_pages,
+        total_records=total_records,
+        data=result
+    )

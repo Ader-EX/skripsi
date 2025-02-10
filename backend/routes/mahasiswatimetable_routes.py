@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
+from model.user_model import User
 from model.dosen_model import Dosen
 from model.timeslot_model import TimeSlot
 from model.openedclass_model import OpenedClass
@@ -114,7 +115,7 @@ async def get_timetable_by_mahasiswa(
         raise HTTPException(status_code=404, detail="Mahasiswa not found")
 
     try:
-        # ✅ Fetch timetable data with timeslot information
+        # ✅ Fetch timetable data with Dosen's fullname from User
         query = db.query(
             TimeTable.id, 
             TimeTable.opened_class_id,
@@ -130,14 +131,14 @@ async def get_timetable_by_mahasiswa(
             MataKuliah.sks,
             MataKuliah.smt,
             func.group_concat(
-                func.concat_ws(" ", Dosen.title_depan, Dosen.nama, Dosen.title_belakang)
+                func.concat_ws(" ", Dosen.title_depan, User.fullname, Dosen.title_belakang)
                 .distinct()
                 .op('SEPARATOR')('||')
-            ).label("dosen_names")  
+            ).label("dosen_names")  # ✅ Use User.fullname instead of Dosen.nama
         ).join(OpenedClass, TimeTable.opened_class_id == OpenedClass.id) \
          .join(MataKuliah, OpenedClass.mata_kuliah_kodemk == MataKuliah.kodemk) \
          .join(Dosen, OpenedClass.dosens) \
-         .join(MahasiswaTimeTable, MahasiswaTimeTable.timetable_id == TimeTable.id) \
+         .join(User, Dosen.user_id == User.id).join(MahasiswaTimeTable, MahasiswaTimeTable.timetable_id == TimeTable.id) \
          .filter(MahasiswaTimeTable.mahasiswa_id == mahasiswa_id) \
          .group_by(TimeTable.id, OpenedClass.id, MataKuliah.kodemk, MataKuliah.namamk, MataKuliah.kurikulum, MataKuliah.sks, MataKuliah.smt)
 
@@ -199,8 +200,6 @@ async def get_timetable_by_mahasiswa(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
 @router.delete("/timetable/{mahasiswa_id}/{timetable_id}", status_code=status.HTTP_200_OK)
 async def delete_timetable_entry(mahasiswa_id: int, timetable_id: int, db: Session = Depends(get_db)):
     """

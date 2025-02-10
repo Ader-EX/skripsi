@@ -4,6 +4,8 @@ from numpy import number
 from sqlalchemy import String, or_, text
 from sqlalchemy.orm import Session
 # from model.matakuliah_programstudi import MataKuliahProgramStudi
+from model.academicperiod_model import AcademicPeriods
+from model.user_model import User
 from model.matakuliah_model import MataKuliah
 from model.dosen_model import Dosen
 from model.ruangan_model import Ruangan
@@ -486,10 +488,10 @@ def format_timetable(timetable: TimeTable) -> dict:
     return {
         "id": timetable.id,
         "subject": {
-            "code": timetable.opened_class.mata_kuliah_kodemk.mata_kuliah.kodemk,
-            "name": timetable.opened_class.mata_kuliah_kodemk.mata_kuliah.namamk  
+            "code": timetable.opened_class.mata_kuliah.kodemk,  # ✅ Corrected reference
+            "name": timetable.opened_class.mata_kuliah.namamk
         },
-        "class": timetable.kelas,
+        "class": timetable.opened_class.kelas,  # ✅ Class info comes from OpenedClass
         "room": {
             "id": timetable.ruangan.id,
             "code": timetable.ruangan.kode_ruangan,
@@ -499,11 +501,11 @@ def format_timetable(timetable: TimeTable) -> dict:
         "lecturers": [
             {
                 "id": dosen.id,
-                "name": dosen.nama
+                "name": dosen.user.fullname  # ✅ Fetch fullname from User table
             }
             for dosen in timetable.opened_class.dosens
         ],
-        "capacity": timetable.kapasitas,
+        "capacity": timetable.opened_class.kapasitas,
         "enrolled": timetable.kuota,
         "timeslots": [
             {
@@ -516,22 +518,169 @@ def format_timetable(timetable: TimeTable) -> dict:
         ]
     }
 
+
+
 @router.get("/formatted-timetable")
 async def get_timetable(
-    academic_period_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    pageNumber: int = Query(1, alias="page", description="Page number for pagination"),
+    limit: int = Query(10, description="Number of records per page"),
+    filterText: Optional[str] = Query(None, description="Filter by namamk or kodemk"),
 ):
+    # ✅ Get the active academic period
+    active_academic_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
+    
+    if not active_academic_period:
+        raise HTTPException(status_code=404, detail="No active academic period found")
+
+    # ✅ Base Query
+    query = (
+        db.query(TimeTable)
+        .join(TimeTable.opened_class)
+        .join(OpenedClass.mata_kuliah)
+        .join(TimeTable.ruangan)
+        .join(OpenedClass.dosens)
+        .join(Dosen.user)
+        .filter(TimeTable.academic_period_id == active_academic_period.id)
+    )
+
+    # ✅ Apply Filtering if filterText is provided
+    if filterText:
+        query = query.filter(
+            (MataKuliah.namamk.ilike(f"%{filterText}%")) |
+            (MataKuliah.kodemk.ilike(f"%{filterText}%"))
+        )
+
+    # ✅ Get Total Records (Before Pagination)
+    total_records = query.count()
+
+    # ✅ Apply Pagination
+    timetables = query.offset((pageNumber - 1) * limit).limit(limit).all()
+
+    return {
+        "page": pageNumber,
+        "limit": limit,
+        "total_pages": (total_records // limit) + (1 if total_records % limit else 0),
+        "total_records": total_records,
+        "data": [format_timetable(t) for t in timetables]
+    }
+
+
+@router.get("/timetable-view/")
+async def get_timetable_view(
+    db: Session = Depends(get_db),
+):
+    # ✅ Get Active Academic Period
+    active_academic_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
+    if not active_academic_period:
+        raise HTTPException(status_code=404, detail="No active academic period found")
+
+    # ✅ Get All Timetables for Active Academic Period
     timetables = (
         db.query(TimeTable)
         .join(TimeTable.opened_class)
+        .join(OpenedClass.mata_kuliah)
         .join(TimeTable.ruangan)
-        .join(MataKuliah.kodemk)
         .join(OpenedClass.dosens)
-        .filter(TimeTable.academic_period_id == academic_period_id)
+        .join(Dosen.user)
+        .filter(TimeTable.academic_period_id == active_academic_period.id)
         .all()
     )
-    
-    return [format_timetable(t) for t in timetables]
+
+    # ✅ Get All Time Slots
+    time_slots = db.query(TimeSlot).all()
+
+    # ✅ Get All Rooms
+    rooms = db.query(Ruangan).all()
+
+    # ✅ Construct Metadata
+    metadata = {
+        "semester": f"{active_academic_period.tahun_ajaran} - Semester {active_academic_period.semester}",
+        "week_start": f"{active_academic_period.start_date}",  # Replace this with dynamic date calculation if needed
+        "week_end": f"{active_academic_period.end_date}"
+    }
+
+    # ✅ Construct Time Slots Data
+    time_slots_data = [
+        {
+            "id": ts.id,
+            "start_time": ts.start_time.strftime("%H:%M"),
+            "end_time": ts.end_time.strftime("%H:%M")
+        }
+        for ts in time_slots
+    ]
+
+    # ✅ Construct Rooms Data
+    rooms_data = [
+        {
+            "id": room.kode_ruangan,
+            "name": room.nama_ruang,
+            "building": room.gedung,  # Modify this if `building` exists in your table
+            "floor": room.group_code,  # Modify this if `floor` exists in your table
+            "capacity": room.kapasitas,
+        }
+        for room in rooms
+    ]
+
+    # ✅ Construct Schedules Data
+    schedules_data = [
+        {
+            "id": f"SCH{timetable.id}",
+            "subject": {
+                "code": timetable.opened_class.mata_kuliah.kodemk,
+                "name": timetable.opened_class.mata_kuliah.namamk,
+                "kelas": timetable.opened_class.kelas,
+            },
+            
+            "room_id": timetable.ruangan.kode_ruangan,
+            "lecturers": [
+                {
+                    "id": str(dosen.id),
+                    "name": dosen.user.fullname,
+                    "title_depan": dosen.title_depan,
+                    "title_belakang": dosen.title_belakang 
+                        # Modify this if title exists
+                }
+                for dosen in timetable.opened_class.dosens
+            ],
+            "time_slots": [
+                {
+                    "day": ts.day,
+                    "start_time": ts.start_time.strftime("%H:%M"),
+                    "end_time": ts.end_time.strftime("%H:%M")
+                }
+                for ts in timetable.timeslots
+            ],
+            "student_count": timetable.kuota,  # Modify this if student count exists
+            "max_capacity": timetable.opened_class.kapasitas,
+            "academic_year": active_academic_period.tahun_ajaran,
+            "semester_period": active_academic_period.semester
+        }
+        for timetable in timetables
+    ]
+
+    # ✅ Construct Filters
+    filters = {
+        "available_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+        "available_times": {
+            "start": "07:00",
+            "end": "18:00",
+            "interval": 50
+        },
+        "buildings": ["KHD", "DS", "OTH"],
+        "class_types": ["T", "P", "S"]
+    }
+
+    # ✅ Final Response
+    return {
+        "metadata": metadata,
+        "time_slots": time_slots_data,
+        "rooms": rooms_data,
+        "schedules": schedules_data,
+        "filters": filters
+    }
+
+
 
 
 

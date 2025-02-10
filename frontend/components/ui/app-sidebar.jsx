@@ -44,7 +44,6 @@ const AppSidebar = () => {
 
   useEffect(() => {
     const getUserInfo = () => {
-      console.log(Cookies.get("access_token"));
       const token = Cookies.get("access_token");
       if (!token) {
         console.log("No token found, redirecting to login...");

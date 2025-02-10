@@ -70,7 +70,9 @@ const MahasiswaDashboard = () => {
         // Fetch existing timetable for the student
         await fetchStudentTimetable(data.id);
       } catch (error) {
-        toast.error("Failed to fetch user data");
+        toast.error(
+          "Failed to fetch user data, no datas present in the timeline"
+        );
         setError(error.message);
       } finally {
         setLoading(false);
@@ -79,7 +81,6 @@ const MahasiswaDashboard = () => {
 
     fetchUserData();
   }, []);
-
   const fetchStudentTimetable = async (mahasiswaId) => {
     try {
       const token = Cookies.get("access_token");
@@ -95,14 +96,83 @@ const MahasiswaDashboard = () => {
       if (!response.ok) throw new Error("Failed to fetch student timetable");
 
       const data = await response.json();
-      // Assuming the response contains timetable entries
-      // Map the data to match your course structure if needed
-      console.log(data.data);
-      setSelectedCourses(data.data);
+
+      // Format lecturers from the dosen string
+      const formatLecturers = (dosenString) => {
+        if (!dosenString) return [];
+        return dosenString.split("\n").map((lecturer) => {
+          // Remove the number prefix and trim
+          const name = lecturer.replace(/^\d+\.\s*/, "").trim();
+          return { name };
+        });
+      };
+
+      // Ensure each course has proper structure and formatting
+      const formattedData = data.data.map((course) => ({
+        ...course,
+        timetable_id: course.timetable_id || course.id,
+        timeslots: Array.isArray(course.timeslots)
+          ? course.timeslots.map((slot) => ({
+              ...slot,
+              startTime: slot.start_time,
+              endTime: slot.end_time,
+            }))
+          : [],
+        subject: {
+          code: course.kodemk || "-",
+          name: course.matakuliah || "-", // Use matakuliah field for the subject name
+        },
+        class: course.kelas || "-",
+        capacity: course.sks || "-",
+        lecturers: formatLecturers(course.dosen),
+      }));
+
+      console.log("Formatted Student Courses:", formattedData);
+      setSelectedCourses(formattedData);
     } catch (error) {
+      console.error("Error fetching student timetable:", error);
       toast.error("Failed to fetch student timetable");
     }
   };
+
+  // Update the formatTimeslots function to handle the new time format
+  const formatTimeslots = (timeslots) => {
+    if (!timeslots || !Array.isArray(timeslots) || timeslots.length === 0) {
+      return "-";
+    }
+
+    // Filter out invalid timeslots and ensure all required properties exist
+    const validTimeslots = timeslots.filter(
+      (slot) =>
+        slot &&
+        slot.day &&
+        (slot.startTime || slot.start_time) &&
+        (slot.endTime || slot.end_time)
+    );
+
+    if (validTimeslots.length === 0) {
+      return "-";
+    }
+
+    // Sort timeslots by startTime, with null-safe comparison
+    const sortedTimeslots = [...validTimeslots].sort((a, b) => {
+      const aTime = a.startTime || a.start_time;
+      const bTime = b.startTime || b.start_time;
+      if (!aTime) return 1;
+      if (!bTime) return -1;
+      return aTime.localeCompare(bTime);
+    });
+
+    const firstSlot = sortedTimeslots[0];
+    const lastSlot = sortedTimeslots[sortedTimeslots.length - 1];
+
+    // Handle both startTime/endTime and start_time/end_time formats
+    const startTime = firstSlot.startTime || firstSlot.start_time;
+    const endTime = lastSlot.endTime || lastSlot.end_time;
+
+    return `${firstSlot.day} - ${startTime} to ${endTime}`;
+  };
+
   const applySearch = () => {
     setFilter(searchValue); // Apply search when button is clicked
     fetchAvailableCourses(1, searchValue); // Call API with search value
@@ -110,9 +180,21 @@ const MahasiswaDashboard = () => {
 
   const handleRemoveCourse = async (course, mahasiswa_id) => {
     const toastId = toast.loading("Menghapus jadwal...");
+
+    // ✅ Log the course object for debugging
+    console.log("Course being removed:", course);
+    console.log("Timetable ID:", course.timetable_id || course.id);
+    console.log("Mahasiswa ID:", mahasiswa_id);
+
     try {
+      const timetableId = course.timetable_id || course.id; // ✅ Ensure correct ID usage
+
+      if (!timetableId) {
+        throw new Error("Timetable ID is undefined");
+      }
+
       const response = await fetch(
-        `${BASE_URL}/mahasiswa-timetable/timetable/${mahasiswa_id}/${course.timetable_id}`,
+        `${BASE_URL}/mahasiswa-timetable/timetable/${mahasiswa_id}/${timetableId}`,
         {
           method: "DELETE",
         }
@@ -122,9 +204,11 @@ const MahasiswaDashboard = () => {
         throw new Error("Failed to delete timetable entry");
       }
 
+      // ✅ Filter courses correctly
       setSelectedCourses((prevCourses) =>
-        prevCourses.filter((c) => c.timetable_id !== course.timetable_id)
+        prevCourses.filter((c) => (c.timetable_id || c.id) !== timetableId)
       );
+
       toast.success("Jadwal berhasil dihapus", { id: toastId });
     } catch (error) {
       console.error("Error deleting course:", error);
@@ -137,7 +221,7 @@ const MahasiswaDashboard = () => {
       setIsCoursesLoading(true);
       const token = Cookies.get("access_token");
       const response = await fetch(
-        `${BASE_URL}/algorithm/timetable?page=${pageNumber}&limit=${limit}&filter=${filterText}`,
+        `${BASE_URL}/algorithm/formatted-timetable?page=${pageNumber}&limit=${limit}&filterText=${filterText}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -165,12 +249,12 @@ const MahasiswaDashboard = () => {
   const handleCourseSelect = (course) => {
     setSelectedCourseToAdd(course);
   };
-
   const confirmCourseSelection = async () => {
     if (!selectedCourseToAdd) {
       toast.error("Silakan pilih mata kuliah terlebih dahulu");
       return;
     }
+
     let currentSemester;
     let currentAcademicYear;
 
@@ -178,22 +262,24 @@ const MahasiswaDashboard = () => {
       setIsSubmitting(true);
       const token = Cookies.get("access_token");
 
+      // ✅ Fetch active semester & academic year
       try {
-        const response = await fetch(
-          "http://localhost:8000/academic-period/active"
-        );
+        const response = await fetch(`${BASE_URL}/academic-period/active`);
         if (!response.ok) throw new Error("No active period found");
 
         const data = await response.json();
         currentSemester = data.semester;
-        currentAcademicYear = data.tahun_ajaran;
+        currentAcademicYear = data.tahun_ajaran.toString(); // Convert to string
 
         console.log("Active Semester:", currentSemester);
         console.log("Active Academic Year:", currentAcademicYear);
       } catch (error) {
         console.error("Error fetching academic period:", error);
+        toast.error("Gagal mendapatkan semester aktif");
+        return;
       }
 
+      // ✅ Send correct data to API
       const response = await fetch(`${BASE_URL}/mahasiswa-timetable/`, {
         method: "POST",
         headers: {
@@ -202,9 +288,9 @@ const MahasiswaDashboard = () => {
         },
         body: JSON.stringify({
           mahasiswa_id: userId,
-          timetable_id: selectedCourseToAdd.timetable_id,
+          timetable_id: selectedCourseToAdd.id, // ✅ Ensure correct ID
           semester: currentSemester,
-          tahun_ajaran: currentAcademicYear,
+          tahun_ajaran: currentAcademicYear, // ✅ Ensure string format
         }),
       });
 
@@ -213,11 +299,16 @@ const MahasiswaDashboard = () => {
         throw new Error(errorData.detail || "Failed to add course");
       }
 
-      // Add the selected course to the local state
-      setSelectedCourses([...selectedCourses, selectedCourseToAdd]);
+      const addedCourse = await response.json();
+
+      // ✅ Update state to reflect new course
+      setSelectedCourses((prevCourses) => [
+        ...prevCourses,
+        selectedCourseToAdd,
+      ]);
       toast.success("Mata kuliah berhasil ditambahkan");
 
-      // Close the modal and reset the selected course
+      // ✅ Close modal & reset selection
       setIsModalOpen(false);
       setSelectedCourseToAdd(null);
     } catch (error) {
@@ -311,55 +402,49 @@ const MahasiswaDashboard = () => {
                           Belum ada mata kuliah yang dipilih
                         </p>
                         <p className="text-sm">
-                          Silakan pilih mata kuliah dari dropdown di bawah
+                          Silakan pilih mata kuliah dari daftar di bawah
                         </p>
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  selectedCourses.map((course, index) => {
-                    console.log("Course:", course);
-                    return (
-                      <tr
-                        key={`${course.kodemk}-${index}`}
-                        className={`border-b border-border hover:bg-surface/80 transition-colors
-                        ${index % 2 === 0 ? "bg-white" : "bg-surface"}`}
-                      >
-                        <td className="p-3 text-text-primary">
-                          {course.kodemk || "-"}
-                        </td>
-                        <td className="p-3 text-text-primary">
-                          {course.matakuliah || "-"}
-                        </td>
-                        <td className="p-3 text-text-primary">
-                          {course.kelas || "-"}
-                        </td>
-                        <td className="p-3 text-text-primary">
-                          {course.sks || "-"}
-                        </td>
-                        <td className="p-3 text-text-primary">
-                          {course.timeslots[0]?.day || ""} {" - "}
-                          {course.timeslots.length > 0
-                            ? `${course.timeslots[0].start_time} - ${
-                                course.timeslots[course.timeslots.length - 1]
-                                  .end_time
-                              }`
-                            : "-"}
-                        </td>
-                        <td className="p-3 text-text-primary">
-                          {course.dosen.split("\n").map((dosen, index) => (
-                            <div key={index}>{dosen}</div>
-                          ))}
-                        </td>
-                        <td className="p-3">
-                          <Trash
-                            onClick={() => handleRemoveCourse(course, userId)}
-                            className="text-red-600 size-4 cursor-pointer"
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })
+                  selectedCourses.map((course, index) => (
+                    <tr
+                      key={
+                        course.timetable_id || course.id || `course-${index}`
+                      }
+                      className={`border-b border-border hover:bg-surface/80 transition-colors ${
+                        index % 2 === 0 ? "bg-white" : "bg-surface"
+                      }`}
+                    >
+                      <td className="p-3 text-text-primary">
+                        {course.subject?.code || "-"}
+                      </td>
+                      <td className="p-3 text-text-primary">
+                        {course.subject?.name || "-"}
+                      </td>
+                      <td className="p-3 text-text-primary">
+                        {course.class || "-"}
+                      </td>
+                      <td className="p-3 text-text-primary">
+                        {course.sks || course.capacity || "-"}
+                      </td>
+                      <td className="p-3 text-text-primary">
+                        {formatTimeslots(course.timeslots)}
+                      </td>
+                      <td className="p-3 text-text-primary">
+                        {course.lecturers
+                          ?.map((lecturer) => lecturer.name)
+                          .join(", ") || "-"}
+                      </td>
+                      <td className="p-3">
+                        <Trash
+                          onClick={() => handleRemoveCourse(course, userId)}
+                          className="text-red-600 size-4 cursor-pointer"
+                        />
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
@@ -435,10 +520,10 @@ const MahasiswaDashboard = () => {
                 <TableBody>
                   {availableCourses.map((course, index) => (
                     <TableRow
-                      key={`${course.kodemk}-${index}`}
+                      key={course.id}
                       onClick={() => handleCourseSelect(course)}
                       className={`cursor-pointer ${
-                        selectedCourseToAdd?.kodemk === course.kodemk
+                        selectedCourseToAdd?.id === course.id
                           ? "bg-primary/10"
                           : "hover:bg-surface/50"
                       }`}
@@ -446,30 +531,26 @@ const MahasiswaDashboard = () => {
                       <TableCell>
                         <input
                           type="radio"
-                          checked={
-                            selectedCourseToAdd?.timetable_id ===
-                            course.timetable_id
-                          }
+                          checked={selectedCourseToAdd?.id === course.id}
                           onChange={() => handleCourseSelect(course)}
                         />
                       </TableCell>
-                      <TableCell>{course.kodemk}</TableCell>
-                      <TableCell>{course.matakuliah}</TableCell>
-                      <TableCell>{course.kelas}</TableCell>
-                      <TableCell>{course.sks}</TableCell>
+
+                      {/* ✅ Correctly displaying subject code & name */}
+                      <TableCell>{course.subject?.code || "-"}</TableCell>
+                      <TableCell>{course.subject?.name || "Unknown"}</TableCell>
+
+                      <TableCell>{course.class || "-"}</TableCell>
+                      <TableCell>{course.capacity || "-"}</TableCell>
+
+                      {/* ✅ Properly formatted Timeslot */}
+                      <TableCell>{formatTimeslots(course.timeslots)}</TableCell>
+
+                      {/* ✅ Properly formatted Lecturers */}
                       <TableCell>
-                        {course.timeslots[0].day} {" - "}
-                        {course.timeslots.length > 0
-                          ? `${course.timeslots[0].start_time} - ${
-                              course.timeslots[course.timeslots.length - 1]
-                                .end_time
-                            }`
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        {course.dosen.split("\n").map((dosen, index) => (
-                          <div key={index}>{dosen}</div>
-                        ))}
+                        {course.lecturers
+                          ?.map((lecturer) => lecturer.name)
+                          .join(", ") || "-"}
                       </TableCell>
                     </TableRow>
                   ))}

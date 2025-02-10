@@ -40,7 +40,7 @@ export default function Navbar() {
   const handleLogout = () => {
     logout();
     Cookies.remove("access_token");
-    router.refresh();
+    router.replace(router.asPath);
   };
 
   return (
