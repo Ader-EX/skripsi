@@ -31,7 +31,7 @@ class PreferenceRead(PreferenceBase):
 @router.post("/", response_model=PreferenceRead, status_code=status.HTTP_201_CREATED)
 async def create_preference(preference: PreferenceCreate, db: Session = Depends(get_db)):
     # Check if Dosen exists
-    dosen = db.query(Dosen).filter(Dosen.id == preference.dosen_id).first()
+    dosen = db.query(Dosen).filter(Dosen.pegawai_id == preference.dosen_id).first()
     if not dosen:
         raise HTTPException(status_code=404, detail="Dosen not found")
 

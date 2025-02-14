@@ -28,15 +28,15 @@ import DosenManagement from "@/components/tables/dosen/DosenManagement";
 
 const AdminManagement = () => {
   const tabs = [
+    { value: "timetable", icon: AlignLeft, label: "Jadwal Saat ini" },
+    { value: "opened-class", icon: ClipboardCheck, label: "Kelas Dibuka" },
     { value: "matakuliah", icon: BookOpen, label: "Mata Kuliah" },
+    { value: "mahasiswa-timetable", icon: Layers, label: "Jadwal Mhs" },
     { value: "ruangan", icon: Building2, label: "Ruangan" },
     { value: "dosen", icon: Users, label: "Dosen" },
     { value: "mahasiswa", icon: GraduationCap, label: "Mahasiswa" },
-    { value: "academic-periods", icon: Calendar1, label: " Klr. Akademik" },
-    { value: "opened-class", icon: ClipboardCheck, label: "Kelas Dibuka" },
-    { value: "mahasiswa-timetable", icon: Layers, label: "Jadwal Mhs" },
     { value: "program-studi", icon: Table, label: "Program Studi" },
-    { value: "timetable", icon: AlignLeft, label: "Jadwal Umum" },
+    { value: "academic-periods", icon: Calendar1, label: " Klr. Akademik" },
   ];
 
   return (
@@ -45,9 +45,9 @@ const AdminManagement = () => {
         Sistem Manajemen Akademik
       </h1>
 
-      <Tabs defaultValue="matakuliah" className="space-y-4 md:space-y-6">
-        <div className=" mb-[12rem] sm:mb-[4rem] ">
-          <TabsList className="text-primary p-1 grid grid-cols-2 md:grid-cols-2 lg:grid-cols-6 gap-2">
+      <Tabs defaultValue="timetable" className="space-y-4 md:space-y-6">
+        <div className=" mb-[12rem] md:mb-[6rem] sm:mb-[12rem]  ">
+          <TabsList className="text-primary p-1 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
             {tabs.map(({ value, icon: Icon, label }) => (
               <TabsTrigger
                 key={value}
@@ -84,7 +84,6 @@ const AdminManagement = () => {
           <MahasiswaManagement />
         </TabsContent>
 
-        {/* New Tabs for Additional Tables */}
         <TabsContent
           value="opened-class"
           className="border-none p-0 mt-4 md:mt-6"
@@ -113,8 +112,6 @@ const AdminManagement = () => {
         <TabsContent value="dosen" className="border-none p-0 mt-4 md:mt-6">
           <DosenManagement />
         </TabsContent>
-
-        {/* Placeholder Content for Dosen */}
       </Tabs>
     </div>
   );

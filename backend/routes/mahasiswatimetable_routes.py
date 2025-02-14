@@ -35,6 +35,7 @@ class MahasiswaTimeTableRead(MahasiswaTimeTableBase):
 # ✅ **POST: Add Mahasiswa to Timetable**
 @router.post("/", response_model=MahasiswaTimeTableRead, status_code=status.HTTP_201_CREATED)
 async def add_lecture_to_timetable(entry: MahasiswaTimeTableCreate, db: Session = Depends(get_db)):
+    print("📌 Received Request:", entry.dict())
     # Check if Mahasiswa exists
     mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.id == entry.mahasiswa_id).first()
     if not mahasiswa:
@@ -131,7 +132,7 @@ async def get_timetable_by_mahasiswa(
             MataKuliah.sks,
             MataKuliah.smt,
             func.group_concat(
-                func.concat_ws(" ", Dosen.title_depan, User.fullname, Dosen.title_belakang)
+                func.concat_ws(" ", Dosen.title_depan, Dosen.nama, Dosen.title_belakang)
                 .distinct()
                 .op('SEPARATOR')('||')
             ).label("dosen_names")  # ✅ Use User.fullname instead of Dosen.nama

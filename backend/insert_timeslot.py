@@ -4,76 +4,62 @@ from database import SessionLocal
 from model.timeslot_model import TimeSlot
 
 def create_timeslots():
-    days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-    start_morning = time(8, 0)
-    end_morning = time(11, 40)
-    start_afternoon = time(13, 0)
-    end_day = time(18, 0)
+    days = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"]
     interval = timedelta(minutes=50)
 
-    # Use SessionLocal from database.py
+    # Define specific time ranges
+    start_morning_regular = time(7, 10)
+    end_morning_regular = time(12, 10)
+    start_afternoon_regular = time(13, 0)
+    end_day_regular = time(18, 0)
+
+    start_morning_friday = time(8, 0)
+    end_morning_friday = time(11, 20)
+    start_afternoon_friday = time(13, 30)
+    end_day_friday = time(17, 30)
+
     session = SessionLocal()
 
     try:
         for day in days:
-            if day == "Friday":
-                # Special time slots for Friday
-                current_time = start_morning
-
-                # Morning slots
-                while current_time < end_morning:
+            if day == "Jumat":
+                # Friday (Jumat) schedule
+                current_time = start_morning_friday
+                while current_time < end_morning_friday:
                     end_time = (datetime.combine(datetime.min, current_time) + interval).time()
-                    if end_time <= end_morning:
-                        timeslot = TimeSlot(
-                            day=day,
-                            start_time=current_time,
-                            end_time=end_time
-                        )
-                        session.add(timeslot)
+                    if end_time <= end_morning_friday:
+                        session.add(TimeSlot(day=day, start_time=current_time, end_time=end_time))
                     current_time = end_time
 
+                # Break from 11:20 to 13:30
+                
                 # Afternoon slots
-                current_time = start_afternoon
-                while current_time < end_day:
+                current_time = start_afternoon_friday
+                while current_time < end_day_friday:
                     end_time = (datetime.combine(datetime.min, current_time) + interval).time()
-                    if end_time <= end_day:
-                        timeslot = TimeSlot(
-                            day=day,
-                            start_time=current_time,
-                            end_time=end_time
-                        )
-                        session.add(timeslot)
+                    if end_time <= end_day_friday:
+                        session.add(TimeSlot(day=day, start_time=current_time, end_time=end_time))
                     current_time = end_time
+
             else:
-                # Regular time slots for other days
-                current_time = start_morning
-
-                # Morning slots
-                while current_time < end_morning:
+                # Monday to Thursday (Senin - Kamis) schedule
+                current_time = start_morning_regular
+                while current_time < end_morning_regular:
                     end_time = (datetime.combine(datetime.min, current_time) + interval).time()
-                    if end_time <= end_morning:
-                        timeslot = TimeSlot(
-                            day=day,
-                            start_time=current_time,
-                            end_time=end_time
-                        )
-                        session.add(timeslot)
+                    if end_time <= end_morning_regular:
+                        session.add(TimeSlot(day=day, start_time=current_time, end_time=end_time))
                     current_time = end_time
 
+                # Break from 12:10 to 13:00
+                
                 # Afternoon slots
-                current_time = start_afternoon
-                while current_time < end_day:
+                current_time = start_afternoon_regular
+                while current_time < end_day_regular:
                     end_time = (datetime.combine(datetime.min, current_time) + interval).time()
-                    if end_time <= end_day:
-                        timeslot = TimeSlot(
-                            day=day,
-                            start_time=current_time,
-                            end_time=end_time
-                        )
-                        session.add(timeslot)
+                    if end_time <= end_day_regular:
+                        session.add(TimeSlot(day=day, start_time=current_time, end_time=end_time))
                     current_time = end_time
 
-        # Commit the session to save changes to the database
         session.commit()
         print("Time slots created successfully.")
 

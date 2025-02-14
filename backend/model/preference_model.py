@@ -7,7 +7,7 @@ class Preference(Base):
     __tablename__ = "preference"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    dosen_id: Mapped[int] = mapped_column(ForeignKey("dosen.id"), nullable=False)
+    dosen_id: Mapped[int] = mapped_column(ForeignKey("dosen.pegawai_id"), nullable=False)
     timeslot_id: Mapped[int] = mapped_column(ForeignKey("timeslot.id"), nullable=False)
     is_special_needs: Mapped[bool] = mapped_column(Boolean, default=False)
     is_high_priority: Mapped[bool] = mapped_column(Boolean, default=False)

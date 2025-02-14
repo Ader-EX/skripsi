@@ -10,74 +10,63 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
+import MatakuliahSelectionDialog from "@/components/global/MataKuliahSelectionDialog";
+import DosenSelectionDialog from "@/components/global/DosenSelectionDialog";
+import OpenedClassSelectionDialog from "@/components/global/OpenedClassSelectionDialog";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/timetable`;
-const DOSEN_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/dosen`;
-const MATKUL_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/matakuliah`;
+const TIMESLOT_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/timeslot/`;
 
 const TimeTableForm = ({ isOpen, onClose, initialData, onSubmit }) => {
-  const [dosenList, setDosenList] = useState([]);
-  const [matkulList, setMatkulList] = useState([]);
+  const [timeslotList, setTimeslotList] = useState([]);
+  const [isMatkulDialogOpen, setIsMatkulDialogOpen] = useState(false);
+  const [isDosenDialogOpen, setIsDosenDialogOpen] = useState(false);
 
-  const [formData, setFormData] = useState(
-    initialData || {
-      matakuliah_id: "",
-      dosen_id: "",
-      hari: "Senin",
-      waktu_mulai: "",
-      waktu_selesai: "",
-      ruangan: "",
-      kapasitas: 30,
-      tahun_akademik: new Date().getFullYear(),
-      semester: 1,
-      is_active: true,
-    }
-  );
+  // Default form data
+  const defaultFormData = {
+    matakuliah_id: "",
+    matakuliah_nama: "",
+    dosen_id: "",
+    dosen_nama: "",
+    timeslot_id: "",
+    ruangan: "",
+    kapasitas: 30,
+    tahun_akademik: new Date().getFullYear(),
+    semester: 1,
+    is_active: true,
+  };
+
+  // Initialize form state with default or initialData
+  const [formData, setFormData] = useState(defaultFormData);
 
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
-    } else {
       setFormData({
-        matakuliah_id: "",
-        dosen_id: "",
-        hari: "Senin",
-        waktu_mulai: "",
-        waktu_selesai: "",
-        ruangan: "",
-        kapasitas: 30,
-        tahun_akademik: new Date().getFullYear(),
-        semester: 1,
-        is_active: true,
+        ...defaultFormData,
+        ...initialData,
+        matakuliah_id: initialData.matakuliah_id || "",
+        matakuliah_nama: initialData.matakuliah_nama || "",
+        dosen_id: initialData.dosen_id || "",
+        dosen_nama: initialData.dosen_nama || "",
       });
+    } else {
+      setFormData(defaultFormData);
     }
   }, [initialData]);
 
   useEffect(() => {
-    const fetchDosen = async () => {
+    const fetchTimeslots = async () => {
       try {
-        const response = await fetch(DOSEN_API_URL);
-        if (!response.ok) throw new Error("Failed to fetch dosen");
+        const response = await fetch(TIMESLOT_API_URL);
+        if (!response.ok) throw new Error("Failed to fetch timeslots");
         const data = await response.json();
-        setDosenList(data);
+        setTimeslotList(data);
       } catch (error) {
-        console.error("Error fetching dosen:", error);
+        console.error("Error fetching timeslots:", error);
       }
     };
 
-    const fetchMatkul = async () => {
-      try {
-        const response = await fetch(MATKUL_API_URL);
-        if (!response.ok) throw new Error("Failed to fetch matakuliah");
-        const data = await response.json();
-        setMatkulList(data);
-      } catch (error) {
-        console.error("Error fetching matakuliah:", error);
-      }
-    };
-
-    fetchDosen();
-    fetchMatkul();
+    fetchTimeslots();
   }, []);
 
   const handleChange = (e) => {
@@ -88,9 +77,24 @@ const TimeTableForm = ({ isOpen, onClose, initialData, onSubmit }) => {
     }));
   };
 
+  const handleMatkulSelect = (selectedMatkul) => {
+    setFormData((prev) => ({
+      ...prev,
+      matakuliah_id: selectedMatkul.kodemk || "",
+      matakuliah_nama: selectedMatkul.namamk || "",
+    }));
+  };
+
+  const handleDosenSelect = (selectedDosen) => {
+    setFormData((prev) => ({
+      ...prev,
+      dosen_id: selectedDosen.id || "",
+      dosen_nama: selectedDosen.nama || "",
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     try {
       const method = initialData ? "PUT" : "POST";
       const url = initialData ? `${API_URL}/${initialData.id}` : API_URL;
@@ -102,7 +106,7 @@ const TimeTableForm = ({ isOpen, onClose, initialData, onSubmit }) => {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to submit time table data");
+        throw new Error("Failed to submit timetable data");
       }
 
       toast.success(
@@ -125,127 +129,79 @@ const TimeTableForm = ({ isOpen, onClose, initialData, onSubmit }) => {
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="gap-4 grid grid-cols-2">
+          {/* Mata Kuliah */}
           <div className="col-span-2">
             <Label>Mata Kuliah</Label>
-            <select
-              name="matakuliah_id"
-              value={formData.matakuliah_id}
-              onChange={handleChange}
-              className="w-full border p-2"
-              required
-            >
-              <option value="">Pilih Mata Kuliah</option>
-              {matkulList.map((matkul) => (
-                <option key={matkul.id} value={matkul.id}>
-                  {matkul.nama}
-                </option>
-              ))}
-            </select>
+            <div className="flex gap-2">
+              <Input value={formData.matakuliah_nama || ""} readOnly />
+              <Button onClick={() => setIsMatkulDialogOpen(true)}>Pilih</Button>
+            </div>
           </div>
 
+          <OpenedClassSelectionDialog
+            isOpen={isMatkulDialogOpen}
+            onClose={() => setIsMatkulDialogOpen(false)}
+            onSelect={handleMatkulSelect}
+          />
+
+          {/* Dosen */}
           <div className="col-span-2">
             <Label>Dosen</Label>
+            <div className="flex gap-2">
+              <Input value={formData.dosen_nama || ""} readOnly />
+              <Button onClick={() => setIsDosenDialogOpen(true)}>Pilih</Button>
+            </div>
+          </div>
+
+          <DosenSelectionDialog
+            isOpen={isDosenDialogOpen}
+            onClose={() => setIsDosenDialogOpen(false)}
+            onSelect={handleDosenSelect}
+          />
+
+          {/* Timeslots */}
+          <div className="col-span-2">
+            <Label>Timeslot</Label>
             <select
-              name="dosen_id"
-              value={formData.dosen_id}
+              name="timeslot_id"
+              value={formData.timeslot_id || ""}
               onChange={handleChange}
               className="w-full border p-2"
               required
             >
-              <option value="">Pilih Dosen</option>
-              {dosenList.map((dosen) => (
-                <option key={dosen.id} value={dosen.id}>
-                  {dosen.user?.fullname}
+              <option value="">Pilih Timeslot</option>
+              {timeslotList.map((ts) => (
+                <option key={ts.id} value={ts.id}>
+                  {ts.day}, {ts.start_time} - {ts.end_time}
                 </option>
               ))}
             </select>
           </div>
 
-          <div>
-            <Label>Hari</Label>
-            <select
-              name="hari"
-              value={formData.hari}
-              onChange={handleChange}
-              className="w-full border p-2"
-              required
-            >
-              {["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"].map(
-                (day) => (
-                  <option key={day} value={day}>
-                    {day}
-                  </option>
-                )
-              )}
-            </select>
-          </div>
-
+          {/* Ruangan */}
           <div>
             <Label>Ruangan</Label>
             <Input
               name="ruangan"
-              value={formData.ruangan}
+              value={formData.ruangan || ""}
               onChange={handleChange}
               required
             />
           </div>
 
-          <div>
-            <Label>Waktu Mulai</Label>
-            <Input
-              name="waktu_mulai"
-              type="time"
-              value={formData.waktu_mulai}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div>
-            <Label>Waktu Selesai</Label>
-            <Input
-              name="waktu_selesai"
-              type="time"
-              value={formData.waktu_selesai}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
+          {/* Kapasitas */}
           <div>
             <Label>Kapasitas</Label>
             <Input
               name="kapasitas"
               type="number"
-              value={formData.kapasitas}
+              value={formData.kapasitas || ""}
               onChange={handleChange}
               required
             />
           </div>
 
-          <div>
-            <Label>Tahun Akademik</Label>
-            <Input
-              name="tahun_akademik"
-              type="number"
-              value={formData.tahun_akademik}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className="col-span-2">
-            <Label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                name="is_active"
-                checked={formData.is_active}
-                onChange={handleChange}
-              />
-              Status Aktif
-            </Label>
-          </div>
-
+          {/* Submit Button */}
           <div className="col-span-2">
             <Button type="submit" className="w-full">
               {initialData ? "Simpan Perubahan" : "Tambah Jadwal"}

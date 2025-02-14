@@ -13,6 +13,7 @@ class TimeSlotBase(BaseModel):
     day: str = Field(..., example="Monday", description="The day of the week")
     start_time: time = Field(..., example="07:00", description="Start time in HH:MM format")
     end_time: time = Field(..., example="07:50", description="End time in HH:MM format")
+    day_index: int = Field(..., example="1", description="Day index (0=Monday, 1=Tuesday, etc.)")
 
 class TimeSlotCreate(TimeSlotBase):
     pass

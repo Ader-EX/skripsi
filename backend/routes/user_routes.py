@@ -5,7 +5,7 @@ from model.dosen_model import Dosen
 from model.mahasiswa_model import Mahasiswa
 from database import get_db
 from model.user_model import User
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from passlib.context import CryptContext
 from dotenv import load_dotenv
 import os
@@ -54,16 +54,14 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
 
 # Pydantic models
 class UserCreate(BaseModel):
-    fullname: str
-    email: str
+    nim_nip: str
     password: str
     role: RoleEnum  # Use Enum for predefined options
 
 
 class UserRead(BaseModel):
     id: int
-    fullname: str
-    email: str
+    nim_nip: str
     role: str
 
     class Config:
@@ -79,48 +77,57 @@ class Token(BaseModel):
 
 
 class TokenData(BaseModel):
-    email: Optional[str] = None
+    nim_nip: Optional[str] = None
 
-@router.post("/user-only", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-async def create_user(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.email == user.email).first()
-    if db_user:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "statusCode": 409,
-                "detail": "Email already registered",
-                "data": None
-            }
-        )
+class MahasiswaDetails(BaseModel):
+    id: int
+    role: str
+    nama: str
+    tahun_masuk: int
+    semester: int
+    sks_diambil: int
+    tgl_lahir: str
+    kota_lahir: str
+    jenis_kelamin: str
+    kewarganegaraan: str
+    alamat: str
+    kode_pos: Optional[int]
+    hp: str
+    program_studi_id: int
 
-    new_user = User(
-        fullname=user.fullname,
-        email=user.email,
-        password=hash_password(user.password),
-        role=user.role,
-    )
+class DosenDetails(BaseModel):
+    pegawai_id: int
+    role: str
+    nidn: Optional[str]
+    nomor_ktp: Optional[str]
+    email: Optional[str]
+    tanggal_lahir: Optional[str]
+    progdi_id: Optional[int]
+    ijin_mengajar: bool
+    jabatan: Optional[str]
+    title_depan: Optional[str]
+    title_belakang: Optional[str]
+    jabatan_id: Optional[int]
+    is_sekdos: bool
+    
 
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-
-    return new_user
+class LoginRequest(BaseModel):
+    nim_nip: str
+    password: str
 
 # Routes
 @router.post("/users", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def create_user(user: UserCreate, db: Session = Depends(get_db)):
     # Check if user already exists
-    db_user = db.query(User).filter(User.email == user.email).first()
+    db_user = db.query(User).filter(User.nim_nip == user.nim_nip).first()
     if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(status_code=400, detail="NIM/NIP already registered")
 
     hashed_password = hash_password(user.password)
 
     # Create user
     new_user = User(
-        fullname=user.fullname,
-        email=user.email,
+        nim_nip=user.nim_nip,
         password=hashed_password,
         role=user.role.value,  # Get the string value of the Enum
     )
@@ -132,33 +139,27 @@ async def create_user(user: UserCreate, db: Session = Depends(get_db)):
     if user.role == RoleEnum.mahasiswa:
         new_mahasiswa = Mahasiswa(
             user_id=new_user.id,
-            tahun_masuk=2024,  
-            semester=1,
+            nama="",
+            tahun_masuk=0,
+            semester=0,
             sks_diambil=0,
-            tgl_lahir="2000-01-01",
-            kota_lahir="Unknown",
-            jenis_kelamin="Unknown",
-            kewarganegaraan="Unknown",
-            alamat="Unknown",
+            tgl_lahir=None,
+            kota_lahir="",
+            jenis_kelamin="",
+            kewarganegaraan="",
+            alamat="",
             kode_pos=None,
-            hp="Unknown",
-            nama_ayah=None,
-            nama_ibu=None,
-            pekerjaan_ayah=None,
-            pekerjaan_ibu=None,
-            status_kawin=False,
-            program_studi_id=1  
+            hp="",
+            program_studi_id=1
         )
         db.add(new_mahasiswa)
 
     elif user.role == RoleEnum.dosen:
         new_dosen = Dosen(
             user_id=new_user.id,
-            pegawai_id=None,
             nidn=None,
-            nip=None,
             nomor_ktp=None,
-            nama=new_user.fullname,
+            email=None,
             tanggal_lahir=None,
             progdi_id=None,
             ijin_mengajar=True,
@@ -167,7 +168,7 @@ async def create_user(user: UserCreate, db: Session = Depends(get_db)):
             title_belakang=None,
             jabatan_id=None,
             is_sekdos=False,
-            is_dosen_kb=False
+            
         )
         db.add(new_dosen)
 
@@ -176,64 +177,12 @@ async def create_user(user: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     return new_user
 
-class UserDetails(BaseModel):
-    id: int
-    role: str
-
-class MahasiswaDetails(BaseModel):
-    id: int
-    role: str
-    fullname: str 
-    tahun_masuk: int
-    semester: int
-    sks_diambil: int
-    tgl_lahir: str
-    kota_lahir: str
-    jenis_kelamin: str
-    kewarganegaraan: str
-    alamat: str
-    kode_pos: Optional[int]
-    hp: str
-    
-    program_studi_id: int
-
-class DosenDetails(BaseModel):
-    id: int
-    role: str
-    fullname: str
-    email: str
-    nidn: Optional[str]
-    nip: Optional[str]
-    nomor_ktp: Optional[str]
-    nama: Optional[str]
-    tanggal_lahir: Optional[str]
-    progdi_id: Optional[int]
-    ijin_mengajar: bool
-    jabatan: Optional[str]
-    title_depan: Optional[str]
-    title_belakang: Optional[str]
-    is_sekdos: bool
-    is_dosen_kb: bool
-
-class AdminDetails(BaseModel):
-    id: int
-    role: str
-    fullname: str
-    email: str
-
-
-class LoginRequest(BaseModel):
-    email: str
-    password: str
-
-
-
 @router.get("/details")
 async def get_user_details(
-    email: str = Query(..., description="The email of the user"),
+    nim_nip: str = Query(..., description="The NIM/NIP of the user"),
     db: Session = Depends(get_db),
 ):
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(User.nim_nip == nim_nip).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -246,11 +195,11 @@ async def get_user_details(
         return MahasiswaDetails(
             id=mahasiswa.id,
             role=user.role,
-            fullname=user.fullname,
+            nama=mahasiswa.nama,
             tahun_masuk=mahasiswa.tahun_masuk,
             semester=mahasiswa.semester,
             sks_diambil=mahasiswa.sks_diambil,
-            tgl_lahir=mahasiswa.tgl_lahir.strftime("%Y-%m-%d"),
+            tgl_lahir=mahasiswa.tgl_lahir.strftime("%Y-%m-%d") if mahasiswa.tgl_lahir else None,
             kota_lahir=mahasiswa.kota_lahir,
             jenis_kelamin=mahasiswa.jenis_kelamin,
             kewarganegaraan=mahasiswa.kewarganegaraan,
@@ -263,43 +212,28 @@ async def get_user_details(
     # If user is a Dosen
     elif user.role == "dosen":
         dosen = db.query(Dosen).filter(Dosen.user_id == user.id).first()
-
-        
         if not dosen:
             raise HTTPException(status_code=404, detail="Dosen details not found")
 
         return DosenDetails(
-            id=dosen.id,
+            pegawai_id=dosen.pegawai_id,
             role=user.role,
-            fullname=user.fullname,
-            email=user.email,
             nidn=dosen.nidn,
-            nip=dosen.nip,
             nomor_ktp=dosen.nomor_ktp,
-            nama=user.fullname,
+            email=dosen.email,
             tanggal_lahir=dosen.tanggal_lahir.strftime("%Y-%m-%d") if dosen.tanggal_lahir else None,
             progdi_id=dosen.progdi_id,
             ijin_mengajar=dosen.ijin_mengajar,
             jabatan=dosen.jabatan,
             title_depan=dosen.title_depan,
             title_belakang=dosen.title_belakang,
+            jabatan_id=dosen.jabatan_id,
             is_sekdos=dosen.is_sekdos,
-            is_dosen_kb=dosen.is_dosen_kb,
-        )
-
-    # If user is an Admin, return only basic details
-    elif user.role == "admin":
-        return AdminDetails(
-            id=user.id,
-            role=user.role,
-            fullname=user.fullname,
-            email=user.email,
+            
         )
 
     # If role is unknown, return error
     raise HTTPException(status_code=400, detail="Invalid user role")
-
-
 
 @router.get("/users", response_model=List[UserRead])
 async def get_all_users(role: Optional[RoleEnum] = Query(None, description="Filter users by role"),
@@ -312,48 +246,50 @@ async def get_all_users(role: Optional[RoleEnum] = Query(None, description="Filt
 
 @router.post("/token", response_model=Token)
 async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == login_request.email).first()
+    user = db.query(User).filter(User.nim_nip == login_request.nim_nip).first()
+    
     if not user or not verify_password(login_request.password, user.password):
-        raise HTTPException(status_code=401, detail="Username or password is incorrect")
-    
-    # Get role-specific ID
-    role_id = None
-    if user.role == "mahasiswa":
-        mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.user_id == user.id).first()
-        if mahasiswa:
-            role_id = mahasiswa.id
-    elif user.role == "dosen":
-        dosen = db.query(Dosen).filter(Dosen.user_id == user.id).first()
-        if dosen:
-            role_id = dosen.id
-            
-    # Include user_id and role_id in the token data
+        raise HTTPException(status_code=401, detail="NIM/NIP or password is incorrect")
+
+    # Default role_id is None
+    role_id = None  
+
+    # Check the user's role and fetch role_id accordingly
+    match user.role:
+        case "mahasiswa":
+            mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.user_id == user.id).first()
+            role_id = mahasiswa.id if mahasiswa else None
+
+        case "dosen":
+            dosen = db.query(Dosen).filter(Dosen.user_id == user.id).first()
+            role_id = dosen.pegawai_id if dosen else None
+
+        case "admin":
+            role_id = None  
+
+        case _:
+            raise HTTPException(status_code=400, detail="Invalid user role")
+
+    # Token payload
     token_data = {
-        "sub": user.email,
+        "sub": user.nim_nip,
         "role": user.role,
         "user_id": user.id,
-        "role_id": role_id
     }
-    
+
+    # Only add role_id if it exists
+    if role_id is not None:
+        token_data["role_id"] = role_id
+
     access_token = create_access_token(data=token_data)
-    
+
     return {
-        "access_token": access_token, 
-        "token_type": "bearer", 
+        "access_token": access_token,
+        "token_type": "bearer",
         "role": user.role,
         "user_id": user.id,
-        "role_id": role_id
+        "role_id": role_id,  
     }
-
-@router.get("/check-exists", response_model=UserRead)
-async def check_user_exists(email: EmailStr, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
-
-
-
 
 
 @router.get("/{user_id}", response_model=UserRead)
@@ -368,23 +304,29 @@ async def delete_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Delete associated records in Mahasiswa or Dosen table
+    if user.role == "mahasiswa":
+        mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.user_id == user.id).first()
+        if mahasiswa:
+            db.delete(mahasiswa)
+    elif user.role == "dosen":
+        dosen = db.query(Dosen).filter(Dosen.user_id == user.id).first()
+        if dosen:
+            db.delete(dosen)
+    
     db.delete(user)
     db.commit()
     return {"message": "User deleted successfully"}
-
 
 @router.put("/{user_id}", response_model=UserRead)
 async def update_user(user_id: int, updated_user: UserCreate, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    user.fullname = updated_user.fullname
-    user.email = updated_user.email
+    user.nim_nip = updated_user.nim_nip
     user.password = hash_password(updated_user.password)
     user.role = updated_user.role.value
     db.commit()
     db.refresh(user)
     return user
-
-
-

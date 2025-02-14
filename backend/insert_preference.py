@@ -8,59 +8,67 @@ from model.timeslot_model import TimeSlot
 def generate_preferences():
     session = SessionLocal()
     try:
-        # Fetch all dosens and timeslots
+        # Ambil semua dosen dan timeslot yang tersedia
         dosens = session.query(Dosen).all()
-        timeslots = session.query(TimeSlot).filter(TimeSlot.id <= 50).all()
+        timeslots = session.query(TimeSlot).all()
 
         if not timeslots:
-            raise ValueError("No timeslots found in the range 1-50.")
+            raise ValueError("Tidak ada timeslot yang tersedia.")
 
-        print(f"Found {len(dosens)} dosens and {len(timeslots)} timeslots.")
+        print(f"📌 Ditemukan {len(dosens)} dosen dan {len(timeslots)} timeslot.")
 
-        # Create a dictionary to track timeslot usage
-        timeslot_usage = {timeslot.id: 0 for timeslot in timeslots}
+        # Buat dictionary untuk melacak jumlah dosen yang memilih tiap timeslot
+        penggunaan_timeslot = {timeslot.id: 0 for timeslot in timeslots}
 
         preferences = []
         for dosen in dosens:
-            num_preferences = random.randint(1, 5)  # Each dosen has 1-5 preferences
-            preferred_timeslots = random.sample(timeslots, num_preferences)  # Randomly select timeslots
+            jumlah_preferensi = random.randint(1, 5)  # Setiap dosen memilih 1-5 preferensi
+            timeslot_terpilih = random.sample(timeslots, jumlah_preferensi)  # Pilih timeslot secara acak
 
-            for timeslot in preferred_timeslots:
-                # Ensure timeslot is not overpopulated (e.g., max 5 dosens per timeslot as an example)
-                if timeslot_usage[timeslot.id] < 5:
-                    # Use weighted probabilities: 80% False, 20% True
-                    is_special_needs = random.choices([False, True], weights=[80, 20], k=1)[0]
-                    is_high_priority = random.choices([False, True], weights=[80, 20], k=1)[0]
+            for timeslot in timeslot_terpilih:
+                # Batasi jumlah dosen dalam satu timeslot (misal: max 5 dosen per timeslot)
+                if penggunaan_timeslot[timeslot.id] < 5:
+                    # **Hanya dosen dengan prioritas tinggi yang bisa punya alasan**
+                    prioritas_tinggi = random.choices([False, True], weights=[70, 30], k=1)[0]  # 30% True
+                    kebutuhan_khusus = random.choices([False, True], weights=[80, 20], k=1)[0]  # 20% True
 
+                    alasan = None
+                    if prioritas_tinggi:
+                      alasan = random.choice([
+    "Jadwal bentrok",
+    "Tanggung jawab lain",
+    "Kesehatan",
+    "Jadwal luar kampus",
+    "Bimbingan skripsi",
+    "Beban kerja tinggi",
+    "Hanya bisa di slot ini"
+])
+
+
+                    # **Jika prioritas_tinggi = False, alasan harus None**
                     preference = Preference(
-                        dosen_id=dosen.id,
+                        dosen_id=dosen.pegawai_id,
                         timeslot_id=timeslot.id,
-                        is_special_needs=is_special_needs,
-                        is_high_priority=is_high_priority,
-                        reason=random.choice([
-                            None,
-                            "Personal preference",
-                            "Research project",
-                            "Family obligations",
-                            "Scheduling constraints"
-                        ])
+                        is_special_needs=kebutuhan_khusus,
+                        is_high_priority=prioritas_tinggi,
+                        reason=alasan  # ✅ Jika is_high_priority=False, reason tetap None
                     )
                     preferences.append(preference)
-                    timeslot_usage[timeslot.id] += 1
+                    penggunaan_timeslot[timeslot.id] += 1
 
-        # Insert preferences into the database
+        # Masukkan preferensi ke dalam database
         session.bulk_save_objects(preferences)
         session.commit()
 
-        print(f"Generated and inserted {len(preferences)} preferences.")
-        print("Timeslot usage:")
-        for timeslot_id, count in timeslot_usage.items():
-            print(f"Timeslot {timeslot_id}: {count} preferences")
+        print(f"🔥 Berhasil menyimpan {len(preferences)} preferensi dosen! 🔥")
+        print("📌 Penggunaan timeslot:")
+        for timeslot_id, count in penggunaan_timeslot.items():
+            print(f"Timeslot {timeslot_id}: {count} preferensi")
     except Exception as e:
-        print(f"Error occurred: {e}")
+        print(f"🚨 Terjadi kesalahan: {e}")
         session.rollback()
     finally:
         session.close()
 
-# Run the generator
+# Jalankan generator preferensi
 generate_preferences()

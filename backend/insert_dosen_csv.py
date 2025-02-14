@@ -1,4 +1,5 @@
-import csv
+import pandas as pd
+import random
 from datetime import datetime
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
@@ -10,88 +11,127 @@ from model.user_model import User
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Path to the CSV file
-csv_file_path = "datas/Dosen.csv"
+csv_file_path = "datas/dosen205.csv"
 
 def hash_password(password: str) -> str:
     """Hash a password for security."""
     return pwd_context.hash(password)
 
-def parse_date(date_string):
-    """Parses the date in the format 'd/m/Y' to a datetime object."""
-    try:
-        return datetime.strptime(date_string, "%d/%m/%Y")
-    except ValueError:
-        return None
+def generate_nip():
+    """Generate a random Indonesian-style NIP (18 digits)."""
+    return "".join([str(random.randint(0, 9)) for _ in range(18)])
+
+def parse_date(date_value):
+    """Parses date input, handling both strings and datetime objects. Defaults to 5/29/2005 if invalid."""
+    default_date = datetime.strptime("5/29/2005", "%m/%d/%Y")  # Default date object
+
+    if isinstance(date_value, datetime):
+        return date_value  # ✅ Already a datetime object, return as is
+
+    if not date_value or str(date_value).strip().lower() in ["nan", "none", ""]:
+        print(f"⚠️ Missing date. Using default: {default_date.strftime('%Y-%m-%d')}")
+        return default_date
+
+    # Handle different date formats
+    possible_formats = ["%m/%d/%Y", "%Y-%m-%d", "%d/%m/%Y", "%Y-%m-%d %H:%M:%S"]
+    
+    for fmt in possible_formats:
+        try:
+            return datetime.strptime(str(date_value), fmt)
+        except ValueError:
+            continue
+    
+    print(f"❌ Failed to parse date: {date_value}. Using default: {default_date.strftime('%Y-%m-%d')}")
+    return default_date
+
+def safe_int(value):
+    """Convert a value to int if it's valid, otherwise return None."""
+    return int(value) if pd.notna(value) and str(value).isdigit() else None
+
+def safe_str(value):
+    """Convert a value to a string if it's valid, otherwise return None."""
+    return str(value).strip() if pd.notna(value) and value not in ["nan", "NaN", "None", ""] else None
+
+def safe_bool(value):
+    """Convert a T/F string to boolean."""
+    return value.strip().upper() == "T" if pd.notna(value) else None
 
 def load_csv_to_database(file_path):
     duplicates = []
-
-    # Use SessionLocal from database.py
     session = SessionLocal()
 
     try:
-        with open(file_path, mode="r", encoding="utf-8") as csvfile:
-            reader = csv.DictReader(csvfile)
+        df = pd.read_csv(file_path, dtype=str)  
+        df = df.where(pd.notna(df), None)  # Convert NaN to None globally
 
-            for row in reader:
-                pegawai_id = int(row["f_pegawai_id"])
+        # Only process rows where ID >= 205
+        df = df[df["id"].astype(int) >= 205]
 
-                # Check if a record with the same pegawai_id already exists in Dosen
-                existing_dosen = session.query(Dosen).filter_by(pegawai_id=pegawai_id).first()
+        for _, row in df.iterrows():
+            try:
+                pegawai_id = safe_int(row.get("pegawai_id"))
+                nama = safe_str(row.get("nama"))
+                nip = safe_str(row.get("nip")) or generate_nip()  # Generate NIP if missing
+                nidn = safe_str(row.get("nidn"))
+                email = safe_str(row.get("email"))
+                tanggal_lahir = parse_date(row.get("tanggal_lahir"))
 
-                if existing_dosen:
-                    duplicates.append(row)
+                if not pegawai_id or not nama:
+                    print(f"⚠️ Skipping row: Missing pegawai_id or nama -> {row.to_dict()}")
                     continue
 
-                # Check if the user already exists
-                existing_user = session.query(User).filter_by(fullname=row["f_namapegawai"]).first()
+                print(f"📌 Processing {pegawai_id} - {nama}")
+
+                # Check for existing user
+                existing_user = session.query(User).filter_by(nim_nip=nip).first()
                 if existing_user:
-                    duplicates.append(row)
+                    print(f"🔴 User {nip} already exists. Skipping.")
+                    duplicates.append(row.to_dict())
                     continue
 
-                # Create a new user entry
+                # Insert new user
                 new_user = User(
-                    fullname=row["f_namapegawai"],
-                    email=row["f_namapegawai"].strip().replace(" ", "").lower() + "@example.com",
-                    password=hash_password("dosen"),  # Default password for all users
+                    nim_nip=nip,
+                    password=hash_password("dosen"),
                     role="dosen"
                 )
                 session.add(new_user)
-                session.commit()  # Commit to get the generated user_id
+                session.commit()
+                session.refresh(new_user)  # Ensure user ID is available
 
-                # Create a new dosen entry
+                # Insert new dosen
                 new_dosen = Dosen(
                     pegawai_id=pegawai_id,
-                    nidn=row["f_nidn"],
-                    nip=row["f_nip"],
-                    nomor_ktp=row["f_nomorktp"],
-                    nama=row["f_namapegawai"],  # Optionally, remove this column in the Dosen table
-                    tanggal_lahir=parse_date(row["f_tanggallahir"]),
-                    progdi_id=int(row["f_progdi_id"]),
-                    ijin_mengajar=row["f_ijinmengajar"].strip().upper() == "T",
-                    jabatan=row["jabatan"],
-                    title_depan=row["f_title_depan"],
-                    title_belakang=row["f_title_belakang"],
-                    jabatan_id=int(row["f_jabatan_id"]),
-                    is_sekdos=row["f_sekdos"].strip().upper() == "T",
-                    user_id=new_user.id  # Link the user_id from the User table
+                    nama=nama,
+                    nidn=nidn,
+                    nomor_ktp=safe_str(row.get("nomor_ktp")),
+                    email=email,
+                    tanggal_lahir=tanggal_lahir,
+                    progdi_id=safe_int(row.get("progdi_id")),
+                    ijin_mengajar=safe_bool(row.get("ijin_mengajar")),
+                    jabatan=safe_str(row.get("jabatan")),
+                    title_depan=safe_str(row.get("title_depan")),
+                    title_belakang=safe_str(row.get("title_belakang")),
+                    jabatan_id=safe_int(row.get("jabatan_id")),
+                    is_sekdos=safe_bool(row.get("is_sekdos")),
+                    user_id=new_user.id  # Link new user ID
                 )
+
+                print(f"✅ Inserting Dosen: {new_dosen}")
                 session.add(new_dosen)
 
-        # Commit the session to save changes to the database
-        session.commit()
+            except Exception as row_error:
+                print(f"❌ Error processing row {row.to_dict()}: {row_error}")
 
-        # Log duplicates
-        if duplicates:
-            print("Duplicate records found:")
-            for dup in duplicates:
-                print(dup)
+        session.commit()
+        print("✅ All valid rows inserted.")
 
     except Exception as e:
-        print("Error occurred:", e)
+        print(f"❌ Fatal error: {e}")
         session.rollback()
     finally:
         session.close()
+
 
 # Run the loader
 load_csv_to_database(csv_file_path)

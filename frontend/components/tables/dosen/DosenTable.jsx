@@ -130,10 +130,7 @@ const DosenTable = ({ dosenList, onEdit, onDelete }) => {
               <div>
                 <p className="font-semibold">Status:</p>
                 <p>
-                  {[
-                    selectedDosen.is_sekdos ? "Sekretaris Dosen" : "",
-                    selectedDosen.is_dosen_kb ? "Dosen KB" : "",
-                  ]
+                  {[selectedDosen.is_sekdos ? "Sekretaris Dosen" : ""]
                     .filter(Boolean)
                     .join(", ") || "-"}
                 </p>

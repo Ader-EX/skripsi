@@ -1,3 +1,4 @@
+"use client";
 import React, { useState } from "react";
 import {
   Table,
@@ -8,22 +9,48 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { Eye, Pencil, Trash2, AlertCircle, CheckCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import Link from "next/link";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-const TimeTableView = ({ scheduleList, onEdit, onDelete, loading }) => {
+const TimeTableView = ({ scheduleList, onDelete, loading }) => {
   const [selectedSchedule, setSelectedSchedule] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  const handleDelete = async (id) => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/timetable/${id}`,
+        {
+          method: "DELETE",
+        }
+      );
+      if (!response.ok) throw new Error("Gagal menghapus");
+      alert("Berhasil dihapus!");
+      setConfirmDelete(null);
+      onDelete(id);
+    } catch (error) {
+      console.error("Error deleting:", error);
+    }
+  };
 
   const formatTime = (time) => {
     return new Date(`2024-01-01T${time}`).toLocaleTimeString("id-ID", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
+      minute: "2-digit",
     });
   };
 
@@ -43,13 +70,14 @@ const TimeTableView = ({ scheduleList, onEdit, onDelete, loading }) => {
             <TableHead>Waktu</TableHead>
             <TableHead>Ruangan</TableHead>
             <TableHead>Kapasitas</TableHead>
+            <TableHead>Bentrok</TableHead>
             <TableHead className="text-right">Aksi</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {scheduleList.map((schedule) => (
             <TableRow key={schedule.id}>
-              <TableCell>{schedule.timeslots[0]?.day || ""}</TableCell>
+              <TableCell>{schedule.timeslots[0]?.day || "-"}</TableCell>
               <TableCell>
                 <div>
                   <div>{schedule.subject?.name}</div>
@@ -81,8 +109,26 @@ const TimeTableView = ({ scheduleList, onEdit, onDelete, loading }) => {
               <TableCell>
                 {schedule.enrolled}/{schedule.capacity}
               </TableCell>
+              {/* ✅ Is Conflicted Column with Icon and Tooltip */}
+              <TableCell className="text-center   ">
+                <Tooltip>
+                  <TooltipTrigger>
+                    {schedule.is_conflicted ? (
+                      <AlertCircle className="h-5 w-5   text-red-500" />
+                    ) : (
+                      <CheckCircle className="h-5 w-5 items-center  text-green-500" />
+                    )}
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {schedule.is_conflicted
+                      ? "Jadwal ini bentrok dengan jadwal lain"
+                      : "Jadwal tidak bentrok"}
+                  </TooltipContent>
+                </Tooltip>
+              </TableCell>
               <TableCell className="text-right">
                 <div className="flex gap-2 justify-end">
+                  {/* View Button */}
                   <Button
                     size="icon"
                     variant="outline"
@@ -90,17 +136,22 @@ const TimeTableView = ({ scheduleList, onEdit, onDelete, loading }) => {
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    onClick={() => onEdit(schedule)}
-                  >
-                    <Pencil className="h-4 w-4" />
+
+                  {/* Edit Button */}
+                  <Button size="icon" variant="outline">
+                    <Link
+                      href={`/admin/data-manajemen/edit?id=${schedule.id}`}
+                      className=" text-blue-500"
+                    >
+                      <Pencil />
+                    </Link>
                   </Button>
+
+                  {/* Delete Button with Confirmation */}
                   <Button
                     size="icon"
                     variant="outline"
-                    onClick={() => onDelete(schedule.id)}
+                    onClick={() => setConfirmDelete(schedule.id)}
                   >
                     <Trash2 className="h-4 w-4 text-red-500" />
                   </Button>
@@ -174,6 +225,32 @@ const TimeTableView = ({ scheduleList, onEdit, onDelete, loading }) => {
                 Tutup
               </Button>
             </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {confirmDelete && (
+        <Dialog
+          open={confirmDelete !== null}
+          onOpenChange={() => setConfirmDelete(null)}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Konfirmasi Hapus</DialogTitle>
+            </DialogHeader>
+            <p>Apakah Anda yakin ingin menghapus jadwal ini?</p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setConfirmDelete(null)}>
+                Batal
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => handleDelete(confirmDelete)}
+              >
+                Hapus
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}

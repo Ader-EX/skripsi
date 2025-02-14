@@ -3,46 +3,47 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, ChevronLeft, ChevronRight, Search } from "lucide-react";
-import TimeTableForm from "./TimeTableForm";
-
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import TimeTableView from "./TimeTableView";
+import toast from "react-hot-toast";
 
-const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/algorithm/formatted-timetable`;
+import TimeTableForm from "./TimeTableForm"; // Import the form component
+import { useRouter } from "next/navigation";
+
+const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/algorithm/formatted-timetable/`;
 
 const TimeTableManagement = () => {
+  const router = useRouter();
   const [scheduleList, setScheduleList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
-  const [editData, setEditData] = useState(null);
+  const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [totalPages, setTotalPages] = useState(1);
   const [pageNumber, setPageNumber] = useState(1);
-  const limit = 10;
-
-  const [searchTerm, setSearchTerm] = useState("");
-  const [activeSearch, setActiveSearch] = useState("");
-
-  useEffect(() => {
-    fetchSchedules();
-  }, [activeSearch, pageNumber]);
+  const [searchParams, setSearchParams] = useState({
+    limit: 10,
+    filterText: "",
+    isConflicted: null,
+  });
+  const [searchInput, setSearchInput] = useState("");
 
   const fetchSchedules = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       params.append("page", pageNumber);
-      params.append("limit", limit);
-      if (activeSearch) params.append("filterText", activeSearch);
+      params.append("limit", searchParams.limit);
+
+      if (searchParams.filterText) {
+        params.append("filterText", searchParams.filterText);
+      }
+
+      if (searchParams.isConflicted !== null) {
+        params.append("is_conflicted", searchParams.isConflicted);
+      }
 
       const response = await fetch(`${API_URL}?${params.toString()}`);
       if (!response.ok) throw new Error("Failed to fetch schedules");
@@ -52,42 +53,33 @@ const TimeTableManagement = () => {
       setTotalPages(data.total_pages || 1);
     } catch (error) {
       console.error("Error fetching schedules:", error);
+      toast.error("Failed to fetch schedules");
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchSchedules();
+  }, [pageNumber, searchParams]);
+
   const handleSearch = () => {
-    setActiveSearch(searchTerm);
+    setSearchParams((prev) => ({ ...prev, filterText: searchInput }));
     setPageNumber(1);
   };
 
   const handleAdd = () => {
-    setEditData(null);
+    router.push("/admin/data-manajemen/edit");
+  };
+
+  const handleEdit = (schedule) => {
+    setSelectedSchedule(schedule);
     setFormOpen(true);
   };
 
-  const handleEdit = (data) => {
-    setEditData(data);
-    setFormOpen(true);
-  };
-
-  const handleDeleteClick = (id) => {
-    setDeleteId(id);
-    setDeleteModalOpen(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deleteId) return;
-    try {
-      await fetch(`${API_URL}/${deleteId}`, { method: "DELETE" });
-      fetchSchedules();
-    } catch (error) {
-      console.error("Error deleting schedule:", error);
-    } finally {
-      setDeleteModalOpen(false);
-      setDeleteId(null);
-    }
+  const handleFormSubmit = () => {
+    fetchSchedules(); // Refresh schedules after adding or editing
+    setFormOpen(false);
   };
 
   return (
@@ -112,14 +104,16 @@ const TimeTableManagement = () => {
               <Input
                 type="text"
                 placeholder="Cari mata kuliah atau dosen"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSearch();
-                }}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="flex-1"
               />
-              <Button onClick={handleSearch}>
-                <Search className="h-4 w-4" />
+              <Button
+                onClick={handleSearch}
+                className="bg-primary hover:bg-primary/90"
+              >
+                <Search className="mr-2 h-4 w-4" />
+                Cari
               </Button>
             </div>
           </div>
@@ -128,10 +122,11 @@ const TimeTableManagement = () => {
         <TimeTableView
           scheduleList={scheduleList}
           onEdit={handleEdit}
-          onDelete={handleDeleteClick}
+          onDelete={() => {}}
           loading={loading}
         />
 
+        {/* Pagination */}
         <div className="flex justify-between items-center mt-4">
           <Button
             disabled={pageNumber === 1}
@@ -156,25 +151,13 @@ const TimeTableManagement = () => {
           </Button>
         </div>
 
-        <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Konfirmasi Hapus</DialogTitle>
-            </DialogHeader>
-            <p>Apakah Anda yakin ingin menghapus jadwal ini?</p>
-            <DialogFooter className="flex justify-end gap-2 mt-4">
-              <Button
-                variant="outline"
-                onClick={() => setDeleteModalOpen(false)}
-              >
-                Batal
-              </Button>
-              <Button variant="destructive" onClick={handleConfirmDelete}>
-                Hapus
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {/* Form Dialog for Add/Edit */}
+        <TimeTableForm
+          isOpen={formOpen}
+          onClose={() => setFormOpen(false)}
+          initialData={selectedSchedule}
+          onSubmit={handleFormSubmit}
+        />
       </CardContent>
     </Card>
   );

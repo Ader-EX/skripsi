@@ -46,7 +46,7 @@ def load_csv_to_database(file_path):
                 title_belakang=safe_value(row['title_belakang']),
                 jabatan_id=safe_value(row['jabatan_id']),
                 is_sekdos=safe_bool(row['is_sekdos']),  # ✅ Fix Boolean
-                is_dosen_kb=safe_bool(row['is_dosen_kb']),  # ✅ Fix Boolean
+                
                 user_id=safe_value(row['user_id'])
             )
             session.add(dosen)

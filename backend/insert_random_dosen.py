@@ -82,7 +82,6 @@ def insert_lecturers_to_user_and_dosen(lecturers):
                 title_belakang=None,  # Set to None or default value
                 jabatan_id=0,  # Example jabatan_id, adjust as needed
                 is_sekdos=0,  # Default value for is_sekdos
-                is_dosen_kb=0,  # Example value for is_dosen_kb
                 user_id=user_id  # Link to the User table
             )
             session.add(new_dosen)

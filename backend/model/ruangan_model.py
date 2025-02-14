@@ -10,13 +10,12 @@ class Ruangan(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     kode_ruangan: Mapped[str] = mapped_column(String(20), nullable=False)
     nama_ruang: Mapped[str] = mapped_column(String(255), nullable=False)
-    tipe_ruangan: Mapped[str] = mapped_column(String(1), nullable=False)
-    jenis_ruang: Mapped[str] = mapped_column(String(1), nullable=False)
+    tipe_ruangan: Mapped[str] = mapped_column(String(1), nullable=False, default="T")
+   
     kapasitas: Mapped[int] = mapped_column(Integer, nullable=False)
     # status_aktif : Mapped[str] = mapped_column(String(100), nullable=True, default='N')
     # share_prodi  : Mapped[str] = mapped_column(String(100), nullable=True, default='N')
     alamat: Mapped[str] = mapped_column(String(500), nullable=True)
-    kode_mapping: Mapped[str] = mapped_column(String(50), nullable=True)
     gedung : Mapped[str] = mapped_column(String(50), nullable=True)
     group_code: Mapped[str] = mapped_column(String(20), nullable=True)
 

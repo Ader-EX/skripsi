@@ -9,11 +9,11 @@ from .dosenopened_model import openedclass_dosen
 class Dosen(Base):
     __tablename__ = "dosen"
     
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    pegawai_id : Mapped[int] =  mapped_column(Integer, nullable=True)
-    nidn: Mapped[str] = mapped_column(String(20), nullable=True)
-    nip: Mapped[str] = mapped_column(String(50), nullable=True)
+    pegawai_id : Mapped[int] =  mapped_column(Integer, nullable=False, autoincrement=True, primary_key=True)
+    nidn: Mapped[str] = mapped_column(String(50), nullable=True)
     nomor_ktp: Mapped[str] = mapped_column(String(20), nullable=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=True)
+    nama : Mapped[str] = mapped_column(String(100), nullable=False)
     
     tanggal_lahir: Mapped[DateTime] = mapped_column(DateTime, nullable=True)
     progdi_id : Mapped[int] = mapped_column(Integer, nullable=True)
@@ -23,7 +23,7 @@ class Dosen(Base):
     title_belakang: Mapped[str] = mapped_column(String(50), nullable=True)
     jabatan_id: Mapped[int] = mapped_column(Integer, nullable=True)
     is_sekdos: Mapped[bool] = mapped_column(Boolean, default=False)
-    is_dosen_kb: Mapped[bool] = mapped_column(Boolean, default=False)
+    
     user_id : Mapped[int] = mapped_column(ForeignKey("users.id"),nullable=False)
 
     # Relationships

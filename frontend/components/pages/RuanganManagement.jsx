@@ -47,7 +47,6 @@ const RuanganManagement = () => {
     kode_ruangan: "",
     nama_ruang: "",
     tipe_ruangan: "",
-    jenis_ruang: "",
     kapasitas: 0,
     gedung: "",
     group_code: "",
@@ -65,7 +64,7 @@ const RuanganManagement = () => {
     "DS4",
     "Other",
   ];
-  const jenisRuangOptions = ["P", "M", "L", "B", "V"];
+  const jenisRuangOptions = ["P", "T", "S"];
 
   const fetchRuangan = async () => {
     try {
@@ -162,7 +161,7 @@ const RuanganManagement = () => {
           kode_ruangan: "",
           nama_ruang: "",
           tipe_ruangan: "",
-          jenis_ruang: "",
+
           kapasitas: 0,
           gedung: "",
           group_code: "",
@@ -282,7 +281,7 @@ const RuanganManagement = () => {
                   <TableHead>Kode</TableHead>
                   <TableHead>Nama</TableHead>
                   <TableHead>Tipe</TableHead>
-                  <TableHead>Jenis</TableHead>
+
                   <TableHead>Kapasitas</TableHead>
                   <TableHead>Gedung</TableHead>
                   <TableHead>Grup</TableHead>
@@ -306,7 +305,7 @@ const RuanganManagement = () => {
                       </TableCell>
                       <TableCell>{room.nama_ruang}</TableCell>
                       <TableCell>{room.tipe_ruangan}</TableCell>
-                      <TableCell>{room.jenis_ruang}</TableCell>
+
                       <TableCell>{room.kapasitas}</TableCell>
                       <TableCell>{room.gedung}</TableCell>
                       <TableCell>{room.group_code}</TableCell>

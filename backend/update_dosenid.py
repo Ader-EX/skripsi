@@ -1,61 +1,51 @@
 import pandas as pd
 from sqlalchemy.orm import Session
-from sqlalchemy import select
 from database import SessionLocal
-from model.dosen_model import Dosen  # Ensure the path to your Dosen model is correct
+from model.dosen_model import Dosen
 
 # Path to the Excel file
-xlsx_file_path = "datas/openedclass/S1IF.xlsx"
+xlsx_file_path = "datas/openedclass/S1SI_updated.xlsx"
 
-def load_xlsx_and_add_dosen_id(file_path):
-    """
-    Reads an Excel file, matches f_namapegawai with the nama column in the Dosen model,
-    adds a dosen_id column, and saves the updated file.
-    """
-    # Initialize session
+def update_dosen_id(file_path):
+    """Update the dosen_id column in the Excel file based on nama matching in the database."""
+    
+    # Open a database session
     session = SessionLocal()
-
+    
     try:
-        # Read the Excel file
-        df = pd.read_excel(file_path)
+        # Load the Excel file into a DataFrame
+        df = pd.read_excel(file_path, dtype=str)
 
-        # Create a list to store unmatched names
-        unmatched_names = []
+        # Fetch all dosens from the database
+        dosen_mapping = {d.nama.strip().lower(): d.pegawai_id for d in session.query(Dosen).all()}
 
-        # Create a dosen_id list to hold IDs
-        dosen_ids = []
+        # Update dosen_id based on f_namapegawai
+        updated_count = 0
 
-        for _, row in df.iterrows():
-            nama_pegawai = row["f_namapegawai"]
+        for index, row in df.iterrows():
+            f_namapegawai = str(row.get("f_namapegawai")).strip().lower()
 
-            # Query the Dosen table for the matching nama
-            dosen = session.query(Dosen).filter(Dosen.nama == nama_pegawai).first()
+            if f_namapegawai in dosen_mapping:
+                correct_dosen_id = dosen_mapping[f_namapegawai]
 
-            if dosen:
-                dosen_ids.append(dosen.id)
+                if str(row.get("dosen_id")) != str(correct_dosen_id):  # Only update if different
+                    df.at[index, "dosen_id"] = correct_dosen_id
+                    updated_count += 1
             else:
-                dosen_ids.append(None)
-                unmatched_names.append(nama_pegawai)
+                print(f"⚠️ No matching dosen found for: {row.get('f_namapegawai')}")
 
-        # Add the dosen_id column to the DataFrame
-        df["dosen_id"] = dosen_ids
-
-        # Save the updated DataFrame to a new Excel file
-        output_file_path = file_path.replace(".xlsx", "_updated.xlsx")
-        df.to_excel(output_file_path, index=False)
-
-        print(f"Updated file saved to {output_file_path}")
-
-        # Log unmatched names
-        if unmatched_names:
-            print("Unmatched names:")
-            for name in unmatched_names:
-                print(name)
+        # Save the updated DataFrame back to Excel
+        updated_file_path = file_path.replace(".xlsx", "_updated.xlsx")
+        df.to_excel(updated_file_path, index=False)
+        
+        print(f"✅ Successfully updated {updated_count} records.")
+        print(f"📁 Updated file saved as: {updated_file_path}")
 
     except Exception as e:
-        print("Error occurred:", e)
+        print(f"❌ Error updating dosen_id: {e}")
+    
     finally:
         session.close()
 
-# Run the loader for the file
-load_xlsx_and_add_dosen_id(xlsx_file_path)
+# Run the function
+update_dosen_id(xlsx_file_path)

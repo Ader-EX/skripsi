@@ -43,25 +43,14 @@ const AdminPreferences = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDosenSelectOpen, setIsDosenSelectOpen] = useState(false);
 
-  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-  const timeRanges = [
-    { start: "08:00:00", end: "08:50:00" },
-    { start: "08:50:00", end: "09:40:00" },
-    { start: "09:40:00", end: "10:30:00" },
-    { start: "10:30:00", end: "11:20:00" },
-    { start: "13:00:00", end: "13:50:00" },
-    { start: "13:50:00", end: "14:40:00" },
-    { start: "14:40:00", end: "15:30:00" },
-    { start: "15:30:00", end: "16:20:00" },
-    { start: "16:20:00", end: "17:10:00" },
-    { start: "17:10:00", end: "18:00:00" },
-  ];
-
   const reasonOptions = [
-    "Personal preference",
-    "Research project",
-    "Family obligations",
-    "Scheduling constraints",
+    "Jadwal bentrok",
+    "Tanggung jawab lain",
+    "Kesehatan",
+    "Jadwal luar kampus",
+    "Bimbingan skripsi",
+    "Beban kerja tinggi",
+    "Hanya bisa di slot ini",
   ];
 
   useEffect(() => {
@@ -73,7 +62,7 @@ const AdminPreferences = () => {
   const searchDosen = async (searchTerm) => {
     try {
       const response = await fetch(
-        `http://localhost:8000/dosen/get-dosen/names?page=1&limit=50&filter=${searchTerm}`
+        `${process.env.NEXT_PUBLIC_API_URL}/dosen/get-dosen/names?page=1&limit=50&filter=${searchTerm}`
       );
       if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -98,8 +87,8 @@ const AdminPreferences = () => {
     try {
       const url =
         selectedDay === "all"
-          ? "http://localhost:8000/timeslot/"
-          : `http://localhost:8000/timeslot/?day=${selectedDay}`;
+          ? `${process.env.NEXT_PUBLIC_API_URL}/timeslot/`
+          : `${process.env.NEXT_PUBLIC_API_URL}/timeslot/?day=${selectedDay}`;
 
       const response = await fetch(url);
       if (!response.ok)
@@ -117,17 +106,9 @@ const AdminPreferences = () => {
 
     try {
       const response = await fetch(
-        `http://localhost:8000/preference/dosen/${selectedDosen.id}`
+        `${process.env.NEXT_PUBLIC_API_URL}/preference/dosen/${selectedDosen.id}`
       );
       const data = await response.json();
-      console.log("Fetched preferences:", data);
-      data.forEach((pref) => {
-        console.log("Preference high priority value:", {
-          id: pref.id,
-          is_high_priority: pref.is_high_priority,
-          typeof_is_high_priority: typeof pref.is_high_priority,
-        });
-      });
       setPreferences(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching preferences:", error);
@@ -135,13 +116,9 @@ const AdminPreferences = () => {
       setLoading(false);
     }
   };
+
   const handlePreferenceClick = (timeSlotId, isChecked) => {
     const existingPref = preferences.find((p) => p.timeslot_id === timeSlotId);
-    console.log("Clicked preference:", {
-      existingPref,
-      is_high_priority: existingPref?.is_high_priority,
-      typeof_is_high_priority: typeof existingPref?.is_high_priority,
-    });
 
     if (isChecked) {
       setSelectedPreference(existingPref || { timeslot_id: timeSlotId });
@@ -153,25 +130,23 @@ const AdminPreferences = () => {
 
   const handlePreferenceChange = async (timeSlotId, prefData = {}) => {
     if (!selectedDosen) return;
-    console.log("Saving preference data:", {
-      timeSlotId,
-      prefData,
-      is_high_priority: prefData.is_high_priority,
-      typeof_is_high_priority: typeof prefData.is_high_priority,
-    });
+
     try {
       const existingPref = preferences.find(
         (p) => p.timeslot_id === timeSlotId
       );
 
       if (prefData.delete) {
-        await fetch(`http://localhost:8000/preference/${existingPref.id}`, {
-          method: "DELETE",
-        });
+        await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/preference/${existingPref.id}`,
+          {
+            method: "DELETE",
+          }
+        );
         setPreferences(preferences.filter((p) => p.id !== existingPref.id));
       } else if (existingPref) {
         const response = await fetch(
-          `http://localhost:8000/preference/${existingPref.id}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/preference/${existingPref.id}`,
           {
             method: "PUT",
             headers: {
@@ -192,19 +167,22 @@ const AdminPreferences = () => {
           preferences.map((p) => (p.id === updatedPref.id ? updatedPref : p))
         );
       } else {
-        const response = await fetch("http://localhost:8000/preference/", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            dosen_id: selectedDosen.id,
-            timeslot_id: timeSlotId,
-            is_special_needs: false,
-            is_high_priority: false,
-            ...prefData,
-          }),
-        });
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/preference/`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              dosen_id: selectedDosen.id,
+              timeslot_id: timeSlotId,
+              is_special_needs: false,
+              is_high_priority: false,
+              ...prefData,
+            }),
+          }
+        );
 
         if (!response.ok) throw new Error("Failed to create preference");
         const newPref = await response.json();
@@ -219,6 +197,8 @@ const AdminPreferences = () => {
   const formatTime = (timeString) => {
     return timeString.slice(0, 5);
   };
+
+  const uniqueDays = [...new Set(timeSlots.map((slot) => slot.day))];
 
   return (
     <div className="p-8 flex flex-col w-full">
@@ -298,7 +278,7 @@ const AdminPreferences = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Semua Hari</SelectItem>
-                  {days.map((day) => (
+                  {uniqueDays.map((day) => (
                     <SelectItem key={day} value={day}>
                       {day}
                     </SelectItem>
@@ -313,7 +293,7 @@ const AdminPreferences = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[150px]">Waktu</TableHead>
-                    {days.map((day) => (
+                    {uniqueDays.map((day) => (
                       <TableHead key={day} className="text-center">
                         {day}
                       </TableHead>
@@ -324,7 +304,7 @@ const AdminPreferences = () => {
                   {loading ? (
                     <TableRow>
                       <TableCell
-                        colSpan={days.length + 1}
+                        colSpan={uniqueDays.length + 1}
                         className="text-center h-32"
                       >
                         <div className="flex items-center justify-center">
@@ -333,44 +313,41 @@ const AdminPreferences = () => {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    timeRanges.map((timeRange) => (
-                      <TableRow key={`${timeRange.start}-${timeRange.end}`}>
+                    Object.values(
+                      timeSlots.reduce((acc, slot) => {
+                        if (!acc[slot.start_time]) acc[slot.start_time] = {};
+                        acc[slot.start_time][slot.day] = slot;
+                        return acc;
+                      }, {})
+                    ).map((timeSlotGroup, index) => (
+                      <TableRow key={index}>
                         <TableCell className="font-medium">
-                          {formatTime(timeRange.start)} -{" "}
-                          {formatTime(timeRange.end)}
+                          {formatTime(
+                            Object.values(timeSlotGroup)[0].start_time
+                          )}{" "}
+                          -{" "}
+                          {formatTime(Object.values(timeSlotGroup)[0].end_time)}
                         </TableCell>
-                        {days.map((day) => {
-                          const timeSlot = timeSlots.find(
-                            (slot) =>
-                              slot.day === day &&
-                              slot.start_time === timeRange.start &&
-                              slot.end_time === timeRange.end
-                          );
 
-                          if (!timeSlot)
-                            return (
-                              <TableCell key={`${day}-${timeRange.start}`} />
-                            );
+                        {uniqueDays.map((day) => {
+                          const timeSlot = timeSlotGroup[day];
+
+                          if (!timeSlot) {
+                            return <TableCell key={`${day}-${index}`} />;
+                          }
 
                           const preference = preferences.find(
                             (p) => p.timeslot_id === timeSlot.id
                           );
-                          if (preference) {
-                            console.log("Rendering preference:", {
-                              timeSlot_id: timeSlot.id,
-                              is_high_priority: preference.is_high_priority,
-                              typeof_is_high_priority:
-                                typeof preference.is_high_priority,
-                            });
-                          }
+
                           return (
                             <TableCell
-                              key={`${day}-${timeRange.start}`}
+                              key={`${day}-${timeSlot.id}`}
                               className="text-center"
                             >
                               <div className="flex items-center justify-center group relative">
                                 <Checkbox
-                                  id="high-priority"
+                                  id={`preference-${timeSlot.id}`}
                                   checked={!!preference}
                                   onCheckedChange={(checked) =>
                                     handlePreferenceClick(timeSlot.id, checked)
@@ -457,11 +434,6 @@ const AdminPreferences = () => {
                 id="high-priority"
                 checked={selectedPreference?.is_high_priority === 1}
                 onCheckedChange={(checked) => {
-                  console.log("Changing high priority to:", {
-                    checked,
-                    typeof_checked: typeof checked,
-                    new_value: checked ? 1 : 0,
-                  });
                   setSelectedPreference((prev) => ({
                     ...prev,
                     is_high_priority: checked ? 1 : 0,

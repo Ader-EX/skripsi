@@ -114,8 +114,19 @@ const MahasiswaTimeTableManagement = () => {
 
   return (
     <div className="space-y-4">
-      <Button onClick={handleInputClick}>Select Mahasiswa</Button>
+      {/* Input Field for Selecting Mahasiswa */}
+      <div>
+        <Label>Pilih Mahasiswa</Label>
+        <Input
+          value={selectedMahasiswa ? selectedMahasiswa.fullname : ""}
+          readOnly
+          onClick={handleInputClick}
+          placeholder="Klik untuk memilih mahasiswa..."
+          className="cursor-pointer"
+        />
+      </div>
 
+      {/* Dialog for Searching Mahasiswa */}
       <Dialog open={isModalOpen} onOpenChange={handleModalClose}>
         <DialogContent>
           <DialogHeader>
@@ -150,6 +161,7 @@ const MahasiswaTimeTableManagement = () => {
                   <TableRow>
                     <TableHead>ID</TableHead>
                     <TableHead>Name</TableHead>
+                    <TableHead>NIM</TableHead>
                     <TableHead>Action</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -158,9 +170,10 @@ const MahasiswaTimeTableManagement = () => {
                     <TableRow key={mahasiswa.id}>
                       <TableCell>{mahasiswa.id}</TableCell>
                       <TableCell>{mahasiswa.fullname}</TableCell>
+                      <TableCell>{mahasiswa.user_id}</TableCell>
                       <TableCell>
                         <Button
-                          variant="outline"
+                          className="border bg-white text-blue-500 border-blue-500"
                           onClick={() => handleSelectMahasiswa(mahasiswa)}
                         >
                           Select
@@ -175,69 +188,60 @@ const MahasiswaTimeTableManagement = () => {
         </DialogContent>
       </Dialog>
 
-      {selectedMahasiswa && (
-        <div className="space-y-4">
-          <div className="p-4 border rounded-lg bg-primary/5">
-            <h2 className="text-lg font-semibold">
-              Selected Mahasiswa: {selectedMahasiswa.fullname}
-            </h2>
+      {/* Table is always visible, even when no mahasiswa is selected */}
+      <div className="p-4 border rounded-lg">
+        <h3 className="text-lg font-semibold mb-4">Timetable:</h3>
+
+        {isLoading && (
+          <div className="text-center py-4">Loading timetable...</div>
+        )}
+
+        {error && <div className="text-red-500 text-sm">{error}</div>}
+
+        {!isLoading && timetableList.length === 0 && !error && (
+          <div className="text-center py-4 text-gray-500">
+            No timetable entries found
           </div>
+        )}
 
-          <div className="p-4 border rounded-lg">
-            <h3 className="text-lg font-semibold mb-4">Timetable:</h3>
-
-            {isLoading && (
-              <div className="text-center py-4">Loading timetable...</div>
-            )}
-
-            {error && <div className="text-red-500 text-sm">{error}</div>}
-
-            {!isLoading && timetableList.length === 0 && !error && (
-              <div className="text-center py-4 text-gray-500">
-                No timetable entries found
-              </div>
-            )}
-
-            {timetableList.length > 0 && (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Kode MK</TableHead>
-                    <TableHead>Mata Kuliah</TableHead>
-                    <TableHead>SKS</TableHead>
-                    <TableHead>Kelas</TableHead>
-                    <TableHead>Dosen</TableHead>
-                    <TableHead>Schedule</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {timetableList.map((subject) => (
-                    <TableRow key={subject.timetable_id}>
-                      <TableCell>{subject.kodemk}</TableCell>
-                      <TableCell>{subject.matakuliah}</TableCell>
-                      <TableCell>{subject.sks}</TableCell>
-                      <TableCell>{subject.kelas}</TableCell>
-                      <TableCell className="whitespace-pre-line">
-                        {subject.dosen}
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          {subject.timeslots.map((slot) => (
-                            <div key={slot.id} className="text-sm">
-                              {slot.day}:{" "}
-                              {formatTimeRange(slot.start_time, slot.end_time)}
-                            </div>
-                          ))}
+        {timetableList.length > 0 && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Kode MK</TableHead>
+                <TableHead>Mata Kuliah</TableHead>
+                <TableHead>SKS</TableHead>
+                <TableHead>Kelas</TableHead>
+                <TableHead>Dosen</TableHead>
+                <TableHead>Schedule</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {timetableList.map((subject) => (
+                <TableRow key={subject.timetable_id}>
+                  <TableCell>{subject.kodemk}</TableCell>
+                  <TableCell>{subject.matakuliah}</TableCell>
+                  <TableCell>{subject.sks}</TableCell>
+                  <TableCell>{subject.kelas}</TableCell>
+                  <TableCell className="whitespace-pre-line">
+                    {subject.dosen}
+                  </TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      {subject.timeslots.map((slot) => (
+                        <div key={slot.id} className="text-sm">
+                          {slot.day}:{" "}
+                          {formatTimeRange(slot.start_time, slot.end_time)}
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </div>
-        </div>
-      )}
+                      ))}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
     </div>
   );
 };

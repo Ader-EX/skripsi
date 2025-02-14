@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from model.timeslot_model import TimeSlot
+from model.timetable_model import TimeTable
 from database import get_db
 from model.ruangan_model import Ruangan
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Dict, List, Optional
 from enum import Enum
 
 router = APIRouter()
@@ -26,23 +28,20 @@ class GroupCodeEnum(str, Enum):
 class TipeRuanganEnum(str, Enum):
     P = "P"
     T = "T"
+    S = "Ss"
 
-class JenisRuanganEnum(str, Enum):
+class TipeRuangan(str, Enum):
     P = "P"
-    M = "M"
-    L = "L"
-    B = "B"
-    V = "V"
+    T = "T"
+    S = "S"
 
 # Schemas for API requests and responses
 class RuanganCreate(BaseModel):
     kode_ruangan: str
     nama_ruang: str
     tipe_ruangan: TipeRuanganEnum
-    jenis_ruang: JenisRuanganEnum
     kapasitas: int
     alamat: Optional[str] = None
-    kode_mapping: Optional[str] = None
     gedung: GedungEnum
     group_code: GroupCodeEnum
 
@@ -51,10 +50,9 @@ class RuanganRead(BaseModel):
     kode_ruangan: str
     nama_ruang: str
     tipe_ruangan: str
-    jenis_ruang: str
+    
     kapasitas: int
     alamat: Optional[str]
-    kode_mapping: Optional[str]
     gedung: Optional[str]
     group_code: Optional[str]
 
@@ -98,8 +96,6 @@ async def get_all_ruangan(
 ):
     query = db.query(Ruangan)
     
-    if jenis and jenis != "Semua":
-        query = query.filter(Ruangan.jenis_ruang == jenis)
     if name:
         query = query.filter(Ruangan.nama_ruang.ilike(f"%{name}%"))
     if gedung and gedung != "Semua":
@@ -116,6 +112,58 @@ async def get_all_ruangan(
         "page_size": page_size,
         "data": ruangan_list
     }
+
+
+
+@router.get("/timeslots/availability")
+def get_timeslot_availability(
+    ruangan_id: int,
+    day_index: Optional[int] = None,  # Optional filter by day
+    db: Session = Depends(get_db)
+) -> List[Dict]:
+    """
+    Fetches the availability of timeslots for a specific ruangan (room).
+    - `ruangan_id`: The ID of the room
+    - `day_index` (optional): If provided, filters timeslots for a specific day.
+    """
+
+    # Validate if the room exists
+    ruangan = db.query(Ruangan).filter(Ruangan.id == ruangan_id).first()
+    if not ruangan:
+        raise HTTPException(status_code=404, detail="Ruangan not found")
+
+    # Fetch all timeslots, optionally filter by `day_index`
+    timeslot_query = db.query(TimeSlot)
+    if day_index is not None:
+        timeslot_query = timeslot_query.filter(TimeSlot.day_index == day_index)
+    timeslots = timeslot_query.all()
+
+    # Fetch all timetables for this `ruangan_id`
+    busy_timetables = (
+        db.query(TimeTable)
+        .filter(TimeTable.ruangan_id == ruangan_id)
+        .all()
+    )
+
+    # Get a set of busy timeslot IDs
+    busy_timeslot_ids = set()
+    for timetable in busy_timetables:
+        busy_timeslot_ids.update(timetable.timeslot_ids)
+
+    # Format the response
+    result = []
+    for timeslot in timeslots:
+        status = "Busy" if timeslot.id in busy_timeslot_ids else "Free"
+        result.append({
+            "timeslot_id": timeslot.id,
+            "day": timeslot.day.value,  # Convert Enum to string
+            "start_time": str(timeslot.start_time),
+            "end_time": str(timeslot.end_time),
+            "status": status
+        })
+
+    return result
+
 
 @router.get("/{ruangan_id}", response_model=RuanganRead)
 async def get_ruangan(ruangan_id: int, db: Session = Depends(get_db)):
@@ -146,3 +194,5 @@ async def delete_ruangan(ruangan_id: int, db: Session = Depends(get_db)):
     db.delete(ruangan)
     db.commit()
     return {"message": "Ruangan deleted successfully"}
+
+

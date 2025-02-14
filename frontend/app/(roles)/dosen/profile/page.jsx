@@ -70,7 +70,6 @@ const DosenProfile = () => {
         tanggalLahir: data.tanggal_lahir || "",
         ijinMengajar: data.ijin_mengajar ? "true" : "false",
         isSekdos: data.is_sekdos ? "true" : "false",
-        isDosenKb: data.is_dosen_kb ? "true" : "false",
       }));
     } catch (err) {
       setError(err.message);

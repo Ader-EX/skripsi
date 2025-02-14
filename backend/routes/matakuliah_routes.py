@@ -1,19 +1,27 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from database import get_db
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 from model.matakuliah_model import MataKuliah
 from model.programstudi_model import ProgramStudi  # Assuming you have a ProgramStudi model
 
 router = APIRouter()
 
+
+class MataKuliahSimpleResponse(BaseModel):
+    kodemk: str
+    namamk: str
+
+    class Config:
+        orm_mode = True
+
 # Pydantic Models
 class MataKuliahBase(BaseModel):
     kodemk: str
     namamk: str
     sks: int
-    smt: int
+    smt : int
     kurikulum: str
     status_mk: str
     have_kelas_besar: bool
@@ -29,7 +37,7 @@ class MataKuliahRead(BaseModel):
     kodemk: str
     namamk: str
     sks: int
-    smt: int
+    smt : int
     kurikulum: str
     status_mk: str
     have_kelas_besar: bool
@@ -44,6 +52,127 @@ class PaginatedMataKuliah(BaseModel):
     page: int
     page_size: int
     data: List[MataKuliahRead]
+
+
+
+
+
+
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from database import get_db
+from typing import List, Optional
+from pydantic import BaseModel
+from model.matakuliah_model import MataKuliah
+
+
+
+# Pydantic response model
+class MataKuliahSimpleResponse(BaseModel):
+    kodemk: str
+    namamk: str
+
+    class Config:
+        orm_mode = True
+
+class PaginatedMatakuliahResponse(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    data: List[MataKuliahSimpleResponse]
+
+
+
+
+@router.get("/", response_model=PaginatedMataKuliah)
+async def get_all_matakuliah(
+    semester: Optional[str] = Query(None, description="Filter by semester"),
+    kurikulum: Optional[str] = Query(None, description="Filter by kurikulum"),
+    status_mk: Optional[str] = Query(None, description="Filter by status mk"),
+    have_kelas_besar: Optional[str] = Query(None, description="Filter by have kelas besar"),
+    program_studi_id: Optional[int] = Query(None, description="Filter by program studi id"),
+    search: Optional[str] = Query(None, description="Search by kodemk or namamk"),
+    page: int = Query(1, description="Page number", gt=0),
+    page_size: int = Query(10, description="Page size", gt=0),
+    db: Session = Depends(get_db),
+):
+    query = db.query(MataKuliah)
+    
+    # Convert semester to int safely
+    if semester and semester != "Semua":
+        try:
+            semester = int(semester)
+            query = query.filter(MataKuliah.smt == semester)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid semester value")
+
+    if kurikulum:
+        query = query.filter(MataKuliah.kurikulum.ilike(f"%{kurikulum}%"))
+    if status_mk and status_mk != "Semua":
+        query = query.filter(MataKuliah.status_mk == status_mk)
+    if have_kelas_besar and have_kelas_besar != "Semua":
+        query = query.filter(MataKuliah.have_kelas_besar == (have_kelas_besar.lower() == "true"))
+    if program_studi_id and program_studi_id != 99:
+        query = query.filter(MataKuliah.program_studi_id == program_studi_id)
+    if search:
+        query = query.filter((MataKuliah.kodemk.ilike(f"%{search}%")) | (MataKuliah.namamk.ilike(f"%{search}%")))
+    
+    total = query.count()
+    mata_kuliah_list = query.offset((page - 1) * page_size).limit(page_size).all()
+    
+    result = [
+        MataKuliahRead(
+            kodemk=mk.kodemk,
+            namamk=mk.namamk,
+            sks=mk.sks,
+            smt=mk.smt,
+            kurikulum=mk.kurikulum,
+            status_mk=mk.status_mk,
+            have_kelas_besar=mk.have_kelas_besar,
+            program_studi_id=mk.program_studi_id,
+            program_studi_name=db.query(ProgramStudi.name).filter(ProgramStudi.id == mk.program_studi_id).scalar()
+        )
+        for mk in mata_kuliah_list
+    ]
+    
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "data": result
+    }
+
+
+@router.get("/get-matakuliah/names", response_model=PaginatedMatakuliahResponse)
+async def get_matakuliah_names(
+    db: Session = Depends(get_db),
+    search: Optional[str] = Query(None, description="Search by kodemk or namamk"),
+    page: int = Query(1, gt=0, description="Page number"),
+    limit: int = Query(10, gt=0, le=100, description="Items per page")
+):
+    try:
+        query = db.query(MataKuliah.kodemk, MataKuliah.namamk)
+
+        if search:
+            query = query.filter(
+                (MataKuliah.kodemk.ilike(f"%{search}%")) | (MataKuliah.namamk.ilike(f"%{search}%"))
+            )
+
+        total = query.count()
+        matakuliah_list = query.offset((page - 1) * limit).limit(limit).all()
+
+        return {
+            "total": total,
+            "page": page,
+            "page_size": limit,
+            "data": [{"kodemk": mk.kodemk, "namamk": mk.namamk} for mk in matakuliah_list]
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
 
 # Create MataKuliah
 @router.post("/", response_model=MataKuliahRead)
@@ -109,55 +238,5 @@ async def delete_matakuliah(kodemk: str, db: Session = Depends(get_db)):
     }  # FastAPI expects no content for 204 status
 
 
-@router.get("/", response_model=PaginatedMataKuliah)
-async def get_all_matakuliah(
-    semester: Optional[int] = Query(None, description="Filter by semester"),
-    kurikulum: Optional[str] = Query(None, description="Filter by kurikulum"),
-    status_mk: Optional[str] = Query(None, description="Filter by status mk"),
-    have_kelas_besar: Optional[str] = Query(None, description="Filter by have kelas besar"),
-    program_studi_id: Optional[int] = Query(None, description="Filter by program studi id"),
-    search: Optional[str] = Query(None, description="Search by kodemk or namamk"),
-    page: int = Query(1, description="Page number", gt=0),
-    page_size: int = Query(10, description="Page size", gt=0),
-    db: Session = Depends(get_db),
-):
-    query = db.query(MataKuliah)
-    
-    if semester and semester != "Semua":
-        query = query.filter(MataKuliah.smt == semester)
-    if kurikulum:
-        query = query.filter(MataKuliah.kurikulum.ilike(f"%{kurikulum}%"))
-    if status_mk and status_mk != "Semua":
-        query = query.filter(MataKuliah.status_mk == status_mk)
-    if have_kelas_besar and have_kelas_besar != "Semua":
-        query = query.filter(MataKuliah.have_kelas_besar == (have_kelas_besar.lower() == "true"))
-    if program_studi_id and program_studi_id != 99:
-        query = query.filter(MataKuliah.program_studi_id == program_studi_id)
-    if search:
-        query = query.filter((MataKuliah.kodemk.ilike(f"%{search}%")) | (MataKuliah.namamk.ilike(f"%{search}%")))
-    
-    total = query.count()
-    mata_kuliah_list = query.offset((page - 1) * page_size).limit(page_size).all()
-    
-    result = [
-        MataKuliahRead(
-            id=mk.kodemk,
-            kodemk=mk.kodemk,
-            namamk=mk.namamk,
-            sks=mk.sks,
-            smt=mk.smt,
-            kurikulum=mk.kurikulum,
-            status_mk=mk.status_mk,
-            have_kelas_besar=mk.have_kelas_besar,
-            program_studi_id=mk.program_studi_id,
-            program_studi_name=db.query(ProgramStudi.name).filter(ProgramStudi.id == mk.program_studi_id).scalar()
-        )
-        for mk in mata_kuliah_list
-    ]
-    
-    return {
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "data": result
-    }
+
+

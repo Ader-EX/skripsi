@@ -99,6 +99,7 @@ async def get_active_academic_period(db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="No active academic period found")
 
     return {
+        "id" : active_period.id,
         "semester": active_period.semester,
         "tahun_ajaran": active_period.tahun_ajaran
     }

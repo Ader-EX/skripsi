@@ -69,9 +69,7 @@ const MahasiswaProfile = () => {
       }
 
       const encodedEmail = encodeURIComponent(payload.sub);
-      const response = await fetch(
-        `${BASE_URL}/user/details?email=${encodedEmail}`
-      );
+      const response = await fetch(`${BASE_URL}/mahasiswa/${payload.role_id}`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch user details");

@@ -54,9 +54,9 @@ async def get_opened_classes(
             "kapasitas": opened_class.kapasitas,
             "dosens": [
                 {
-                    "id": dosen.id,
-                    "fullname": dosen.user.fullname,  # ✅ Get fullname from User
-                    "nidn": dosen.nidn,
+                    "id": dosen.pegawai_id,
+                    "fullname": dosen.nama, 
+                    "nip": dosen.user.nim_nip,
                     "jabatan": dosen.jabatan
                 }
                 for dosen in opened_class.dosens

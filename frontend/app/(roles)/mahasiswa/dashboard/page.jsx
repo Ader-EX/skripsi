@@ -34,7 +34,7 @@ const MahasiswaDashboard = () => {
   // Modal and pagination states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(5);
+  const [limit, setLimit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [filter, setFilter] = useState("");
   const [selectedCourseToAdd, setSelectedCourseToAdd] = useState(null);
@@ -45,6 +45,26 @@ const MahasiswaDashboard = () => {
   const [searchValue, setSearchValue] = useState("");
 
   const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+  const [currentSemester, setCurrentSemester] = useState(null);
+  const [currentAcademicYear, setCurrentAcademicYear] = useState(null);
+
+  const fetchAcademicPeriod = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/academic-period/active`);
+      if (!response.ok) throw new Error("Failed to fetch academic period");
+
+      const data = await response.json();
+      setCurrentSemester(data.semester);
+      setCurrentAcademicYear(data.tahun_ajaran.toString()); // Convert to string
+
+      console.log("📌 Active Semester:", data.semester);
+      console.log("📌 Active Academic Year:", data.tahun_ajaran);
+    } catch (error) {
+      console.error("Error fetching academic period:", error);
+      toast.error("Gagal mendapatkan semester aktif");
+    }
+  };
 
   useEffect(() => {
     // Fetch user data on component mount
@@ -57,18 +77,8 @@ const MahasiswaDashboard = () => {
 
         const decodedToken = decodeToken(token);
 
-        const details = await fetch(
-          `${BASE_URL}/user/details?email=${decodedToken.sub}`
-        );
-        const data = await details.json();
-        if (!details.ok) {
-          throw new Error("Failed to fetch user details");
-        }
-        console.log(data);
-        setUserId(data.id);
-
-        // Fetch existing timetable for the student
-        await fetchStudentTimetable(data.id);
+        setUserId(decodedToken.role_id);
+        await fetchStudentTimetable(decodedToken.role_id);
       } catch (error) {
         toast.error(
           "Failed to fetch user data, no datas present in the timeline"
@@ -81,6 +91,7 @@ const MahasiswaDashboard = () => {
 
     fetchUserData();
   }, []);
+
   const fetchStudentTimetable = async (mahasiswaId) => {
     try {
       const token = Cookies.get("access_token");
@@ -101,7 +112,6 @@ const MahasiswaDashboard = () => {
       const formatLecturers = (dosenString) => {
         if (!dosenString) return [];
         return dosenString.split("\n").map((lecturer) => {
-          // Remove the number prefix and trim
           const name = lecturer.replace(/^\d+\.\s*/, "").trim();
           return { name };
         });
@@ -120,15 +130,15 @@ const MahasiswaDashboard = () => {
           : [],
         subject: {
           code: course.kodemk || "-",
-          name: course.matakuliah || "-", // Use matakuliah field for the subject name
+          name: course.matakuliah || "-",
         },
         class: course.kelas || "-",
         capacity: course.sks || "-",
         lecturers: formatLecturers(course.dosen),
       }));
 
-      console.log("Formatted Student Courses:", formattedData);
-      setSelectedCourses(formattedData);
+      console.log("📌 Updated Student Courses:", formattedData);
+      setSelectedCourses(formattedData); // ✅ Updates UI **immediately**
     } catch (error) {
       console.error("Error fetching student timetable:", error);
       toast.error("Failed to fetch student timetable");
@@ -241,45 +251,50 @@ const MahasiswaDashboard = () => {
     }
   };
 
-  const openCourseSelectionModal = () => {
+  const openCourseSelectionModal = async () => {
     setIsModalOpen(true);
+    await fetchAcademicPeriod();
     fetchAvailableCourses(1);
   };
 
   const handleCourseSelect = (course) => {
     setSelectedCourseToAdd(course);
   };
+
   const confirmCourseSelection = async () => {
     if (!selectedCourseToAdd) {
       toast.error("Silakan pilih mata kuliah terlebih dahulu");
       return;
     }
 
-    let currentSemester;
-    let currentAcademicYear;
+    // ✅ Ensure we have the active academic period
+    if (!currentSemester || !currentAcademicYear) {
+      console.error("⚠️ Academic period is missing! Fetching again...");
+      await fetchAcademicPeriod();
+      if (!currentSemester || !currentAcademicYear) {
+        toast.error("Gagal mendapatkan semester aktif. Silakan coba lagi.");
+        return;
+      }
+    }
+
+    // ✅ Ensure userId is set correctly
+    if (!userId) {
+      console.error("⚠️ userId is NULL! Cannot add course.");
+      toast.error("Terjadi kesalahan: ID mahasiswa tidak ditemukan.");
+      return;
+    }
 
     try {
       setIsSubmitting(true);
       const token = Cookies.get("access_token");
 
-      // ✅ Fetch active semester & academic year
-      try {
-        const response = await fetch(`${BASE_URL}/academic-period/active`);
-        if (!response.ok) throw new Error("No active period found");
+      console.log("📌 Sending request with:", {
+        mahasiswa_id: Number(userId),
+        timetable_id: selectedCourseToAdd.id,
+        semester: currentSemester,
+        tahun_ajaran: currentAcademicYear,
+      });
 
-        const data = await response.json();
-        currentSemester = data.semester;
-        currentAcademicYear = data.tahun_ajaran.toString(); // Convert to string
-
-        console.log("Active Semester:", currentSemester);
-        console.log("Active Academic Year:", currentAcademicYear);
-      } catch (error) {
-        console.error("Error fetching academic period:", error);
-        toast.error("Gagal mendapatkan semester aktif");
-        return;
-      }
-
-      // ✅ Send correct data to API
       const response = await fetch(`${BASE_URL}/mahasiswa-timetable/`, {
         method: "POST",
         headers: {
@@ -287,10 +302,10 @@ const MahasiswaDashboard = () => {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          mahasiswa_id: userId,
-          timetable_id: selectedCourseToAdd.id, // ✅ Ensure correct ID
-          semester: currentSemester,
-          tahun_ajaran: currentAcademicYear, // ✅ Ensure string format
+          mahasiswa_id: Number(userId),
+          timetable_id: selectedCourseToAdd.id,
+          semester: currentSemester, // ✅ Use fetched value
+          tahun_ajaran: currentAcademicYear, // ✅ Use fetched value
         }),
       });
 
@@ -299,19 +314,25 @@ const MahasiswaDashboard = () => {
         throw new Error(errorData.detail || "Failed to add course");
       }
 
+      // ✅ Get the newly added course from the backend response
       const addedCourse = await response.json();
 
-      // ✅ Update state to reflect new course
+      // ✅ Update the `selectedCourses` state **immediately** to reflect UI change
       setSelectedCourses((prevCourses) => [
         ...prevCourses,
         selectedCourseToAdd,
       ]);
+
       toast.success("Mata kuliah berhasil ditambahkan");
 
       // ✅ Close modal & reset selection
       setIsModalOpen(false);
       setSelectedCourseToAdd(null);
+
+      // ✅ Re-fetch the student timetable to get the latest data
+      await fetchStudentTimetable(userId); // ✅ Ensures UI stays in sync with DB
     } catch (error) {
+      console.error("Error adding course:", error);
       toast.error(error.message || "Gagal menambahkan mata kuliah");
     } finally {
       setIsSubmitting(false);

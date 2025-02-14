@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import Any, Dict, List, Optional
 
 from database import get_db
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from model.mahasiswa_model import Mahasiswa
 from model.programstudi_model import ProgramStudi
 from model.user_model import User  # Import the User model
@@ -14,17 +14,17 @@ router = APIRouter()
 
 class UserRead(BaseModel):
     id: int
-    fullname: str
-    email: EmailStr
+    nim_nip: str
 
 # Pydantic Models
 class MahasiswaBase(BaseModel):
-    program_studi_id: int
+    nama: str
     tahun_masuk: int
     semester: int
     sks_diambil: int
     user_id: int
-   
+    program_studi_id: int
+    
     tgl_lahir: date
     kota_lahir: str
     jenis_kelamin: str
@@ -34,10 +34,11 @@ class MahasiswaBase(BaseModel):
     hp: str
 
 class MahasiswaUpdate(BaseModel):
-    program_studi_id: Optional[int] = None
+    nama: Optional[str] = None
     tahun_masuk: Optional[int] = None
     semester: Optional[int] = None
     sks_diambil: Optional[int] = None
+    program_studi_id: Optional[int] = None
     
     tgl_lahir: Optional[date] = None
     kota_lahir: Optional[str] = None
@@ -50,10 +51,12 @@ class MahasiswaUpdate(BaseModel):
 
 class MahasiswaCreate(BaseModel):
     user_id: Optional[int] = None  # ✅ Make user_id optional
-    program_studi_id: int
+    nama: str
     tahun_masuk: int
     semester: int
     sks_diambil: int
+    program_studi_id: int
+    
     tgl_lahir: Optional[date] = None  # ✅ Allow null dates
     kota_lahir: Optional[str] = None
     jenis_kelamin: str
@@ -66,12 +69,14 @@ class MahasiswaCreate(BaseModel):
 
 class MahasiswaRead(BaseModel):
     id: int
-    program_studi_id: int
-    program_studi_name : Optional[str] = None
+    nama: str
     tahun_masuk: int
     semester: int
     sks_diambil: int
     user: UserRead 
+    program_studi_id: int
+    program_studi_name : Optional[str] = None
+    
     tgl_lahir: Optional[date] = None
     kota_lahir: Optional[str] = None
     jenis_kelamin: Optional[str] = None
@@ -127,7 +132,7 @@ def read_all_mahasiswa(
     db: Session = Depends(get_db),
     semester: Optional[int] = Query(None, description="Filter by semester"),
     program_studi_id: Optional[int] = Query(None, description="Filter by program studi"),
-    search: Optional[str] = Query(None, description="Search by user fullname or email")
+    search: Optional[str] = Query(None, description="Search by user fullname or NIM")
 ):
     query = db.query(Mahasiswa).join(User).join(ProgramStudi).options(
         joinedload(Mahasiswa.user),  # Ensure user data is loaded
@@ -143,8 +148,8 @@ def read_all_mahasiswa(
     if search:
         search_pattern = f"%{search}%"
         query = query.filter(
-            (User.fullname.ilike(search_pattern)) | 
-            (User.email.ilike(search_pattern))
+            (Mahasiswa.nama.ilike(search_pattern)) | 
+            (User.nim_nip.ilike(search_pattern))
         )
 
     mahasiswa_list = query.all()
@@ -160,7 +165,7 @@ async def get_mahasiswa(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(10, ge=1, le=100, description="Items per page"),
-    search: Optional[str] = Query(None, description="Search by name or ID")
+    search: Optional[str] = Query(None, description="Search by name or NIM")
 ):
     query = (
         db.query(Mahasiswa)
@@ -174,11 +179,11 @@ async def get_mahasiswa(
             query = query.filter(
                 or_(
                     Mahasiswa.id == search_id,
-                    User.fullname.ilike(f"%{search}%")
+                    Mahasiswa.nama.ilike(f"%{search}%")
                 )
             )
         except ValueError:
-            query = query.filter(User.fullname.ilike(f"%{search}%"))
+            query = query.filter(Mahasiswa.nama.ilike(f"%{search}%"))
 
     total_records = query.count()
     total_pages = (total_records + limit - 1) // limit
@@ -186,7 +191,7 @@ async def get_mahasiswa(
     mahasiswa_list = query.offset((page - 1) * limit).limit(limit).all()
 
     result = [
-        {"id": mhs.id, "fullname": mhs.user.fullname} for mhs in mahasiswa_list
+        {"id": mhs.id, "fullname": mhs.nama, "nim" : mhs.user.nim_nip} for mhs in mahasiswa_list
     ]
 
     return dict(

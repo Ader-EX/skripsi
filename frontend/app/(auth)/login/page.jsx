@@ -23,16 +23,20 @@ const Login = () => {
     toast.loading("Logging in...");
     console.log(data);
     try {
-      const response = await fetch("http://localhost:8000/user/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: data.username,
-          password: data.password,
-        }),
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/user/token`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            nim_nip: data.username,
+            password: data.password,
+            role: "mahasiswa",
+          }),
+        }
+      );
       const result = await response.json();
       if (response.ok) {
         toast.dismiss();
@@ -81,12 +85,12 @@ const Login = () => {
           </h1>
         </Link>
 
-        <h1 className="text-2xl font-semibold mb-4">Login</h1>
+        <h1 className="text-2xl font-semibold mb-4">Login Mahasiswa</h1>
         <form action="#" method="POST" onSubmit={handleSubmit(onSubmit)}>
           {/* Username Input */}
           <div className="mb-4">
             <label htmlFor="username" className="block text-gray-600">
-              Username
+              NIM / NIP
             </label>
             <input
               type="text"

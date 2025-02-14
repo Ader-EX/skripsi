@@ -23,6 +23,9 @@ from routes.academicperiod_routes import router as academicperiod_router
 from routes.mahasiswatimetable_routes import router as mahasiswatimetable_router
 from routes.algorithm_routes import router as algorithm_router
 from routes.timetable_routes import router as timetable_router
+from routes.admin_routes import router as admin_router
+from routes.dosenopened_routes import router as dosenopened_router
+from routes.sa_routes import router as sa_router
 
 
 # Initialize the FastAPI application
@@ -76,3 +79,6 @@ app.include_router(academicperiod_router, prefix="/academic-period", tags=["Acad
 app.include_router(mahasiswatimetable_router, prefix="/mahasiswa-timetable", tags=["Mahasiswa Timetable"])
 app.include_router(algorithm_router, prefix="/algorithm", tags=["Genetic Algorithm"])
 app.include_router(timetable_router, prefix="/timetable", tags=["Timetable"])
+app.include_router(admin_router, prefix="/admin", tags=["Admin"])
+app.include_router(dosenopened_router, prefix="/dosen-opened", tags=["Dosen Opened Class"])
+app.include_router(sa_router, prefix="/sa-router", tags=["Simulated Annealing"])

@@ -3,21 +3,9 @@
 import React, { useEffect, useState } from "react";
 import Cookies from "js-cookie"; // Import CookiesJS
 
-import { Card } from "@/components/ui/card";
 import { Book, Users, School } from "lucide-react";
 import { decodeToken } from "@/utils/decoder";
-
-const StatsCard = ({ value, label, icon }) => (
-  <Card className="flex items-center justify-between p-6 space-x-4 shadow-md border rounded-lg">
-    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-100">
-      {icon}
-    </div>
-    <div className="flex-1 text-right">
-      <div className="text-3xl font-bold">{value}</div>
-      <div className="text-sm text-gray-500">{label}</div>
-    </div>
-  </Card>
-);
+import { DashboardStatsCard } from "@/components/global/DashboardStatsCard";
 
 const DashboardStats = () => {
   const [stats, setStats] = useState(null);
@@ -79,17 +67,17 @@ const DashboardStats = () => {
 
   return (
     <div className="flex w-full sm:flex-row flex-col space-y-4 sm:space-y-0 sm:space-x-4">
-      <StatsCard
+      <DashboardStatsCard
         value={stats.mata_kuliah.count}
         label={stats.mata_kuliah.label}
         icon={<Book className="w-6 h-6 text-blue-600" />}
       />
-      <StatsCard
+      <DashboardStatsCard
         value={stats.ruangan.count}
         label={stats.ruangan.label}
         icon={<School className="w-6 h-6 text-green-600" />}
       />
-      <StatsCard
+      <DashboardStatsCard
         value={stats.classes_taught.count}
         label={stats.classes_taught.label}
         icon={<Users className="w-6 h-6 text-purple-600" />}
