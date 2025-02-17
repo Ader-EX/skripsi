@@ -7,7 +7,7 @@ from sqlalchemy import String, or_, text
 from sqlalchemy.orm import Session
 # from model.matakuliah_programstudi import MataKuliahProgramStudi
 from database import get_db
-from routes.algorithm_routes import clear_timetable, fetch_data, insert_timetable
+from routes.algorithm_routes import clear_timetable, fetch_data
 from model.academicperiod_model import AcademicPeriods
 from model.user_model import User
 from model.matakuliah_model import MataKuliah
@@ -126,8 +126,9 @@ def check_preference_compliance(solution, opened_class_cache, timeslot_cache, pr
                 pref_info = preferences_cache[dosen_key]
                 
                 if pref_info.get('is_high_priority', False):
-                    # Higher penalty for violating high priority preferences
-                    if timeslot_id not in pref_info['preferences']:
+                    # Higher penalty for scheduling during high priority times 
+                    # (because these are times lecturers CANNOT teach)
+                    if timeslot_id in pref_info['preferences']:
                         penalty += 800
                 elif pref_info.get('used_preference', False):
                     # Normal penalty for regular preferences
@@ -248,9 +249,9 @@ def initialize_population(opened_classes: List[OpenedClass], rooms: List[Ruangan
             try:
                 class_info = opened_class_cache[oc.id]
                 sks = class_info["sks"]
-                tipe_mk = class_info["mata_kuliah"].tipe_mk  # P or T
+                tipe_mk = class_info["mata_kuliah"].tipe_mk  
 
-                # ✅ Only allow correct rooms based on tipe_mk
+               
                 compatible_rooms = [r for r in rooms if r.tipe_ruangan == tipe_mk]
                 if not compatible_rooms:
                     logger.warning(f"No available room for {oc.id} ({tipe_mk})")
@@ -385,6 +386,65 @@ def simulated_annealing(db: Session, initial_temperature=1000, cooling_rate=0.95
     logger.info(f"🎯 Final Best Score={best_fitness}")
     return formatted_solution
 
+
+
+def insert_timetable(db: Session, timetable: List[Dict], opened_class_cache: Dict, room_cache: Dict, timeslot_cache: Dict):
+    """Insert the best timetable into the database, generating the placeholder dynamically."""
+    # Fetch the active academic period
+    active_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
+    if not active_period:
+        raise ValueError("No active academic period found. Ensure an active period is set.")
+
+    for entry in timetable:
+        try:
+            opened_class = opened_class_cache[entry["opened_class_id"]]
+            mata_kuliah = opened_class["mata_kuliah"]
+            room = room_cache[entry["ruangan_id"]]
+            timeslot_ids = entry["timeslot_ids"]
+
+            # Get the first timeslot for the class
+            first_timeslot = timeslot_cache[timeslot_ids[0]]
+            day = first_timeslot.day.value  # Convert DayEnum to plain string (e.g., "Senin")
+            start_time = first_timeslot.start_time.strftime("%H:%M")  # Format time as string
+            end_time = timeslot_cache[timeslot_ids[-1]].end_time.strftime("%H:%M")  # Format time as string
+
+            
+            placeholder = f"1. {room.kode_ruangan} - {day} ({start_time} - {end_time})"
+
+            # If it's a kelas besar, add the second entry
+            if mata_kuliah.have_kelas_besar:
+                # Find the first entry of the same mata_kuliah_kodemk
+                first_entry_same_kodemk = next(
+                    (e for e in timetable if opened_class_cache[e["opened_class_id"]]["mata_kuliah"].kodemk == mata_kuliah.kodemk),
+                    None
+                )
+
+                if first_entry_same_kodemk:
+                    first_entry_timeslot = timeslot_cache[first_entry_same_kodemk["timeslot_ids"][0]]
+                    first_entry_day = first_entry_timeslot.day.value  
+                    first_entry_start_time = first_entry_timeslot.start_time.strftime("%H:%M")  
+                    first_entry_end_time = timeslot_cache[first_entry_same_kodemk["timeslot_ids"][-1]].end_time.strftime("%H:%M")  # Format time as string
+
+                    # Add the second placeholder entry
+                    placeholder += f"\n2. FIK-VCR-KB-1 - {first_entry_day} ({first_entry_start_time} - {first_entry_end_time})"
+
+            # Create the TimeTable entry
+            timetable_entry = TimeTable(
+                opened_class_id=entry["opened_class_id"],
+                ruangan_id=entry["ruangan_id"],
+                timeslot_ids=entry["timeslot_ids"],
+                is_conflicted=entry["is_conflicted"],
+                kelas=entry["kelas"],
+                kapasitas=opened_class["kapasitas"],
+                academic_period_id=active_period.id,  # Use the active academic period's ID
+                placeholder=placeholder,  # Add the dynamically generated placeholder
+            )
+            db.add(timetable_entry)
+        except KeyError as e:
+            logger.error(f"Missing key in opened_class_cache or room_cache for timetable entry: {e}")
+            continue
+
+    db.commit()
 
 @router.post("/generate-schedule-sa")
 async def generate_schedule_sa(db: Session = Depends(get_db)):
