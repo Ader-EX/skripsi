@@ -31,10 +31,17 @@ const AcademicPeriodForm = ({ isOpen, onClose, onSubmit, initialData }) => {
   }, [initialData]);
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value, type } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: type === "checkbox" ? e.target.checked : value,
+    }));
+  };
+
+  const handleCheckboxChange = (checked) => {
+    setFormData((prev) => ({
+      ...prev,
+      is_active: checked,
     }));
   };
 
@@ -115,9 +122,8 @@ const AcademicPeriodForm = ({ isOpen, onClose, onSubmit, initialData }) => {
           <div className="flex items-center gap-2">
             <Checkbox
               id="is_active"
-              name="is_active"
               checked={formData.is_active}
-              onChange={handleChange}
+              onCheckedChange={handleCheckboxChange}
             />
             <Label htmlFor="is_active">Jadikan Periode Aktif</Label>
           </div>

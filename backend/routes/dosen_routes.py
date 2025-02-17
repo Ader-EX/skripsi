@@ -5,6 +5,8 @@ from typing import Any, Dict, Optional, List
 from datetime import date, datetime
 from pydantic import BaseModel, EmailStr, validator
 
+from model.timeslot_model import TimeSlot
+from model.timetable_model import TimeTable
 from database import get_db
 from model.dosen_model import Dosen
 from model.matakuliah_model import MataKuliah
@@ -35,7 +37,7 @@ class DosenBase(BaseModel):
     jabatan_id: Optional[int]
     is_sekdos: Optional[bool] = False
     
-    user_id: int
+    user_id: Optional[int] 
 
     @validator("tanggal_lahir", pre=True)
     def parse_tanggal_lahir(cls, value):
@@ -48,8 +50,7 @@ class DosenBase(BaseModel):
         except ValueError:
             raise ValueError("tanggal_lahir must be in the format DD/MM/YYYY")
 
-class DosenCreate(DosenBase):
-    pass
+
 
 class DosenRead(BaseModel):
     pegawai_id: int
@@ -77,49 +78,46 @@ class DosenRead(BaseModel):
         return value
 
 class DosenUpdate(BaseModel):
-    nidn: Optional[str]
-    nomor_ktp: Optional[str]
-    email: Optional[EmailStr]
-    progdi_id: Optional[int]
-    tanggal_lahir: Optional[date]
+    nidn: Optional[str] = None
+    nomor_ktp: Optional[str] = None
+    email: Optional[EmailStr] = None
+    progdi_id: Optional[int] = None
+    tanggal_lahir: Optional[date] = None
     ijin_mengajar: Optional[bool] = True
-    jabatan: Optional[str]
-    title_depan: Optional[str]
-    title_belakang: Optional[str]
-    jabatan_id: Optional[int]
+    jabatan: Optional[str] = None
+    title_depan: Optional[str] = None
+    title_belakang: Optional[str] = None
+    jabatan_id: Optional[int] = None
     is_sekdos: Optional[bool] = False
-    
 
 router = APIRouter()
 
-@router.get("/dashboard-stats/{dosen_id}", response_model=Dict[str, Any])
-async def get_dashboard_stats(dosen_id: int, db: Session = Depends(get_db)):
-    # Get count of mata kuliah
-    mata_kuliah_count = db.query(func.count(MataKuliah.kodemk)).scalar()
-    
-    # Get count of ruangan
-    ruangan_count = db.query(func.count(Ruangan.id)).scalar()
-    
-    # Get count of classes assigned to this dosen
-    classes_taught = db.query(func.count(OpenedClass.id))\
-        .join(OpenedClass.dosens)\
-        .filter(Dosen.pegawai_id == dosen_id)\
-        .scalar()
+
+@router.get("/get-dosen/names", response_model=Dict[str, Any])
+async def get_dosen_names(
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    filter: Optional[str] = Query(None)
+):
+    query = db.query(Dosen.pegawai_id, Dosen.nama).join(User)
+
+    if filter:
+        query = query.filter(Dosen.nama.ilike(f"%{filter}%"))
+
+    total_records = query.count()
+    total_pages = (total_records + limit - 1) // limit
+
+    dosen_names = query.offset((page - 1) * limit).limit(limit).all()
 
     return {
-        "mata_kuliah": {
-            "count": mata_kuliah_count,
-            "label": "Jumlah Mata Kuliah"
-        },
-        "ruangan": {
-            "count": ruangan_count,
-            "label": "Jumlah Ruangan Terdaftar"
-        },
-        "classes_taught": {
-            "count": classes_taught,
-            "label": "Mata Kuliah yang Diajar"
-        }
+        "page": page,
+        "limit": limit,
+        "total_pages": total_pages,
+        "total_records": total_records,
+        "data": [{"id": dosen.pegawai_id, "nama": dosen.nama} for dosen in dosen_names]
     }
+
 
 @router.get("/get-all", response_model=Dict[str, Any])
 async def get_all_dosen(
@@ -151,6 +149,7 @@ async def get_all_dosen(
             "nidn": dosen.nidn,
             "nomor_ktp": dosen.nomor_ktp,
             "email": dosen.email,
+            "nama" : dosen.nama,
             "progdi_id": dosen.progdi_id,
             "tanggal_lahir": dosen.tanggal_lahir.strftime("%d/%m/%Y") if dosen.tanggal_lahir else None,
             "ijin_mengajar": dosen.ijin_mengajar,
@@ -177,18 +176,92 @@ async def get_all_dosen(
         "data": formatted_dosens
     }
 
-@router.post("/", response_model=DosenRead)
-async def create_dosen(dosen: DosenCreate = Body(...), db: Session = Depends(get_db)):
-    dosen_data = dosen.dict()
-    dosen_data["tanggal_lahir"] = (
-        dosen.tanggal_lahir if isinstance(dosen.tanggal_lahir, datetime) else None
-    )
+class DosenCreate(BaseModel):
+    nim_nip: str
+    password: str
+    nama: str
+    email: EmailStr
+    nidn: str
+    nomor_ktp: str
+    tanggal_lahir: str
+    progdi_id: int
+    ijin_mengajar: bool
+    jabatan: str
+    title_depan: str
+    title_belakang: str
+    jabatan_id: int
+    is_sekdos: bool
 
-    db_dosen = Dosen(**dosen_data)
-    db.add(db_dosen)
+@router.post("/", response_model=dict)
+async def create_dosen(dosen: DosenCreate = Body(...), db: Session = Depends(get_db)):
+    """ ✅ Create a new Dosen and User """
+    
+    # 🔹 Check if user already exists
+    existing_user = db.query(User).filter(User.nim_nip == dosen.nim_nip).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="User with this NIM/NIP already exists.")
+
+    # 🔹 Create new User
+    new_user = User(
+        nim_nip=dosen.nim_nip,
+        password=dosen.password,
+        role="dosen"
+    )
+    db.add(new_user)
     db.commit()
-    db.refresh(db_dosen)
-    return db_dosen
+    db.refresh(new_user)
+
+    # 🔹 Create new Dosen (linked to User)
+    new_dosen = Dosen(
+        user_id=new_user.id,
+        nama=dosen.nama,
+        email=dosen.email,
+        nidn=dosen.nidn,
+        nomor_ktp=dosen.nomor_ktp,
+        tanggal_lahir=datetime.strptime(dosen.tanggal_lahir, "%d/%m/%Y"),
+        progdi_id=dosen.progdi_id,
+        ijin_mengajar=dosen.ijin_mengajar,
+        jabatan=dosen.jabatan,
+        title_depan=dosen.title_depan,
+        title_belakang=dosen.title_belakang,
+        jabatan_id=dosen.jabatan_id,
+        is_sekdos=dosen.is_sekdos
+    )
+    db.add(new_dosen)
+    db.commit()
+    db.refresh(new_dosen)
+
+    return {"message": "Dosen berhasil ditambahkan", "dosen_id": new_dosen.pegawai_id}
+
+
+@router.get("/dashboard-stats/{dosen_id}", response_model=Dict[str, Any])
+async def get_dashboard_stats(dosen_id: int, db: Session = Depends(get_db)):
+    # Get count of mata kuliah
+    mata_kuliah_count = db.query(func.count(MataKuliah.kodemk)).scalar()
+    
+    # Get count of ruangan
+    ruangan_count = db.query(func.count(Ruangan.id)).scalar()
+    
+    # Get count of classes assigned to this dosen
+    classes_taught = db.query(func.count(OpenedClass.id))\
+        .join(OpenedClass.dosens)\
+        .filter(Dosen.pegawai_id == dosen_id)\
+        .scalar()
+
+    return {
+        "mata_kuliah": {
+            "count": mata_kuliah_count,
+            "label": "Jumlah Mata Kuliah"
+        },
+        "ruangan": {
+            "count": ruangan_count,
+            "label": "Jumlah Ruangan Terdaftar"
+        },
+        "classes_taught": {
+            "count": classes_taught,
+            "label": "Mata Kuliah yang Diajar"
+        }
+    }
 
 @router.get("/{dosen_id}", response_model=DosenRead)
 async def get_dosen(dosen_id: int, db: Session = Depends(get_db)):
@@ -197,41 +270,195 @@ async def get_dosen(dosen_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Dosen not found")
     return dosen
 
-@router.put("/{dosen_id}", response_model=DosenRead)
+class DosenUpdate(BaseModel):
+    nama: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: str = None
+    nim_nip: str = None
+    nidn: Optional[str] = None
+    nomor_ktp: Optional[str] = None
+    tanggal_lahir: Optional[str] = None
+    progdi_id: Optional[int] = None
+    ijin_mengajar: Optional[bool] = None
+    jabatan: Optional[str] = None
+    title_depan: Optional[str] = None
+    title_belakang: Optional[str] = None
+    jabatan_id: Optional[int] = None
+    is_sekdos: Optional[bool] = None
+    
+@router.put("/{dosen_id}", response_model=dict)
 async def update_dosen(dosen_id: int, dosen: DosenUpdate, db: Session = Depends(get_db)):
+    """ ✅ Update both Dosen and User """
+
+    # 🔹 Find the Dosen
     db_dosen = db.query(Dosen).filter(Dosen.pegawai_id == dosen_id).first()
     if not db_dosen:
         raise HTTPException(status_code=404, detail="Dosen not found")
 
-    update_data = dosen.dict(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_dosen, key, value)
+    # 🔹 Find the associated User
+    db_user = db.query(User).filter(User.id == db_dosen.user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="Associated User not found")
 
+    # 🔹 Update User Data
+    db_user.nim_nip = dosen.nim_nip
+    db_user.password = dosen.password  # ⚠️ Ensure password is hashed before saving in production
+
+    # 🔹 Update Dosen Data
+    db_dosen.nama = dosen.nama
+    db_dosen.email = dosen.email
+    db_dosen.nidn = dosen.nidn
+    db_dosen.nomor_ktp = dosen.nomor_ktp
+    db_dosen.tanggal_lahir = datetime.strptime(dosen.tanggal_lahir, "%d/%m/%Y")
+    db_dosen.progdi_id = dosen.progdi_id
+    db_dosen.ijin_mengajar = dosen.ijin_mengajar
+    db_dosen.jabatan = dosen.jabatan
+    db_dosen.title_depan = dosen.title_depan
+    db_dosen.title_belakang = dosen.title_belakang
+    db_dosen.jabatan_id = dosen.jabatan_id
+    db_dosen.is_sekdos = dosen.is_sekdos
+
+    # 🔹 Save updates
     db.commit()
     db.refresh(db_dosen)
-    return db_dosen
+    db.refresh(db_user)
 
-@router.get("/get-dosen/names", response_model=Dict[str, Any])
-async def get_dosen_names(
+    return {"message": "Dosen berhasil diperbarui", "dosen_id": db_dosen.pegawai_id}
+
+
+@router.get("/timetable/{dosen_id}", response_model=Dict[str, Any])
+async def get_timetable_by_dosen(
+    dosen_id: int,
     db: Session = Depends(get_db),
+    filter: Optional[str] = Query(None, description="Filter by Mata Kuliah name or Kodemk"),
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
-    filter: Optional[str] = Query(None)
+    page_size: int = Query(10, ge=1, le=100),
 ):
-    query = db.query(Dosen.pegawai_id, Dosen.nama).join(User)
+    """
+    Retrieves the list of classes taught by a specific lecturer (Dosen).
+    """
+    dosen = db.query(Dosen).filter(Dosen.pegawai_id == dosen_id).first()
+    if not dosen:
+        raise HTTPException(status_code=404, detail="Dosen not found")
 
-    if filter:
-        query = query.filter(Dosen.nama.ilike(f"%{filter}%"))
+    try:
+        # ✅ Fetch timetable data with Mata Kuliah details
+        query = db.query(
+            TimeTable.id,
+            TimeTable.opened_class_id,
+            TimeTable.ruangan_id,
+            TimeTable.timeslot_ids,
+            TimeTable.kelas,
+            TimeTable.kapasitas,
+            TimeTable.kuota,
+            OpenedClass.mata_kuliah_kodemk,
+            MataKuliah.kodemk,
+            MataKuliah.namamk,
+            MataKuliah.kurikulum,
+            MataKuliah.sks,
+            MataKuliah.smt,
+            Ruangan.nama_ruang.label("ruangan_name"),
+            func.group_concat(
+                func.concat_ws(" ", Dosen.title_depan, Dosen.nama, Dosen.title_belakang)
+                .distinct()
+                .op('SEPARATOR')('||')
+            ).label("dosen_names")
+        ).join(OpenedClass, TimeTable.opened_class_id == OpenedClass.id) \
+         .join(MataKuliah, OpenedClass.mata_kuliah_kodemk == MataKuliah.kodemk) \
+         .join(Dosen, OpenedClass.dosens) \
+         .join(User, Dosen.user_id == User.id) \
+         .join(Ruangan, TimeTable.ruangan_id == Ruangan.id) \
+         .filter(Dosen.pegawai_id == dosen_id) \
+         .group_by(TimeTable.id, OpenedClass.id, MataKuliah.kodemk, MataKuliah.namamk, MataKuliah.kurikulum, MataKuliah.sks, MataKuliah.smt, Ruangan.nama_ruang)
 
-    total_records = query.count()
-    total_pages = (total_records + limit - 1) // limit
+        if filter:
+            query = query.filter(
+                or_(
+                    MataKuliah.namamk.ilike(f"%{filter}%"),
+                    MataKuliah.kodemk.ilike(f"%{filter}%")
+                )
+            )
 
-    dosen_names = query.offset((page - 1) * limit).limit(limit).all()
+        # ✅ Pagination
+        total_records = query.count()
+        total_pages = (total_records + page_size - 1) // page_size
 
-    return {
-        "page": page,
-        "limit": limit,
-        "total_pages": total_pages,
-        "total_records": total_records,
-        "data": [{"id": dosen.pegawai_id, "nama": dosen.nama} for dosen in dosen_names]
-    }
+        timetable_data = query.offset((page - 1) * page_size).limit(page_size).all()
+
+        # ✅ Fetch timeslot details in a single query
+        timeslot_ids = set(
+            ts_id for entry in timetable_data for ts_id in entry.timeslot_ids if ts_id
+        )
+        timeslot_map = {
+            ts.id: ts for ts in db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
+        }
+
+        formatted_timetable = []
+        for entry in timetable_data:
+            # ✅ Format Dosen names into a numbered list
+            formatted_dosen = (
+                "\n".join([f"{i+1}. {dosen.strip()}" for i, dosen in enumerate(entry.dosen_names.split("||"))])
+                if entry.dosen_names else "-"
+            )
+
+            # ✅ Fetch timeslot details
+            formatted_timeslots = [
+                {
+                    "id": ts.id,
+                    "day": ts.day,
+                    "start_time": ts.start_time.strftime("%H:%M"),
+                    "end_time": ts.end_time.strftime("%H:%M"),
+                }
+                for ts_id in entry.timeslot_ids if (ts := timeslot_map.get(ts_id))
+            ]
+
+            formatted_entry = {
+                "timetable_id": entry.id,
+                "kodemk": entry.kodemk,
+                "matakuliah": entry.namamk,
+                "kurikulum": entry.kurikulum,
+                "kelas": entry.kelas,
+                "kap_peserta": f"{entry.kapasitas} / {entry.kuota}",
+                "sks": entry.sks,
+                "smt": entry.smt,
+                "dosen": formatted_dosen,
+                "ruangan": entry.ruangan_name,
+                "timeslots": formatted_timeslots,
+            }
+            formatted_timetable.append(formatted_entry)
+
+        return {
+            "dosen_id": dosen_id,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+            "total_records": total_records,
+            "data": formatted_timetable,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/{dosen_id}", response_model=dict)
+async def delete_dosen(dosen_id: int, db: Session = Depends(get_db)):
+    """ ✅ Delete both Dosen and User """
+    
+    # 🔹 Find the Dosen
+    db_dosen = db.query(Dosen).filter(Dosen.pegawai_id == dosen_id).first()
+    if not db_dosen:
+        raise HTTPException(status_code=404, detail="Dosen not found")
+
+    # 🔹 Find the associated User
+    db_user = db.query(User).filter(User.id == db_dosen.user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="Associated User not found")
+
+    # 🔹 Delete Dosen first
+    db.delete(db_dosen)
+    db.commit()
+
+    # 🔹 Delete associated User
+    db.delete(db_user)
+    db.commit()
+
+    return {"message": "Dosen dan User berhasil dihapus"}

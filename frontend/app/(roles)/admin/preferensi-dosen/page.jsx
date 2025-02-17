@@ -29,6 +29,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Search, UserX2 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const AdminPreferences = () => {
   const [timeSlots, setTimeSlots] = useState([]);
@@ -346,27 +351,45 @@ const AdminPreferences = () => {
                               className="text-center"
                             >
                               <div className="flex items-center justify-center group relative">
-                                <Checkbox
-                                  id={`preference-${timeSlot.id}`}
-                                  checked={!!preference}
-                                  onCheckedChange={(checked) =>
-                                    handlePreferenceClick(timeSlot.id, checked)
-                                  }
-                                />
-                                {preference && (
-                                  <div
-                                    className={`absolute hidden group-hover:block text-white text-xs rounded px-2 py-1 -top-8 whitespace-nowrap ${
-                                      preference.is_high_priority
-                                        ? "bg-red-500"
-                                        : "bg-blue-500"
-                                    }`}
-                                  >
-                                    {preference.is_high_priority
-                                      ? `${
-                                          preference.reason || "high priority"
-                                        }`
-                                      : "Prioritas Normal"}
-                                  </div>
+                                {preference ? (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <input
+                                        type="checkbox"
+                                        checked={!!preference}
+                                        onChange={(e) =>
+                                          handlePreferenceClick(
+                                            timeSlot.id,
+                                            e.target.checked
+                                          )
+                                        }
+                                        className={`cursor-pointer h-5 w-5 border-2 rounded-md appearance-none transition-all duration-200 
+                  focus:ring-0 focus:outline-none
+                  ${
+                    preference.is_high_priority
+                      ? "bg-red-500 border-red-600 hover:bg-red-600"
+                      : "bg-blue-500 border-blue-600 hover:bg-blue-600"
+                  }`}
+                                      />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {preference.reason ||
+                                        "Tidak ada alasan diberikan"}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                ) : (
+                                  <input
+                                    type="checkbox"
+                                    checked={!!preference}
+                                    onChange={(e) =>
+                                      handlePreferenceClick(
+                                        timeSlot.id,
+                                        e.target.checked
+                                      )
+                                    }
+                                    className="cursor-pointer h-5 w-5 border border-gray-400 rounded-md bg-white 
+                      focus:ring-0 focus:outline-none transition-all duration-200"
+                                  />
                                 )}
                               </div>
                             </TableCell>
@@ -409,12 +432,12 @@ const AdminPreferences = () => {
               }`}
             >
               {selectedPreference?.is_high_priority === 1
-                ? "Preferensi Prioritas Tinggi"
+                ? "Hindari Jadwal"
                 : "Preferensi Normal"}
             </DialogTitle>
             <div className="text-sm text-gray-500">
               {selectedPreference?.is_high_priority === 1
-                ? "Preferensi ini memiliki prioritas tinggi dan akan dipertimbangkan lebih dahulu dalam penjadwalan"
+                ? "Preferensi ini akan dihindari untuk dipilih dan akan dipertimbangkan lebih dahulu dalam penjadwalan"
                 : "Preferensi normal akan dipertimbangkan sesuai ketersediaan jadwal"}
             </div>
           </DialogHeader>
@@ -428,7 +451,7 @@ const AdminPreferences = () => {
                     : "text-blue-500"
                 }`}
               >
-                Prioritas Tinggi
+                Hindari Jadwal
               </Label>
               <Checkbox
                 id="high-priority"
@@ -450,7 +473,7 @@ const AdminPreferences = () => {
                 }
               >
                 {selectedPreference?.is_high_priority === 1
-                  ? "Alasan Prioritas Tinggi"
+                  ? "Alasan Hindari Jadwal"
                   : "Catatan (Opsional)"}
               </Label>
               <Select
@@ -517,11 +540,13 @@ const AdminPreferences = () => {
           <div className="flex space-x-4">
             <div className="flex items-center space-x-2">
               <div className="h-4 w-4 bg-red-500 rounded" />
-              <span className="text-sm text-gray-600">Prioritas Tinggi</span>
+              <span className="text-sm text-gray-600">
+                Dosen menghindari waktu mengajar ini
+              </span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="h-4 w-4 bg-primary rounded" />
-              <span className="text-sm text-gray-600">Preferensi Normal</span>
+              <span className="text-sm text-gray-600">Preferensi mengajar</span>
             </div>
           </div>
 

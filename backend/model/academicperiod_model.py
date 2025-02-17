@@ -13,6 +13,7 @@ class AcademicPeriods(Base):
 
     # Relationships
     timetables: Mapped[list["TimeTable"]] = relationship("TimeTable", back_populates="academic_period")
+    mahasiswa_timetables: Mapped[list["MahasiswaTimeTable"]] = relationship("MahasiswaTimeTable", back_populates="academic_period")
 
     def __repr__(self):
         return f"<AcademicPeriods(tahun_ajaran={self.tahun_ajaran}, semester={self.semester})>"

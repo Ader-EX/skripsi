@@ -5,12 +5,8 @@ import {
   Building2,
   Users,
   GraduationCap,
-  Calendar,
-  Clock,
-  ListChecks,
   ClipboardCheck,
   Layers,
-  Settings,
   Table,
   AlignLeft,
   Calendar1,
@@ -35,7 +31,7 @@ const AdminManagement = () => {
     { value: "ruangan", icon: Building2, label: "Ruangan" },
     { value: "dosen", icon: Users, label: "Dosen" },
     { value: "mahasiswa", icon: GraduationCap, label: "Mahasiswa" },
-    { value: "program-studi", icon: Table, label: "Program Studi" },
+    // { value: "program-studi", icon: Table, label: "Program Studi" },
     { value: "academic-periods", icon: Calendar1, label: " Klr. Akademik" },
   ];
 
@@ -98,12 +94,12 @@ const AdminManagement = () => {
           <MahasiswaTimeTableManagement />
         </TabsContent>
 
-        <TabsContent
+        {/* <TabsContent
           value="program-studi"
           className="border-none p-0 mt-4 md:mt-6"
         >
           <ProgramStudiManagement />
-        </TabsContent>
+        </TabsContent> */}
 
         <TabsContent value="timetable" className="border-none p-0 mt-4 md:mt-6">
           <TimeTableManagement />

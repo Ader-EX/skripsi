@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Search, Trash } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -13,8 +13,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { OpenedClassTable } from "./OpenedClassTable";
+import Link from "next/link";
+import toast from "react-hot-toast";
 
-const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/opened-class/get-all`;
+const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/opened-class`;
 
 const OpenedClassManagement = () => {
   const [classList, setClassList] = useState([]);
@@ -40,7 +42,7 @@ const OpenedClassManagement = () => {
         search: currentSearch, // Use currentSearch instead of searchTerm
       });
 
-      const response = await fetch(`${API_URL}?${params.toString()}`);
+      const response = await fetch(`${API_URL}/get-all?${params.toString()}`);
       if (!response.ok) throw new Error("Failed to fetch classes");
 
       const data = await response.json();
@@ -67,7 +69,12 @@ const OpenedClassManagement = () => {
   const handleConfirmDelete = async () => {
     if (!deleteId) return;
     try {
-      await fetch(`${API_URL}/${deleteId}`, { method: "DELETE" });
+      const response = await fetch(`${API_URL}/${deleteId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Failed to delete class");
+
+      toast.success("Kelas berhasil dihapus");
       fetchClasses();
     } catch (error) {
       console.error("Error deleting class:", error);
@@ -82,9 +89,11 @@ const OpenedClassManagement = () => {
       <CardHeader className="bg-primary/5">
         <CardTitle className="flex items-center justify-between">
           <span>Manajemen Kelas</span>
-          <Button className="bg-primary hover:bg-primary/90">
-            <Plus className="mr-2 h-4 w-4" />
-            Tambah Kelas
+          <Button className="bg-primary hover:bg-primary/90 ">
+            <Link href="/admin/data-manajemen/edit-opened" className="flex">
+              <Plus className="mr-2 h-4 w-4" />
+              Tambah Kelas
+            </Link>
           </Button>
         </CardTitle>
       </CardHeader>
@@ -106,6 +115,7 @@ const OpenedClassManagement = () => {
           </div>
         </form>
 
+        {/* Class Table */}
         <OpenedClassTable
           classList={classList}
           onDelete={handleDeleteClick}
@@ -136,6 +146,7 @@ const OpenedClassManagement = () => {
           </Button>
         </div>
 
+        {/* Delete Confirmation Modal */}
         <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
           <DialogContent>
             <DialogHeader>
@@ -150,6 +161,7 @@ const OpenedClassManagement = () => {
                 Batal
               </Button>
               <Button variant="destructive" onClick={handleConfirmDelete}>
+                <Trash className="mr-2 h-4 w-4" />
                 Hapus
               </Button>
             </DialogFooter>

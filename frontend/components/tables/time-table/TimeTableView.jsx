@@ -9,7 +9,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Eye, Pencil, Trash2, AlertCircle, CheckCircle } from "lucide-react";
+import {
+  Eye,
+  Pencil,
+  Trash2,
+  AlertCircle,
+  CheckCircle,
+  RefreshCcw,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,43 +30,69 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
-const TimeTableView = ({ scheduleList, onDelete, loading }) => {
+const API_CHECK_CONFLICTS = `${process.env.NEXT_PUBLIC_API_URL}/algorithm/check-conflicts`;
+
+const TimeTableView = ({ scheduleList, loading }) => {
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [conflicts, setConflicts] = useState([]);
+  const [showConflictDialog, setShowConflictDialog] = useState(false);
+  const router = useRouter();
 
-  const handleDelete = async (id) => {
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/timetable/${id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/timetable/${confirmDelete}`,
         {
           method: "DELETE",
         }
       );
-      if (!response.ok) throw new Error("Gagal menghapus");
-      alert("Berhasil dihapus!");
-      setConfirmDelete(null);
-      onDelete(id);
+
+      if (!response.ok) throw new Error("Failed to delete timetable");
+
+      toast.success("Jadwal berhasil dihapus");
+      location.reload();
     } catch (error) {
-      console.error("Error deleting:", error);
+      console.error("Error deleting timetable:", error);
+      toast.error("Gagal menghapus jadwal");
+    } finally {
+      setConfirmDelete(null);
     }
   };
 
-  const formatTime = (time) => {
-    return new Date(`2024-01-01T${time}`).toLocaleTimeString("id-ID", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-      minute: "2-digit",
-    });
-  };
+  // ✅ Fetch Conflict Data
+  const fetchConflicts = async () => {
+    try {
+      const response = await fetch(API_CHECK_CONFLICTS);
+      if (!response.ok) throw new Error("Gagal mengecek bentrok.");
 
-  if (loading) {
-    return <div className="text-center py-4">Loading...</div>;
-  }
+      const data = await response.json();
+      if (data.total_conflicts > 0) {
+        setConflicts(data.conflict_details);
+        setShowConflictDialog(true);
+      } else {
+        toast.success("Tidak ada bentrok dalam jadwal.");
+        router.refresh();
+      }
+    } catch (error) {
+      console.error("Error checking conflicts:", error);
+    }
+  };
 
   return (
     <div className="overflow-x-auto">
+      <div className="flex justify-end mb-4">
+        <Button onClick={fetchConflicts} variant="outline">
+          <RefreshCcw className="h-4 w-4 mr-2" />
+          Cek Bentrok
+        </Button>
+      </div>
+
       <Table className="w-full">
         <TableHeader>
           <TableRow className="bg-primary/5">
@@ -107,28 +140,41 @@ const TimeTableView = ({ scheduleList, onDelete, loading }) => {
                 </div>
               </TableCell>
               <TableCell>
-                {schedule.enrolled}/{schedule.capacity}
+                {schedule.enrolled || "0"}/{schedule.capacity}
               </TableCell>
-              {/* ✅ Is Conflicted Column with Icon and Tooltip */}
-              <TableCell className="text-center   ">
+              {/* ✅ Conflict Status Column with Tooltip */}
+              <TableCell className="text-center">
                 <Tooltip>
                   <TooltipTrigger>
-                    {schedule.is_conflicted ? (
-                      <AlertCircle className="h-5 w-5   text-red-500" />
+                    {schedule.is_conflicted === false ||
+                    schedule.is_conflicted === 0 ? (
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    ) : schedule.is_conflicted === true ||
+                      schedule.is_conflicted === 1 ? (
+                      schedule.reason ? (
+                        <AlertCircle className="h-5 w-5 text-red-500" />
+                      ) : (
+                        <AlertCircle className="h-5 w-5 text-yellow-500" />
+                      )
                     ) : (
-                      <CheckCircle className="h-5 w-5 items-center  text-green-500" />
+                      <AlertCircle className="h-5 w-5 text-gray-500" />
                     )}
                   </TooltipTrigger>
+
                   <TooltipContent>
-                    {schedule.is_conflicted
-                      ? "Jadwal ini bentrok dengan jadwal lain"
-                      : "Jadwal tidak bentrok"}
+                    {schedule.is_conflicted === false ||
+                    schedule.is_conflicted === 0
+                      ? "Jadwal tidak bentrok"
+                      : schedule.is_conflicted === true ||
+                        schedule.is_conflicted === 1
+                      ? schedule.reason || "Perlu cek konflik terlebih dahulu"
+                      : "Jadwal ini bentrok dengan jadwal lain"}
                   </TooltipContent>
                 </Tooltip>
               </TableCell>
+
               <TableCell className="text-right">
                 <div className="flex gap-2 justify-end">
-                  {/* View Button */}
                   <Button
                     size="icon"
                     variant="outline"
@@ -141,7 +187,7 @@ const TimeTableView = ({ scheduleList, onDelete, loading }) => {
                   <Button size="icon" variant="outline">
                     <Link
                       href={`/admin/data-manajemen/edit?id=${schedule.id}`}
-                      className=" text-blue-500"
+                      className="text-blue-500"
                     >
                       <Pencil />
                     </Link>
@@ -162,98 +208,74 @@ const TimeTableView = ({ scheduleList, onDelete, loading }) => {
         </TableBody>
       </Table>
 
-      {/* Detail Dialog */}
-      {selectedSchedule && (
-        <Dialog
-          open={selectedSchedule !== null}
-          onOpenChange={() => setSelectedSchedule(null)}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Detail Jadwal</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="font-semibold">Mata Kuliah</p>
-                  <p>{selectedSchedule.subject?.name}</p>
-                  <p className="text-sm text-gray-500">
-                    {selectedSchedule.subject?.code}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-semibold">Kelas</p>
-                  <p>{selectedSchedule.class}</p>
-                </div>
-                <div>
-                  <p className="font-semibold">Dosen</p>
-                  <p>
-                    {selectedSchedule.lecturers
-                      ?.map((lecturer) => lecturer.name)
-                      .join(", ")}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-semibold">Hari & Waktu</p>
-                  {selectedSchedule.timeslots.map((slot, index) => (
-                    <p key={index}>
-                      {slot.day}: {slot.startTime} - {slot.endTime}
-                    </p>
-                  ))}
-                </div>
-                <div>
-                  <p className="font-semibold">Ruangan</p>
-                  <p>{selectedSchedule.room?.code}</p>
-                  <p className="text-sm text-gray-500">
-                    Kapasitas: {selectedSchedule.room?.capacity}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-semibold">Kapasitas Kelas</p>
-                  <p>
-                    {selectedSchedule.enrolled}/{selectedSchedule.capacity}{" "}
-                    mahasiswa
-                  </p>
-                </div>
+      {/* 🛑 Conflict Dialog */}
+      <Dialog open={showConflictDialog} onOpenChange={setShowConflictDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Konflik Jadwal Ditemukan</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {conflicts.length > 0 ? (
+              <div className="overflow-y-auto max-h-64">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Jenis Konflik</TableHead>
+                      <TableHead>Mata Kuliah</TableHead>
+                      <TableHead>Dosen</TableHead>
+                      <TableHead>Ruangan</TableHead>
+                      <TableHead>Waktu</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {conflicts.map((conflict, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{conflict.type}</TableCell>
+                        <TableCell>{conflict.opened_class_id}</TableCell>
+                        <TableCell>{conflict.dosen_id || "-"}</TableCell>
+                        <TableCell>{conflict.room_id || "-"}</TableCell>
+                        <TableCell>{conflict.timeslot_id}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-            </div>
-            <div className="flex justify-end mt-4">
-              <Button
-                variant="outline"
-                onClick={() => setSelectedSchedule(null)}
-              >
-                Tutup
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* Delete Confirmation Dialog */}
-      {confirmDelete && (
-        <Dialog
-          open={confirmDelete !== null}
-          onOpenChange={() => setConfirmDelete(null)}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Konfirmasi Hapus</DialogTitle>
-            </DialogHeader>
-            <p>Apakah Anda yakin ingin menghapus jadwal ini?</p>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setConfirmDelete(null)}>
-                Batal
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => handleDelete(confirmDelete)}
-              >
-                Hapus
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+            ) : (
+              <p>Tidak ada konflik ditemukan.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => router.push("/admin/data-manajemen")}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              🔧 Resolve Conflicts
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={confirmDelete !== null}
+        onOpenChange={() => setConfirmDelete(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Konfirmasi Hapus Jadwal</DialogTitle>
+          </DialogHeader>
+          <p>
+            Apakah Anda yakin ingin menghapus jadwal ini? Data mahasiswa terkait
+            juga akan dihapus.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(null)}>
+              Batal
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              Hapus
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

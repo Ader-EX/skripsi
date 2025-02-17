@@ -85,7 +85,7 @@ const Login = () => {
           </h1>
         </Link>
 
-        <h1 className="text-2xl font-semibold mb-4">Login Mahasiswa</h1>
+        <h1 className="text-2xl font-semibold mb-4">Login</h1>
         <form action="#" method="POST" onSubmit={handleSubmit(onSubmit)}>
           {/* Username Input */}
           <div className="mb-4">

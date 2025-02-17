@@ -70,19 +70,24 @@ const MataKuliahManagement = () => {
     }
   };
 
-  const handleDelete = async (kodemk) => {
+  const handleDeleteConfirm = async (kodemk) => {
     try {
-      const response = await fetch(`${API_URL}/matakuliah/${kodemk}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/matakuliah/${kodemk}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       if (response.ok) {
+        toast.success("MataKuliah deleted successfully");
         fetchMataKuliah();
       } else {
-        console.error("Failed to delete matakuliah");
+        throw new Error("Failed to delete MataKuliah");
       }
     } catch (error) {
-      console.error("Error deleting matakuliah:", error);
+      console.error("Error deleting MataKuliah:", error);
+      toast.error("Error deleting MataKuliah");
     }
   };
 
@@ -91,7 +96,6 @@ const MataKuliahManagement = () => {
     setIsEdit(!!matakuliah);
     setIsDialogOpen(true);
   };
-
   return (
     <div className="flex w-full">
       <Card className="flex flex-col w-full">
@@ -121,8 +125,9 @@ const MataKuliahManagement = () => {
             setPage={setPage}
             pageSize={pageSize}
             setPageSize={setPageSize}
-            handleDelete={handleDelete}
+            handleDelete={handleDeleteConfirm}
             handleEdit={handleOpenForm}
+            fetchMataKuliah={fetchMataKuliah}
           />
         </CardContent>
       </Card>

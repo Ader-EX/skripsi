@@ -2,9 +2,16 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import {
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  AlertTriangle,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
 import TimeTableView from "./TimeTableView";
 import toast from "react-hot-toast";
 
@@ -19,10 +26,9 @@ const TimeTableManagement = () => {
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState(null);
   const [totalPages, setTotalPages] = useState(1);
   const [pageNumber, setPageNumber] = useState(1);
+  const [showConflicts, setShowConflicts] = useState(false);
   const [searchParams, setSearchParams] = useState({
     limit: 10,
     filterText: "",
@@ -36,14 +42,9 @@ const TimeTableManagement = () => {
       const params = new URLSearchParams();
       params.append("page", pageNumber);
       params.append("limit", searchParams.limit);
-
-      if (searchParams.filterText) {
+      if (searchParams.filterText)
         params.append("filterText", searchParams.filterText);
-      }
-
-      if (searchParams.isConflicted !== null) {
-        params.append("is_conflicted", searchParams.isConflicted);
-      }
+      if (showConflicts) params.append("isConflicted", "true");
 
       const response = await fetch(`${API_URL}?${params.toString()}`);
       if (!response.ok) throw new Error("Failed to fetch schedules");
@@ -53,7 +54,6 @@ const TimeTableManagement = () => {
       setTotalPages(data.total_pages || 1);
     } catch (error) {
       console.error("Error fetching schedules:", error);
-      toast.error("Failed to fetch schedules");
     } finally {
       setLoading(false);
     }
@@ -61,7 +61,7 @@ const TimeTableManagement = () => {
 
   useEffect(() => {
     fetchSchedules();
-  }, [pageNumber, searchParams]);
+  }, [pageNumber, searchParams, showConflicts]);
 
   const handleSearch = () => {
     setSearchParams((prev) => ({ ...prev, filterText: searchInput }));
@@ -78,7 +78,7 @@ const TimeTableManagement = () => {
   };
 
   const handleFormSubmit = () => {
-    fetchSchedules(); // Refresh schedules after adding or editing
+    fetchSchedules();
     setFormOpen(false);
   };
 
@@ -117,12 +117,22 @@ const TimeTableManagement = () => {
               </Button>
             </div>
           </div>
+          {/* 
+          <div className="flex items-center gap-2">
+            <Label>Filter Konflik</Label>
+            <Switch
+              checked={showConflicts}
+              onCheckedChange={setShowConflicts}
+            />
+            {showConflicts && (
+              <AlertTriangle className="text-red-500 h-5 w-5" />
+            )}
+          </div> */}
         </div>
 
         <TimeTableView
           scheduleList={scheduleList}
           onEdit={handleEdit}
-          onDelete={() => {}}
           loading={loading}
         />
 

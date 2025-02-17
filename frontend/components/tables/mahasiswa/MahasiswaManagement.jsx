@@ -22,6 +22,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import toast from "react-hot-toast";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/mahasiswa`;
 const PROGRAM_STUDI_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/program-studi`;
@@ -35,8 +36,8 @@ const MahasiswaManagement = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [filters, setFilters] = useState({
-    semester: "",
-    program_studi_id: "",
+    semester: "all", // ✅ Set default to "all"
+    program_studi_id: "all", // ✅ Set default to "all"
     search: "",
   });
 
@@ -45,66 +46,77 @@ const MahasiswaManagement = () => {
     fetchProgramStudi();
   }, [filters]);
 
+  /** ✅ Fetch Mahasiswa Data */
   const fetchMahasiswa = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
 
-      if (filters.semester) params.append("semester", filters.semester);
-      if (filters.program_studi_id)
+      if (filters.semester !== "all")
+        params.append("semester", filters.semester);
+      if (filters.program_studi_id !== "all")
         params.append("program_studi_id", filters.program_studi_id);
       if (filters.search) params.append("search", filters.search);
 
-      const url = `${API_URL}/get-all?${params.toString()}`;
-      console.log("Fetching from:", url);
-
-      const response = await fetch(url);
+      const response = await fetch(`${API_URL}/get-all?${params.toString()}`);
       if (!response.ok)
         throw new Error(`Error fetching data: ${response.status}`);
 
       const data = await response.json();
-      console.log("Fetched Data:", data);
-
       setMahasiswaList(data);
     } catch (error) {
+      toast.error("Gagal mengambil data mahasiswa.");
       console.error("Error fetching mahasiswa:", error);
     } finally {
       setLoading(false);
     }
   };
 
+  /** ✅ Fetch Program Studi Data */
   const fetchProgramStudi = async () => {
     try {
       const response = await fetch(PROGRAM_STUDI_API_URL);
       if (!response.ok) throw new Error("Failed to fetch program studi");
+
       const data = await response.json();
       setProgramStudiList(data);
     } catch (error) {
+      toast.error("Gagal mengambil data program studi.");
       console.error("Error fetching program studi:", error);
     }
   };
 
+  /** ✅ Open Form for Adding Mahasiswa */
   const handleAdd = () => {
     setEditData(null);
     setFormOpen(true);
   };
 
+  /** ✅ Open Form for Editing Mahasiswa */
   const handleEdit = (data) => {
     setEditData(data);
     setFormOpen(true);
   };
 
+  /** ✅ Open Delete Confirmation Modal */
   const handleDeleteClick = (id) => {
     setDeleteId(id);
     setDeleteModalOpen(true);
   };
 
+  /** ✅ Confirm Deleting Mahasiswa & Associated User */
   const handleConfirmDelete = async () => {
     if (!deleteId) return;
     try {
-      await fetch(`${API_URL}/${deleteId}`, { method: "DELETE" });
+      const response = await fetch(`${API_URL}/${deleteId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Failed to delete mahasiswa");
+
+      toast.success("Mahasiswa berhasil dihapus");
       fetchMahasiswa();
     } catch (error) {
+      toast.error("Gagal menghapus mahasiswa.");
       console.error("Error deleting mahasiswa:", error);
     } finally {
       setDeleteModalOpen(false);
@@ -127,7 +139,7 @@ const MahasiswaManagement = () => {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {/* Filters */}
+        {/* ✅ Filters */}
         <div className="grid grid-cols-3 gap-4 mb-4">
           <div>
             <Label>Semester</Label>
@@ -140,11 +152,12 @@ const MahasiswaManagement = () => {
               <SelectTrigger>
                 <SelectValue placeholder="Pilih Semester" />
               </SelectTrigger>
-              <SelectContent className="bg-white">
-                <SelectItem value="Semua">Semua</SelectItem>
+              <SelectContent>
+                <SelectItem value="all">Semua</SelectItem>{" "}
+                {/* ✅ Set a valid non-empty value */}
                 {["1", "2", "3", "4", "5", "6", "7", "8"].map((sem) => (
                   <SelectItem key={sem} value={sem}>
-                    {sem}
+                    Semester {sem}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -155,22 +168,17 @@ const MahasiswaManagement = () => {
             <Select
               value={filters.program_studi_id}
               onValueChange={(value) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  program_studi_id: value,
-                }))
+                setFilters((prev) => ({ ...prev, program_studi_id: value }))
               }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Pilih Program Studi" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">Semua</SelectItem>{" "}
+                {/* ✅ Set a valid non-empty value */}
                 {programStudiList.map((program) => (
-                  <SelectItem
-                    className="bg-white"
-                    key={program.id}
-                    value={program.id.toString()}
-                  >
+                  <SelectItem key={program.id} value={program.id.toString()}>
                     {program.name}
                   </SelectItem>
                 ))}
@@ -181,24 +189,23 @@ const MahasiswaManagement = () => {
             <Label>Pencarian</Label>
             <Input
               type="text"
-              placeholder="Cari nama atau email"
+              placeholder="Cari nama atau NIM"
               value={filters.search}
               onChange={(e) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  search: e.target.value,
-                }))
+                setFilters((prev) => ({ ...prev, search: e.target.value }))
               }
             />
           </div>
         </div>
 
+        {/* ✅ Mahasiswa Table */}
         <MahasiswaTable
           mahasiswaList={mahasiswaList}
           onEdit={handleEdit}
           onDelete={handleDeleteClick}
         />
 
+        {/* ✅ Form Dialog for Add/Edit */}
         <MahasiswaForm
           isOpen={formOpen}
           onClose={() => setFormOpen(false)}
@@ -207,7 +214,7 @@ const MahasiswaManagement = () => {
         />
       </CardContent>
 
-      {/* Delete Confirmation Modal */}
+      {/* ✅ Delete Confirmation Modal */}
       <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
         <DialogContent>
           <DialogHeader>

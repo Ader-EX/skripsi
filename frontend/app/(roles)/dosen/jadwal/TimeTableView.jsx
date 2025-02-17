@@ -25,7 +25,13 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Pencil } from "lucide-react";
 
-const TimeTableView = ({ schedules, rooms, timeSlots, filters }) => {
+const TimeTableView = ({
+  schedules,
+  rooms,
+  timeSlots,
+  filters,
+  role = "admin",
+}) => {
   const [DAYS, setDAYS] = useState(filters?.available_days || ["Senin"]);
   const [selectedDay, setSelectedDay] = useState(DAYS[0] || "Senin");
   const [selectedBuilding, setSelectedBuilding] = useState("all");
@@ -66,17 +72,6 @@ const TimeTableView = ({ schedules, rooms, timeSlots, filters }) => {
             <p>Room: {selectedConflict.room_id}</p>
             <p>Timeslot: {selectedConflict.timeslot_id}</p>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedConflict(null)}>
-              Close
-            </Button>
-            <Button
-              className="bg-red-500 hover:bg-red-600"
-              onClick={() => (window.location.href = "/admin/data-manajemen")}
-            >
-              Resolve Conflict
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     );
@@ -214,12 +209,13 @@ const TimeTableView = ({ schedules, rooms, timeSlots, filters }) => {
               </SelectContent>
             </Select>
           </div>
-
-          <Button>
-            <Link href={"data-manajemen"} className="flex items-center gap-2">
-              <Pencil /> Edit Timetable
-            </Link>
-          </Button>
+          {role == "admin" && (
+            <Button>
+              <Link href={"data-manajemen"} className="flex items-center gap-2">
+                <Pencil /> Edit Timetable
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -260,7 +256,7 @@ const TimeTableView = ({ schedules, rooms, timeSlots, filters }) => {
                       buildingRooms.map((room, index) => (
                         <div
                           key={`${room.id}-${timeSlot.id}-${index}`}
-                          className="relative h-24 border"
+                          className="relative h-18 border"
                         >
                           {renderScheduleCard(
                             getScheduleForSlot(timeSlot, room.id),

@@ -202,68 +202,29 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
 #     return total_penalty
 
 
-def evolve_population(
-    population: List[List[Dict]], opened_class_cache: Dict, room_cache: Dict, timeslots: List[TimeSlot]
-) -> List[List[Dict]]:
-    """Evolve the population with crossover and mutation."""
-    fitness_scores = [calculate_fitness(timetable, opened_class_cache, room_cache) for timetable in population]
-    probabilities = [1 / (score + 1) for score in fitness_scores]
+# def evolve_population(
+#     population: List[List[Dict]], opened_class_cache: Dict, room_cache: Dict, timeslots: List[TimeSlot]
+# ) -> List[List[Dict]]:
+#     """Evolve the population with crossover and mutation."""
+#     fitness_scores = [calculate_fitness(timetable, opened_class_cache, room_cache) for timetable in population]
+#     probabilities = [1 / (score + 1) for score in fitness_scores]
 
-    new_population = []
-    for _ in range(len(population)):
-        parent1, parent2 = random.choices(population, weights=probabilities, k=2)
-        child = parent1[:len(parent1) // 2] + parent2[len(parent2) // 2:]
-        new_population.append(child)
+#     new_population = []
+#     for _ in range(len(population)):
+#         parent1, parent2 = random.choices(population, weights=probabilities, k=2)
+#         child = parent1[:len(parent1) // 2] + parent2[len(parent2) // 2:]
+#         new_population.append(child)
 
-    # Mutation
-    for timetable in new_population:
-        if random.random() < 0.1:
-            gene = random.choice(timetable)
-            start_timeslot_idx = random.randint(0, len(timeslots) - len(gene["timeslot_ids"]))
-            gene["timeslot_ids"] = [timeslots[i].id for i in range(start_timeslot_idx, start_timeslot_idx + len(gene["timeslot_ids"]))]
+#     # Mutation
+#     for timetable in new_population:
+#         if random.random() < 0.1:
+#             gene = random.choice(timetable)
+#             start_timeslot_idx = random.randint(0, len(timeslots) - len(gene["timeslot_ids"]))
+#             gene["timeslot_ids"] = [timeslots[i].id for i in range(start_timeslot_idx, start_timeslot_idx + len(gene["timeslot_ids"]))]
 
-    return new_population
+#     return new_population
 
-def insert_timetable(db: Session, timetable: List[Dict], opened_class_cache: Dict, room_cache: Dict, timeslot_cache: Dict):
-    """Insert the best timetable into the database, generating the placeholder dynamically."""
-    for entry in timetable:
-        try:
-            opened_class = opened_class_cache[entry["opened_class_id"]]
-            mata_kuliah = opened_class["mata_kuliah"]
-            room = room_cache[entry["ruangan_id"]]
-            timeslot_ids = entry["timeslot_ids"]
 
-            # Get the first timeslot for the class
-            first_timeslot = timeslot_cache[timeslot_ids[0]]
-            day = first_timeslot.day  # Assuming `day` is the day field in TimeSlot
-            start_time = first_timeslot.start_time  # Assuming `start_time` is the start time field
-            end_time = timeslot_cache[timeslot_ids[-1]].end_time  # Assuming `end_time` is the end time field
-
-            # Generate the placeholder for the designated time
-            placeholder = f"1. {room.kode_ruangan} - {day} ({start_time} - {end_time})"
-
-            # If it's a kelas besar, add the second entry
-            if mata_kuliah.have_kelas_besar:
-                placeholder += f"\n2. FIK-VCR-KB - {day} ({start_time} - {end_time})"
-
-            # Create the TimeTable entry
-            timetable_entry = TimeTable(
-                opened_class_id=entry["opened_class_id"],
-                ruangan_id=entry["ruangan_id"],
-                timeslot_ids=entry["timeslot_ids"],
-                is_conflicted=entry["is_conflicted"],
-                kelas=entry["kelas"],
-                kapasitas=opened_class["kapasitas"],
-                academic_period_id=1,
-                placeholder=placeholder,  # Add the dynamically generated placeholder
-            )
-            db.add(timetable_entry)
-        except KeyError as e:
-            logger.error(f"Missing key in opened_class_cache or room_cache for timetable entry: {e}")
-            continue
-
-    db.commit()
-    logger.debug("Timetable inserted successfully.")
 
 
 
@@ -376,14 +337,6 @@ router = APIRouter()
 #         logger.error(f"Error generating schedule: {e}")
 #         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/reset-schedule")
-async def reset_schedule(db: Session = Depends(get_db)):
-    try:
-        clear_timetable(db)
-        return {"message": "Schedule reset successfully"}
-    except Exception as e:
-        logger.error(f"Error resetting schedule: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 from sqlalchemy import func
@@ -440,7 +393,7 @@ from datetime import time
 from pydantic import BaseModel
 from typing import List
 
-router = APIRouter()
+
 
 class TimeSlotBase(BaseModel):
     day: str
@@ -458,6 +411,23 @@ class TimeTableCreate(BaseModel):
 
 from sqlalchemy import desc
 
+
+
+@router.delete("/reset-schedule")
+async def reset_schedule(db: Session = Depends(get_db)):
+    try:
+        clear_timetable(db)
+        return {"message": "Schedule reset successfully"}
+    except Exception as e:
+        logger.error(f"Error resetting schedule: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+from sqlalchemy.orm import joinedload
+from sqlalchemy import or_, desc
+from fastapi import HTTPException, Query, Depends
+from sqlalchemy.orm import Session
+from typing import Optional
+
 @router.get("/formatted-timetable")
 async def get_timetable(
     db: Session = Depends(get_db),
@@ -467,13 +437,20 @@ async def get_timetable(
     filterText: Optional[str] = Query(None, description="Filter by subject or lecturer")
 ):
     try:
+        # Fetch the active academic period
+        active_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
+        if not active_period:
+            raise HTTPException(status_code=404, detail="No active academic period found.")
+
+        # Base query with joins
         query = db.query(TimeTable).options(
-            joinedload(TimeTable.opened_class)
-            .joinedload(OpenedClass.mata_kuliah),
+            joinedload(TimeTable.opened_class).joinedload(OpenedClass.mata_kuliah),
             joinedload(TimeTable.ruangan),
-            joinedload(TimeTable.opened_class)
-            .joinedload(OpenedClass.dosens),
+            joinedload(TimeTable.opened_class).joinedload(OpenedClass.dosens),
         )
+
+        # Filter by active academic period
+        query = query.filter(TimeTable.academic_period_id == active_period.id)
 
         # Apply conflict filter if specified
         if is_conflicted is not None:
@@ -514,10 +491,18 @@ async def get_timetable(
                 "id": timetable.id,
                 "subject": {
                     "code": mata_kuliah.kodemk,
-                    "name": mata_kuliah.namamk
+                    "name": mata_kuliah.namamk,
+                    "sks": mata_kuliah.sks,
+                    "semester": mata_kuliah.smt
                 },
                 "class": opened_class.kelas,
-                "lecturers": [{"id": d.pegawai_id, "name": d.nama} for d in dosens],
+               "lecturers": [
+    {
+        "id": d.pegawai_id,
+        "name": f"{d.title_depan or ''} {d.nama} {d.title_belakang or ''}".strip()
+    } for d in dosens
+],
+
                 "timeslots": [
                     {
                         "id": t.id,
@@ -533,10 +518,21 @@ async def get_timetable(
                 },
                 "capacity": timetable.kapasitas,
                 "enrolled": timetable.kuota,
-                "is_conflicted": timetable.is_conflicted
+                "is_conflicted": timetable.is_conflicted,
+                "reason": timetable.reason,
+                "is_active": active_period.is_active,
+                "placeholder" : timetable.placeholder
             })
 
+        metadata = {
+            "semester": f"{active_period.tahun_ajaran} - Semester {active_period.semester}",
+            "week_start": str(active_period.start_date),
+            "week_end": str(active_period.end_date),
+            "is_active": active_period.is_active  # ✅ Added is_active in metadata
+        }
+
         return {
+            "metadata": metadata,
             "data": formatted_data,
             "total_pages": (total_records + limit - 1) // limit,
             "current_page": page,
@@ -545,7 +541,6 @@ async def get_timetable(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching timetable: {str(e)}")
-
 
 
 
@@ -645,14 +640,20 @@ from sqlalchemy.orm import Session
 @router.get("/timetable-view/")
 async def get_timetable_view(
     db: Session = Depends(get_db),
-    search: Optional[str] = Query(None, description="Search by course name or code")
+    search: Optional[str] = Query(None, description="Search by course name or code"),
+    show_conflicts: bool = Query(False, description="Include conflict reasons in response")
 ):
-    # ✅ Get Active Academic Period
-    active_academic_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
+    # Fetch only ONE active academic period (e.g., the latest one)
+    active_academic_period = (
+        db.query(AcademicPeriods)
+        .filter(AcademicPeriods.is_active == True)
+        .order_by(AcademicPeriods.start_date.desc())  # Ensure it's the most recent one
+        .first()
+    )
+
     if not active_academic_period:
         raise HTTPException(status_code=404, detail="No active academic period found")
 
-    # ✅ Base Query for Timetables
     timetables_query = (
         db.query(TimeTable)
         .join(TimeTable.opened_class)
@@ -663,7 +664,6 @@ async def get_timetable_view(
         .filter(TimeTable.academic_period_id == active_academic_period.id)
     )
 
-    # ✅ Apply Search Filter if provided
     if search:
         search_term = f"%{search}%"
         timetables_query = timetables_query.filter(
@@ -673,23 +673,16 @@ async def get_timetable_view(
             )
         )
 
-    # ✅ Execute Query
     timetables = timetables_query.all()
-
-    # ✅ Get All Time Slots
     time_slots = db.query(TimeSlot).all()
-
-    # ✅ Get All Rooms
     rooms = db.query(Ruangan).all()
 
-    # ✅ Construct Metadata
     metadata = {
         "semester": f"{active_academic_period.tahun_ajaran} - Semester {active_academic_period.semester}",
         "week_start": f"{active_academic_period.start_date}",
         "week_end": f"{active_academic_period.end_date}"
     }
 
-    # ✅ Construct Time Slots Data
     time_slots_data = [
         {
             "id": ts.id,
@@ -700,7 +693,6 @@ async def get_timetable_view(
         for ts in time_slots
     ]
 
-    # ✅ Construct Rooms Data
     rooms_data = [
         {
             "id": room.kode_ruangan,
@@ -712,7 +704,6 @@ async def get_timetable_view(
         for room in rooms
     ]
 
-    # ✅ Construct Schedules Data with Conflict Information
     schedules_data = [
         {
             "id": f"SCH{timetable.id}",
@@ -743,14 +734,12 @@ async def get_timetable_view(
             "max_capacity": timetable.opened_class.kapasitas,
             "academic_year": active_academic_period.tahun_ajaran,
             "semester_period": active_academic_period.semester,
-            # Add conflict information
             "is_conflicted": timetable.is_conflicted,
-            "conflict_details": timetable.conflict_details if timetable.is_conflicted else None
+            "reason": timetable.reason if timetable.is_conflicted else None
         }
         for timetable in timetables
     ]
 
-    # ✅ Construct Filters
     filters = {
         "available_days": ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"],
         "available_times": {
@@ -762,7 +751,6 @@ async def get_timetable_view(
         "class_types": ["T", "P", "S"]
     }
 
-    # ✅ Final Response
     return {
         "metadata": metadata,
         "time_slots": time_slots_data,
@@ -884,24 +872,27 @@ from typing import List, Dict, Tuple
 
 def check_conflicts(db: Session, solution, opened_class_cache, room_cache, timeslot_cache):
     """
-    Detailed conflict checking for timetable assignments.
-    
-    Returns:
-    - Total number of conflicts
-    - Detailed conflict information
-    - Whether all conflicts are resolved
+    Conflict checking for timetable assignments.
+
+    - Updates `is_conflicted` field and `reason` in `TimeTable` table.
+    - Only marks entries with actual conflicts as `is_conflicted = 1`.
+    - All others will be `is_conflicted = 0`.
     """
-    conflicts = 0
+
     conflict_details = []
-    timeslot_usage = {}  # {timeslot_id: [(room_id, opened_class_id, timetable_id)]}
-    lecturer_schedule = {}  # {(dosen_id, timeslot_id): (opened_class_id, timetable_id)}
+    timeslot_usage = {}
+    lecturer_schedule = {}
+    conflicted_timetable_ids = set()  # Track timetable IDs that actually have conflicts
+
+    # Reset all timetables to non-conflicted first
+    db.query(TimeTable).update({"is_conflicted": 0, "reason": None}, synchronize_session=False)
 
     for assignment in solution:
         opened_class_id, room_id, timeslot_id = assignment
 
         # Find the corresponding timetable entry
         timetable_entry = db.query(TimeTable).filter(
-            TimeTable.opened_class_id == opened_class_id, 
+            TimeTable.opened_class_id == opened_class_id,
             TimeTable.timeslot_ids[0] == timeslot_id
         ).first()
 
@@ -911,33 +902,42 @@ def check_conflicts(db: Session, solution, opened_class_cache, room_cache, times
         class_info = opened_class_cache[opened_class_id]
         sks = class_info['sks']
         current_timeslot = timeslot_cache[timeslot_id]
+        current_day_str = current_timeslot.day.value if hasattr(current_timeslot.day, "value") else current_timeslot.day
 
         for i in range(sks):
             current_id = timeslot_id + i
 
             # Invalid timeslot check
             if current_id not in timeslot_cache:
+                reason = f"Timeslot {current_id} does not exist"
                 conflict_details.append({
                     'type': 'Invalid Timeslot',
                     'timetable_id': timetable_entry.id,
                     'opened_class_id': opened_class_id,
-                    'reason': f'Timeslot {current_id} does not exist in timeslot cache',
+                    'reason': reason,
                     'severity': 'High'
                 })
-                conflicts += 1000
+                conflicted_timetable_ids.add(timetable_entry.id)
+                timetable_entry.is_conflicted = 1
+                timetable_entry.reason = reason
                 continue
 
-            # Day crossing check
             next_timeslot = timeslot_cache[current_id]
-            if next_timeslot.day != current_timeslot.day:
+            next_day_str = next_timeslot.day.value if hasattr(next_timeslot.day, "value") else next_timeslot.day
+
+            # Day crossing check
+            if next_day_str != current_day_str:
+                reason = f"Class spans multiple days (from {current_day_str} to {next_day_str})"
                 conflict_details.append({
                     'type': 'Day Crossing',
                     'timetable_id': timetable_entry.id,
                     'opened_class_id': opened_class_id,
-                    'reason': f'Class spans multiple days (from {current_timeslot.day} to {next_timeslot.day})',
+                    'reason': reason,
                     'severity': 'High'
                 })
-                conflicts += 1000
+                conflicted_timetable_ids.add(timetable_entry.id)
+                timetable_entry.is_conflicted = 1
+                timetable_entry.reason = reason
                 continue
 
             # Room conflicts check
@@ -946,6 +946,7 @@ def check_conflicts(db: Session, solution, opened_class_cache, room_cache, times
 
             for used_room, used_class_id, used_timetable_id in timeslot_usage[current_id]:
                 if used_room == room_id:
+                    reason = f"Room {room_id} is already in use at timeslot {current_id}"
                     conflict_details.append({
                         'type': 'Room Conflict',
                         'timetable_id': timetable_entry.id,
@@ -954,9 +955,11 @@ def check_conflicts(db: Session, solution, opened_class_cache, room_cache, times
                         'conflicting_opened_class_id': used_class_id,
                         'room_id': room_id,
                         'timeslot_id': current_id,
-                        'reason': f'Room {room_id} is already in use at timeslot {current_id}'
+                        'reason': reason
                     })
-                    conflicts += 1
+                    conflicted_timetable_ids.add(timetable_entry.id)
+                    timetable_entry.is_conflicted = 1
+                    timetable_entry.reason = reason
 
             timeslot_usage[current_id].append((room_id, opened_class_id, timetable_entry.id))
 
@@ -965,6 +968,7 @@ def check_conflicts(db: Session, solution, opened_class_cache, room_cache, times
                 schedule_key = (dosen_id, current_id)
 
                 if schedule_key in lecturer_schedule:
+                    reason = f"Dosen {dosen_id} is teaching another class at timeslot {current_id}"
                     conflict_details.append({
                         'type': 'Lecturer Conflict',
                         'timetable_id': timetable_entry.id,
@@ -973,22 +977,23 @@ def check_conflicts(db: Session, solution, opened_class_cache, room_cache, times
                         'conflicting_opened_class_id': lecturer_schedule[schedule_key][0],
                         'dosen_id': dosen_id,
                         'timeslot_id': current_id,
-                        'reason': f'Dosen {dosen_id} telah mengajar kelas lain di timeslot {current_id}'
+                        'reason': reason
                     })
-                    conflicts += 1
+                    conflicted_timetable_ids.add(timetable_entry.id)
+                    timetable_entry.is_conflicted = 1
+                    timetable_entry.reason = reason
 
                 lecturer_schedule[schedule_key] = (opened_class_id, timetable_entry.id)
 
-    # If no conflicts, set all `is_conflicted = 0`
-    if conflicts == 0:
-        db.query(TimeTable).update({"is_conflicted": False}, synchronize_session=False)
-    else:
-        db.query(TimeTable).update({"is_conflicted": True}, synchronize_session=False)
+    # ✅ Ensure only the conflicted timetables remain `is_conflicted = 1`
+    db.query(TimeTable).filter(TimeTable.id.notin_(conflicted_timetable_ids)).update(
+        {"is_conflicted": 0, "reason": None}, synchronize_session=False
+    )
 
     db.commit()
 
     return {
-        'total_conflicts': conflicts,
+        'total_conflicts': len(conflicted_timetable_ids),
         'conflict_details': conflict_details
     }
 

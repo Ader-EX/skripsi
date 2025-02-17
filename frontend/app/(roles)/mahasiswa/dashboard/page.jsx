@@ -34,7 +34,7 @@ const MahasiswaDashboard = () => {
   // Modal and pagination states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const [limit, setLimit] = useState(3);
   const [totalPages, setTotalPages] = useState(1);
   const [filter, setFilter] = useState("");
   const [selectedCourseToAdd, setSelectedCourseToAdd] = useState(null);
@@ -57,9 +57,6 @@ const MahasiswaDashboard = () => {
       const data = await response.json();
       setCurrentSemester(data.semester);
       setCurrentAcademicYear(data.tahun_ajaran.toString()); // Convert to string
-
-      console.log("📌 Active Semester:", data.semester);
-      console.log("📌 Active Academic Year:", data.tahun_ajaran);
     } catch (error) {
       console.error("Error fetching academic period:", error);
       toast.error("Gagal mendapatkan semester aktif");
@@ -131,13 +128,14 @@ const MahasiswaDashboard = () => {
         subject: {
           code: course.kodemk || "-",
           name: course.matakuliah || "-",
+          sks: course.sks || "-",
+          semester: course.semester || "-",
         },
         class: course.kelas || "-",
         capacity: course.sks || "-",
         lecturers: formatLecturers(course.dosen),
       }));
 
-      console.log("📌 Updated Student Courses:", formattedData);
       setSelectedCourses(formattedData); // ✅ Updates UI **immediately**
     } catch (error) {
       console.error("Error fetching student timetable:", error);
@@ -191,11 +189,6 @@ const MahasiswaDashboard = () => {
   const handleRemoveCourse = async (course, mahasiswa_id) => {
     const toastId = toast.loading("Menghapus jadwal...");
 
-    // ✅ Log the course object for debugging
-    console.log("Course being removed:", course);
-    console.log("Timetable ID:", course.timetable_id || course.id);
-    console.log("Mahasiswa ID:", mahasiswa_id);
-
     try {
       const timetableId = course.timetable_id || course.id; // ✅ Ensure correct ID usage
 
@@ -242,6 +235,7 @@ const MahasiswaDashboard = () => {
       if (!response.ok) throw new Error("Failed to fetch courses");
 
       const data = await response.json();
+      console.log(data);
       setAvailableCourses(data.data || []);
       setTotalPages(data.total_pages || 1);
     } catch (error) {
@@ -267,20 +261,36 @@ const MahasiswaDashboard = () => {
       return;
     }
 
-    // ✅ Ensure we have the active academic period
-    if (!currentSemester || !currentAcademicYear) {
-      console.error("⚠️ Academic period is missing! Fetching again...");
-      await fetchAcademicPeriod();
-      if (!currentSemester || !currentAcademicYear) {
-        toast.error("Gagal mendapatkan semester aktif. Silakan coba lagi.");
-        return;
-      }
+    const selectedKodemk = selectedCourseToAdd.subject?.code;
+    const selectedClass = selectedCourseToAdd.class;
+
+    // Prevent selecting the same kodemk with different classes
+    const isDuplicateKodemk = selectedCourses.some(
+      (course) =>
+        course.subject?.code === selectedKodemk &&
+        course.class !== selectedClass
+    );
+
+    if (isDuplicateKodemk) {
+      toast.error(
+        `Anda sudah mengambil mata kuliah ${selectedKodemk} dengan kelas yang berbeda`
+      );
+      return;
     }
 
-    // ✅ Ensure userId is set correctly
-    if (!userId) {
-      console.error("⚠️ userId is NULL! Cannot add course.");
-      toast.error("Terjadi kesalahan: ID mahasiswa tidak ditemukan.");
+    const selectedSubjectName = selectedCourseToAdd.subject?.name.toLowerCase();
+    const isRelatedCourseTaken = selectedCourses.some(
+      (course) =>
+        course.subject?.name
+          .toLowerCase()
+          .includes(selectedSubjectName.replace("praktikum", "").trim()) &&
+        course.class !== selectedClass
+    );
+
+    if (isRelatedCourseTaken) {
+      toast.error(
+        `Anda sudah mengambil mata kuliah terkait dengan ${selectedCourseToAdd.subject?.name}, pastikan kelasnya sama (${selectedClass})`
+      );
       return;
     }
 
@@ -288,13 +298,21 @@ const MahasiswaDashboard = () => {
       setIsSubmitting(true);
       const token = Cookies.get("access_token");
 
-      console.log("📌 Sending request with:", {
-        mahasiswa_id: Number(userId),
-        timetable_id: selectedCourseToAdd.id,
-        semester: currentSemester,
-        tahun_ajaran: currentAcademicYear,
+      // ✅ Fetch the active academic period before making the request
+      const periodResponse = await fetch(`${BASE_URL}/academic-period/active`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
+      if (!periodResponse.ok) {
+        throw new Error("Gagal mendapatkan periode akademik aktif");
+      }
+
+      const periodData = await periodResponse.json();
+      const academicPeriodId = periodData.id;
+
+      console.log("📌 Active Academic Period:", academicPeriodId);
+
+      // ✅ Send the request with `academic_period_id`
       const response = await fetch(`${BASE_URL}/mahasiswa-timetable/`, {
         method: "POST",
         headers: {
@@ -304,8 +322,7 @@ const MahasiswaDashboard = () => {
         body: JSON.stringify({
           mahasiswa_id: Number(userId),
           timetable_id: selectedCourseToAdd.id,
-          semester: currentSemester, // ✅ Use fetched value
-          tahun_ajaran: currentAcademicYear, // ✅ Use fetched value
+          academic_period_id: academicPeriodId, // ✅ Use academic period ID
         }),
       });
 
@@ -314,25 +331,15 @@ const MahasiswaDashboard = () => {
         throw new Error(errorData.detail || "Failed to add course");
       }
 
-      // ✅ Get the newly added course from the backend response
       const addedCourse = await response.json();
-
-      // ✅ Update the `selectedCourses` state **immediately** to reflect UI change
-      setSelectedCourses((prevCourses) => [
-        ...prevCourses,
-        selectedCourseToAdd,
-      ]);
-
+      setSelectedCourses([...selectedCourses, selectedCourseToAdd]);
       toast.success("Mata kuliah berhasil ditambahkan");
 
-      // ✅ Close modal & reset selection
       setIsModalOpen(false);
       setSelectedCourseToAdd(null);
 
-      // ✅ Re-fetch the student timetable to get the latest data
-      await fetchStudentTimetable(userId); // ✅ Ensures UI stays in sync with DB
+      await fetchStudentTimetable(userId);
     } catch (error) {
-      console.error("Error adding course:", error);
       toast.error(error.message || "Gagal menambahkan mata kuliah");
     } finally {
       setIsSubmitting(false);
@@ -401,6 +408,9 @@ const MahasiswaDashboard = () => {
                     SKS
                   </th>
                   <th className="p-3 text-left text-text-primary font-semibold">
+                    Semester
+                  </th>
+                  <th className="p-3 text-left text-text-primary font-semibold">
                     Jadwal Pertemuan
                   </th>
                   <th className="p-3 text-left text-text-primary font-semibold">
@@ -429,43 +439,48 @@ const MahasiswaDashboard = () => {
                     </td>
                   </tr>
                 ) : (
-                  selectedCourses.map((course, index) => (
-                    <tr
-                      key={
-                        course.timetable_id || course.id || `course-${index}`
-                      }
-                      className={`border-b border-border hover:bg-surface/80 transition-colors ${
-                        index % 2 === 0 ? "bg-white" : "bg-surface"
-                      }`}
-                    >
-                      <td className="p-3 text-text-primary">
-                        {course.subject?.code || "-"}
-                      </td>
-                      <td className="p-3 text-text-primary">
-                        {course.subject?.name || "-"}
-                      </td>
-                      <td className="p-3 text-text-primary">
-                        {course.class || "-"}
-                      </td>
-                      <td className="p-3 text-text-primary">
-                        {course.sks || course.capacity || "-"}
-                      </td>
-                      <td className="p-3 text-text-primary">
-                        {formatTimeslots(course.timeslots)}
-                      </td>
-                      <td className="p-3 text-text-primary">
-                        {course.lecturers
-                          ?.map((lecturer) => lecturer.name)
-                          .join(", ") || "-"}
-                      </td>
-                      <td className="p-3">
-                        <Trash
-                          onClick={() => handleRemoveCourse(course, userId)}
-                          className="text-red-600 size-4 cursor-pointer"
-                        />
-                      </td>
-                    </tr>
-                  ))
+                  selectedCourses.map((course, index) => {
+                    return (
+                      <tr
+                        key={
+                          course.timetable_id || course.id || `course-${index}`
+                        }
+                        className={`border-b border-border hover:bg-surface/80 transition-colors ${
+                          index % 2 === 0 ? "bg-white" : "bg-surface"
+                        }`}
+                      >
+                        <td className="p-3 text-text-primary">
+                          {course.subject?.code || "-"}
+                        </td>
+                        <td className="p-3 text-text-primary">
+                          {course.subject?.name || "-"}
+                        </td>
+                        <td className="p-3 text-text-primary">
+                          {course.class || "-"}
+                        </td>
+                        <td className="p-3 text-text-primary">
+                          {course.sks || course.capacity || "-"}
+                        </td>
+                        <td className="p-3 text-text-primary">
+                          {course.smt || "-"}
+                        </td>
+                        <td className="p-3 text-text-primary">
+                          {course.placeholder}
+                        </td>
+                        <td className="p-3 text-text-primary">
+                          {course.lecturers
+                            ?.map((lecturer) => lecturer.name)
+                            .join(", ") || "-"}
+                        </td>
+                        <td className="p-3">
+                          <Trash
+                            onClick={() => handleRemoveCourse(course, userId)}
+                            className="text-red-600 size-4 cursor-pointer"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -510,7 +525,7 @@ const MahasiswaDashboard = () => {
             <Input
               placeholder="Cari Mata Kuliah (Nama/Kode)"
               value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)} // Only updates local state
+              onChange={(e) => setSearchValue(e.target.value)}
               className="w-full"
             />
             <Button onClick={applySearch} className="bg-primary text-white">
@@ -532,10 +547,11 @@ const MahasiswaDashboard = () => {
                     <TableHead>Pilih</TableHead>
                     <TableHead>Kode MK</TableHead>
                     <TableHead>Mata Kuliah</TableHead>
-                    <TableHead>kelas</TableHead>
+                    <TableHead>Kelas</TableHead>
                     <TableHead>SKS</TableHead>
+                    <TableHead>Semester</TableHead>
                     <TableHead>Jadwal Pertemuan</TableHead>
-                    <TableHead>dosen</TableHead>
+                    <TableHead>Dosen</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -562,7 +578,8 @@ const MahasiswaDashboard = () => {
                       <TableCell>{course.subject?.name || "Unknown"}</TableCell>
 
                       <TableCell>{course.class || "-"}</TableCell>
-                      <TableCell>{course.capacity || "-"}</TableCell>
+                      <TableCell>{course.subject?.sks || "-"}</TableCell>
+                      <TableCell>{course.subject?.semester || "-"}</TableCell>
 
                       {/* ✅ Properly formatted Timeslot */}
                       <TableCell>{formatTimeslots(course.timeslots)}</TableCell>

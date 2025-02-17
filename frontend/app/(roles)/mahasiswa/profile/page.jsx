@@ -15,6 +15,7 @@ import {
 import { Label } from "@/components/ui/label";
 import Cookies from "js-cookie";
 import { decodeToken } from "@/utils/decoder";
+import toast from "react-hot-toast";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -142,7 +143,7 @@ const MahasiswaProfile = () => {
 
       const data = await response.json();
       setSuccessMessage("Profile updated successfully");
-      console.log("Profile updated:", data);
+      toast.success("Profile updated successfully");
     } catch (err) {
       setError(err.message);
       console.error("Error updating profile:", err);
@@ -340,66 +341,6 @@ const MahasiswaProfile = () => {
                     type="email"
                     disabled
                     className="w-full bg-gray-50"
-                  />
-                </div>
-              </div>
-            </section>
-
-            {/* Parent Information Section */}
-            <section className="p-6">
-              <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-                Parent Information
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="nama_ayah" className="text-gray-700">
-                    Nama Ayah
-                  </Label>
-                  <Input
-                    id="nama_ayah"
-                    value={formData.nama_ayah}
-                    onChange={handleChange}
-                    placeholder="Masukkan nama ayah"
-                    className="w-full"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="nama_ibu" className="text-gray-700">
-                    Nama Ibu
-                  </Label>
-                  <Input
-                    id="nama_ibu"
-                    value={formData.nama_ibu}
-                    onChange={handleChange}
-                    placeholder="Masukkan nama ibu"
-                    className="w-full"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="pekerjaan_ayah" className="text-gray-700">
-                    Pekerjaan Ayah
-                  </Label>
-                  <Input
-                    id="pekerjaan_ayah"
-                    value={formData.pekerjaan_ayah}
-                    onChange={handleChange}
-                    placeholder="Masukkan pekerjaan ayah"
-                    className="w-full"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="pekerjaan_ibu" className="text-gray-700">
-                    Pekerjaan Ibu
-                  </Label>
-                  <Input
-                    id="pekerjaan_ibu"
-                    value={formData.pekerjaan_ibu}
-                    onChange={handleChange}
-                    placeholder="Masukkan pekerjaan ibu"
-                    className="w-full"
                   />
                 </div>
               </div>

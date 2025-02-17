@@ -162,3 +162,26 @@ async def delete_academic_period(academic_period_id: int, db: Session = Depends(
     return {"message": "Academic period deleted successfully"}
 
 
+
+@router.put("/{id}/activate", status_code=status.HTTP_200_OK)
+async def activate_academic_period(id: int, db: Session = Depends(get_db)):
+    # Set all periods to inactive first
+    db.query(AcademicPeriods).update({"is_active": False})
+    db.commit()
+
+    # Activate the selected period
+    period = db.query(AcademicPeriods).filter(AcademicPeriods.id == id).first()
+
+    if not period:
+        raise HTTPException(status_code=404, detail="Academic period not found")
+
+    period.is_active = True
+    db.commit()
+    db.refresh(period)
+
+    return {
+        "message": "Academic period activated successfully",
+        "id": period.id,
+        "semester": period.semester,
+        "tahun_ajaran": period.tahun_ajaran
+    }

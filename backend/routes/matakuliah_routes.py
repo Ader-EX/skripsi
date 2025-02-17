@@ -40,6 +40,7 @@ class MataKuliahRead(BaseModel):
     smt : int
     kurikulum: str
     status_mk: str
+    tipe_mk: str
     have_kelas_besar: bool
     program_studi_id: int
     program_studi_name: Optional[str]
@@ -72,6 +73,8 @@ from model.matakuliah_model import MataKuliah
 class MataKuliahSimpleResponse(BaseModel):
     kodemk: str
     namamk: str
+    tipe_mk: str
+    have_kelas_besar: bool
 
     class Config:
         orm_mode = True
@@ -131,6 +134,7 @@ async def get_all_matakuliah(
             status_mk=mk.status_mk,
             have_kelas_besar=mk.have_kelas_besar,
             program_studi_id=mk.program_studi_id,
+            tipe_mk = mk.tipe_mk,
             program_studi_name=db.query(ProgramStudi.name).filter(ProgramStudi.id == mk.program_studi_id).scalar()
         )
         for mk in mata_kuliah_list
@@ -144,6 +148,8 @@ async def get_all_matakuliah(
     }
 
 
+
+
 @router.get("/get-matakuliah/names", response_model=PaginatedMatakuliahResponse)
 async def get_matakuliah_names(
     db: Session = Depends(get_db),
@@ -152,7 +158,7 @@ async def get_matakuliah_names(
     limit: int = Query(10, gt=0, le=100, description="Items per page")
 ):
     try:
-        query = db.query(MataKuliah.kodemk, MataKuliah.namamk)
+        query = db.query(MataKuliah.kodemk, MataKuliah.namamk, MataKuliah.tipe_mk, MataKuliah.have_kelas_besar)
 
         if search:
             query = query.filter(
@@ -166,7 +172,7 @@ async def get_matakuliah_names(
             "total": total,
             "page": page,
             "page_size": limit,
-            "data": [{"kodemk": mk.kodemk, "namamk": mk.namamk} for mk in matakuliah_list]
+            "data": [{"kodemk": mk.kodemk, "namamk": mk.namamk, "tipe_mk" : mk.tipe_mk, "have_kelas_besar" : mk.have_kelas_besar} for mk in matakuliah_list]
         }
 
     except Exception as e:

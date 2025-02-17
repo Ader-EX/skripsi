@@ -37,6 +37,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import Cookies from "js-cookie";
 import { decodeToken } from "@/utils/decoder";
+import toast from "react-hot-toast";
+import PreferenceDialog from "./PreferenceDialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const DosenPreferensi = () => {
   const [timeSlots, setTimeSlots] = useState([]);
@@ -45,6 +52,7 @@ const DosenPreferensi = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedPreference, setSelectedPreference] = useState(null);
   const [isSpecialNeeds, setIsSpecialNeeds] = useState(false);
   const [userId, setUserId] = useState(null);
@@ -55,39 +63,17 @@ const DosenPreferensi = () => {
     if (token) {
       const payload = decodeToken(token);
       if (payload) {
-        const encodedEmail = encodeURIComponent(payload.sub);
-        fetch(`http://localhost:8000/user/details?email=${encodedEmail}`)
-          .then((response) => response.json())
-          .then((data) => {
-            setUserId(data.id);
-            setUserRole(data.role);
-          })
-          .catch((error) => {
-            console.error("Error fetching user details:", error);
-          });
+        setUserId(payload.role_id);
+        setUserRole(payload.role_id);
       }
     }
   }, []);
 
   const reasonOptions = [
-    "Personal preference",
-    "Research project",
-    "Family obligations",
-    "Scheduling constraints",
-  ];
-
-  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-  const timeRanges = [
-    { start: "08:00:00", end: "08:50:00" },
-    { start: "08:50:00", end: "09:40:00" },
-    { start: "09:40:00", end: "10:30:00" },
-    { start: "10:30:00", end: "11:20:00" },
-    { start: "13:00:00", end: "13:50:00" },
-    { start: "13:50:00", end: "14:40:00" },
-    { start: "14:40:00", end: "15:30:00" },
-    { start: "15:30:00", end: "16:20:00" },
-    { start: "16:20:00", end: "17:10:00" },
-    { start: "17:10:00", end: "18:00:00" },
+    "Jadwal penelitian/riset",
+    "Kewajiban keluarga",
+    "Jadwal administrasi",
+    "Kendala jadwal lainnya",
   ];
 
   useEffect(() => {
@@ -100,8 +86,8 @@ const DosenPreferensi = () => {
     try {
       const url =
         selectedDay === "all"
-          ? "http://localhost:8000/timeslot/"
-          : `http://localhost:8000/timeslot/?day=${selectedDay}`;
+          ? `${process.env.NEXT_PUBLIC_API_URL}/timeslot/`
+          : `${process.env.NEXT_PUBLIC_API_URL}/timeslot/?day=${selectedDay}`;
 
       const response = await fetch(url);
       if (!response.ok)
@@ -114,19 +100,54 @@ const DosenPreferensi = () => {
     }
   };
 
+  const confirmSpecialNeedsChange = async () => {
+    await updateSpecialNeeds(true);
+    setIsDialogOpen(false);
+  };
+
+  const updateSpecialNeeds = async (checked) => {
+    setIsSpecialNeeds(checked);
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/preference/set-special-needs/${userId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok)
+        throw new Error("Failed to update special needs status");
+
+      toast.success("Preferensi khusus berhasil diperbarui");
+      await fetchPreferences();
+    } catch (error) {
+      console.error("Error updating special needs status:", error);
+      toast.error("Gagal memperbarui preferensi khusus");
+    }
+  };
+
   const fetchPreferences = async () => {
     try {
       const response = await fetch(
-        `http://localhost:8000/preference/dosen/${userId}`
+        `${process.env.NEXT_PUBLIC_API_URL}/preference/dosen/${userId}`
       );
+
       if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
+
       const data = await response.json();
+      console.log(data);
+
       setPreferences(Array.isArray(data) ? data : []);
 
-      if (data.length > 0) {
-        setIsSpecialNeeds(data[0].is_special_needs);
-      }
+      // Check if any preference has `is_special_needs: true`
+      const hasSpecialNeeds = data.some(
+        (pref) => pref.is_special_needs === true
+      );
+      setIsSpecialNeeds(hasSpecialNeeds);
     } catch (error) {
       console.error("Error fetching preferences:", error);
       setError("Failed to load preferences");
@@ -139,14 +160,10 @@ const DosenPreferensi = () => {
     const existingPref = preferences.find((p) => p.timeslot_id === timeSlotId);
 
     if (isChecked) {
-      // If the checkbox is checked, open the modal
       setSelectedPreference(existingPref || { timeslot_id: timeSlotId });
       setIsModalOpen(true);
-    } else {
-      // If the checkbox is unchecked, delete the preference
-      if (existingPref) {
-        handlePreferenceChange(timeSlotId, { delete: true });
-      }
+    } else if (existingPref) {
+      handlePreferenceChange(timeSlotId, { delete: true });
     }
   };
 
@@ -157,25 +174,23 @@ const DosenPreferensi = () => {
       );
 
       if (prefData.delete) {
-        // DELETE preference if unchecked
-        await fetch(`http://localhost:8000/preference/${existingPref.id}`, {
-          method: "DELETE",
-        });
+        await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/preference/${existingPref.id}`,
+          {
+            method: "DELETE",
+          }
+        );
         setPreferences(preferences.filter((p) => p.id !== existingPref.id));
       } else if (existingPref) {
-        // UPDATE existing preference
         const response = await fetch(
-          `http://localhost:8000/preference/${existingPref.id}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/preference/${existingPref.id}`,
           {
             method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               ...existingPref,
               ...prefData,
               dosen_id: userId,
-              timeslot_id: timeSlotId,
             }),
           }
         );
@@ -186,23 +201,24 @@ const DosenPreferensi = () => {
           preferences.map((p) => (p.id === updatedPref.id ? updatedPref : p))
         );
       } else {
-        // CREATE new preference
-        const response = await fetch("http://localhost:8000/preference/", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            dosen_id: userId,
-            timeslot_id: timeSlotId,
-            is_special_needs: isSpecialNeeds,
-            is_high_priority: false,
-            ...prefData,
-          }),
-        });
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/preference/`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              dosen_id: userId,
+              timeslot_id: timeSlotId,
+              is_special_needs: false,
+              is_high_priority: false,
+              ...prefData,
+            }),
+          }
+        );
 
         if (!response.ok) throw new Error("Failed to create preference");
         const newPref = await response.json();
+        toast.success("Preferensi Berhasil Ditambahkan");
         setPreferences([...preferences, newPref]);
       }
     } catch (error) {
@@ -212,26 +228,10 @@ const DosenPreferensi = () => {
   };
 
   const handleSpecialNeedsChange = async (checked) => {
-    setIsSpecialNeeds(checked);
-    try {
-      const updatePromises = preferences.map((pref) =>
-        fetch(`http://localhost:8000/preference/${pref.id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            ...pref,
-            is_special_needs: checked,
-          }),
-        })
-      );
-
-      await Promise.all(updatePromises);
-      await fetchPreferences();
-    } catch (error) {
-      console.error("Error updating special needs status:", error);
-      setError("Failed to update special needs status");
+    if (checked) {
+      setIsDialogOpen(true);
+    } else {
+      await updateSpecialNeeds(false);
     }
   };
 
@@ -270,11 +270,13 @@ const DosenPreferensi = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua Hari</SelectItem>
-                {days.map((day) => (
-                  <SelectItem key={day} value={day}>
-                    {day}
-                  </SelectItem>
-                ))}
+                {Array.from(new Set(timeSlots.map((slot) => slot.day))).map(
+                  (day) => (
+                    <SelectItem key={day} value={day}>
+                      {day}
+                    </SelectItem>
+                  )
+                )}
               </SelectContent>
             </Select>
           </CardTitle>
@@ -285,18 +287,20 @@ const DosenPreferensi = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[150px]">Waktu</TableHead>
-                  {days.map((day) => (
-                    <TableHead key={day} className="text-center">
-                      {day}
-                    </TableHead>
-                  ))}
+                  {Array.from(new Set(timeSlots.map((slot) => slot.day))).map(
+                    (day) => (
+                      <TableHead key={day} className="text-center">
+                        {day}
+                      </TableHead>
+                    )
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
                     <TableCell
-                      colSpan={days.length + 1}
+                      colSpan={timeSlots.length + 1}
                       className="text-center h-32"
                     >
                       <div className="flex items-center justify-center">
@@ -305,24 +309,27 @@ const DosenPreferensi = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  timeRanges.map((timeRange) => (
-                    <TableRow key={`${timeRange.start}-${timeRange.end}`}>
+                  Object.values(
+                    timeSlots.reduce((acc, slot) => {
+                      if (!acc[slot.start_time]) acc[slot.start_time] = {};
+                      acc[slot.start_time][slot.day] = slot;
+                      return acc;
+                    }, {})
+                  ).map((timeSlotGroup, index) => (
+                    <TableRow key={index}>
                       <TableCell className="font-medium">
-                        {formatTime(timeRange.start)} -{" "}
-                        {formatTime(timeRange.end)}
+                        {formatTime(Object.values(timeSlotGroup)[0].start_time)}{" "}
+                        - {formatTime(Object.values(timeSlotGroup)[0].end_time)}
                       </TableCell>
-                      {days.map((day) => {
-                        const timeSlot = timeSlots.find(
-                          (slot) =>
-                            slot.day === day &&
-                            slot.start_time === timeRange.start &&
-                            slot.end_time === timeRange.end
-                        );
 
-                        if (!timeSlot)
-                          return (
-                            <TableCell key={`${day}-${timeRange.start}`} />
-                          );
+                      {Array.from(
+                        new Set(timeSlots.map((slot) => slot.day))
+                      ).map((day) => {
+                        const timeSlot = timeSlotGroup[day];
+
+                        if (!timeSlot) {
+                          return <TableCell key={`${day}-${index}`} />;
+                        }
 
                         const preference = preferences.find(
                           (p) => p.timeslot_id === timeSlot.id
@@ -330,21 +337,41 @@ const DosenPreferensi = () => {
 
                         return (
                           <TableCell
-                            key={`${day}-${timeRange.start}`}
+                            key={`${day}-${timeSlot.id}`}
                             className="text-center"
                           >
                             <div className="flex items-center justify-center">
-                              <Checkbox
-                                checked={!!preference}
-                                onCheckedChange={(checked) =>
-                                  handlePreferenceClick(timeSlot.id, checked)
-                                }
-                                className={`h-4 w-4 ${
-                                  preference?.is_high_priority
-                                    ? "bg-red-500"
-                                    : ""
-                                }`}
-                              />
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <input
+                                    type="checkbox"
+                                    checked={!!preference}
+                                    onChange={(e) =>
+                                      handlePreferenceClick(
+                                        timeSlot.id,
+                                        e.target.checked
+                                      )
+                                    }
+                                    className={`cursor-pointer h-5 w-5 border-2 rounded-md appearance-none transition-all duration-200 
+        focus:ring-0 focus:outline-none
+        ${
+          preference
+            ? preference.is_high_priority
+              ? "bg-red-500 border-red-600 hover:bg-red-600"
+              : "bg-blue-500 border-blue-600 hover:bg-blue-600"
+            : "bg-white border-gray-400 hover:border-gray-600"
+        }`}
+                                  />
+                                </TooltipTrigger>
+
+                                {preference && (
+                                  <TooltipContent>
+                                    {preference.reason
+                                      ? preference.reason
+                                      : "Preferensi Anda"}
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
                             </div>
                           </TableCell>
                         );
@@ -357,65 +384,34 @@ const DosenPreferensi = () => {
           </div>
         </CardContent>
 
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <PreferenceDialog
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          selectedPreference={selectedPreference}
+          onPreferenceChange={(newPref) => setSelectedPreference(newPref)}
+          onSave={() => {
+            handlePreferenceChange(selectedPreference.timeslot_id, {
+              is_high_priority: selectedPreference.is_high_priority,
+              reason: selectedPreference.reason,
+            });
+            setIsModalOpen(false);
+          }}
+        />
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Edit Preferensi</DialogTitle>
+              <DialogTitle>Konfirmasi Perubahan</DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="flex items-center gap-4">
-                <Label htmlFor="high-priority">Prioritas Tinggi</Label>
-                <Checkbox
-                  id="high-priority"
-                  checked={selectedPreference?.is_high_priority}
-                  onCheckedChange={(checked) => {
-                    setSelectedPreference((prev) => ({
-                      ...prev,
-                      is_high_priority: checked,
-                    }));
-                  }}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Alasan</Label>
-                <Select
-                  value={selectedPreference?.reason || ""}
-                  onValueChange={(value) => {
-                    setSelectedPreference((prev) => ({
-                      ...prev,
-                      reason: value,
-                    }));
-                  }}
-                  disabled={!selectedPreference?.is_high_priority}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pilih alasan" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {reasonOptions.map((reason) => (
-                      <SelectItem key={reason} value={reason}>
-                        {reason}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            <p>
+              Jika Anda mencentang, maka seluruh preferensi Anda dianggap
+              khusus.
+            </p>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Batal
               </Button>
-              <Button
-                onClick={() => {
-                  handlePreferenceChange(selectedPreference.timeslot_id, {
-                    is_high_priority: selectedPreference.is_high_priority,
-                    reason: selectedPreference.reason,
-                  });
-                  setIsModalOpen(false);
-                }}
-              >
-                Simpan
-              </Button>
+              <Button onClick={confirmSpecialNeedsChange}>Setujui</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

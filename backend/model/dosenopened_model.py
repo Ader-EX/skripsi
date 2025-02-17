@@ -6,5 +6,6 @@ openedclass_dosen = Table(
     Base.metadata,
     Column("opened_class_id", ForeignKey("opened_class.id"), primary_key=True),
     Column("dosen_id", ForeignKey("dosen.pegawai_id"), primary_key=True),
-    Column("used_preference",  Boolean, default=False)
+    Column("used_preference", Boolean, default=False),
+    Column("is_dosen_besar", Boolean, default=False)  
 )

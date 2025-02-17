@@ -1,3 +1,4 @@
+"use client";
 import React, { useState } from "react";
 import {
   Table,
@@ -25,7 +26,7 @@ const DosenTable = ({ dosenList, onEdit, onDelete }) => {
       <Table className="w-full">
         <TableHeader>
           <TableRow className="bg-primary/5">
-            <TableHead>ID</TableHead>
+            <TableHead>Pegawai ID</TableHead>
             <TableHead>Nama</TableHead>
             <TableHead>Email</TableHead>
             <TableHead>NIDN</TableHead>
@@ -35,13 +36,21 @@ const DosenTable = ({ dosenList, onEdit, onDelete }) => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {dosenList.map((dosen) => (
-            <TableRow key={dosen.id}>
-              <TableCell>{dosen.id}</TableCell>
-              <TableCell>{dosen.user.fullname}</TableCell>
-              <TableCell>{dosen.user.email}</TableCell>
+          {dosenList.map((dosen, index) => (
+            <TableRow key={dosen.pegawai_id || `dosen-${index}`}>
+              <TableCell>{dosen.pegawai_id || "-"}</TableCell>
+              <TableCell>
+                {[
+                  dosen.title_depan,
+                  dosen.nama, // ✅ Ensure NIM/NIP is displayed properly
+                  dosen.title_belakang,
+                ]
+                  .filter(Boolean)
+                  .join(" ") || "-"}
+              </TableCell>
+              <TableCell>{dosen.email || "-"}</TableCell>
               <TableCell>{dosen.nidn || "-"}</TableCell>
-              <TableCell>{dosen.nip || "-"}</TableCell>
+              <TableCell>{dosen.user?.nim_nip || "-"}</TableCell>
               <TableCell>{dosen.jabatan || "-"}</TableCell>
               <TableCell className="text-right">
                 <div className="flex gap-2 justify-end">
@@ -62,7 +71,7 @@ const DosenTable = ({ dosenList, onEdit, onDelete }) => {
                   <Button
                     size="icon"
                     variant="outline"
-                    onClick={() => onDelete(dosen.id)}
+                    onClick={() => onDelete(dosen.pegawai_id)}
                   >
                     <Trash2 className="h-4 w-4 text-red-500" />
                   </Button>
@@ -73,7 +82,7 @@ const DosenTable = ({ dosenList, onEdit, onDelete }) => {
         </TableBody>
       </Table>
 
-      {/* Dialog for viewing details */}
+      {/* ✅ Dialog for viewing details */}
       {selectedDosen && (
         <Dialog
           open={selectedDosen !== null}
@@ -86,11 +95,19 @@ const DosenTable = ({ dosenList, onEdit, onDelete }) => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="font-semibold">Nama:</p>
-                <p>{selectedDosen.user.fullname}</p>
+                <p>
+                  {[
+                    selectedDosen.title_depan,
+                    selectedDosen.user?.nim_nip,
+                    selectedDosen.title_belakang,
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || "-"}
+                </p>
               </div>
               <div>
                 <p className="font-semibold">Email:</p>
-                <p>{selectedDosen.user.email}</p>
+                <p>{selectedDosen.email || "-"}</p>
               </div>
               <div>
                 <p className="font-semibold">NIDN:</p>
@@ -98,7 +115,7 @@ const DosenTable = ({ dosenList, onEdit, onDelete }) => {
               </div>
               <div>
                 <p className="font-semibold">NIP:</p>
-                <p>{selectedDosen.nip || "-"}</p>
+                <p>{selectedDosen.user?.nim_nip || "-"}</p>
               </div>
               <div>
                 <p className="font-semibold">Nomor KTP:</p>
@@ -109,7 +126,12 @@ const DosenTable = ({ dosenList, onEdit, onDelete }) => {
                 <p>
                   {selectedDosen.tanggal_lahir
                     ? format(
-                        new Date(selectedDosen.tanggal_lahir),
+                        new Date(
+                          selectedDosen.tanggal_lahir
+                            .split("/")
+                            .reverse()
+                            .join("-")
+                        ),
                         "dd/MM/yyyy"
                       )
                     : "-"}
@@ -120,19 +142,21 @@ const DosenTable = ({ dosenList, onEdit, onDelete }) => {
                 <p>{selectedDosen.jabatan || "-"}</p>
               </div>
               <div>
-                <p className="font-semibold">Title:</p>
-                <p>
-                  {[selectedDosen.title_depan, selectedDosen.title_belakang]
-                    .filter(Boolean)
-                    .join(" ") || "-"}
-                </p>
+                <p className="font-semibold">Program Studi ID:</p>
+                <p>{selectedDosen.progdi_id || "-"}</p>
+              </div>
+              <div>
+                <p className="font-semibold">Title Depan:</p>
+                <p>{selectedDosen.title_depan || "-"}</p>
+              </div>
+              <div>
+                <p className="font-semibold">Title Belakang:</p>
+                <p>{selectedDosen.title_belakang || "-"}</p>
               </div>
               <div>
                 <p className="font-semibold">Status:</p>
                 <p>
-                  {[selectedDosen.is_sekdos ? "Sekretaris Dosen" : ""]
-                    .filter(Boolean)
-                    .join(", ") || "-"}
+                  {selectedDosen.is_sekdos ? "Sekretaris Dosen" : "Dosen Biasa"}
                 </p>
               </div>
               <div>

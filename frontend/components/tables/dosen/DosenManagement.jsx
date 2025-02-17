@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PersonStandingIcon, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -20,24 +20,28 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import DosenForm from "./DosenForm";
+import toast from "react-hot-toast";
 
+const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/dosen`;
+const USER_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/user/users/`;
 const DosenManagement = () => {
   const [dosenList, setDosenList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editData, setEditData] = useState(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
   const [totalRecords, setTotalRecords] = useState(0);
-
-  const [searchInput, setSearchInput] = useState(""); // Stores user input
-  const [search, setSearch] = useState(""); // Stores actual query when button is clicked
-
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     fetchDosen();
-  }, [page, limit, search]); // ✅ Fetch only when search button is clicked
+  }, [page, limit, search]);
 
   const fetchDosen = async () => {
     setLoading(true);
@@ -46,14 +50,9 @@ const DosenManagement = () => {
         page: page.toString(),
         limit: limit.toString(),
       });
+      if (search) params.append("search", search);
 
-      if (search) {
-        params.append("search", search);
-      }
-
-      const response = await fetch(
-        `http://localhost:8000/dosen/get-all?${params}`
-      );
+      const response = await fetch(`${API_URL}/get-all?${params}`);
       if (!response.ok) throw new Error("Failed to fetch dosen");
 
       const data = await response.json();
@@ -61,6 +60,7 @@ const DosenManagement = () => {
       setTotalPages(data.total_pages);
       setTotalRecords(data.total_records);
     } catch (error) {
+      toast.error("Gagal mengambil data dosen.");
       console.error("Error fetching dosen:", error);
     } finally {
       setLoading(false);
@@ -68,12 +68,18 @@ const DosenManagement = () => {
   };
 
   const handleSearchClick = () => {
-    setSearch(searchInput); // ✅ Set search query only when clicking "Search"
-    setPage(1); // Reset to first page when searching
+    setSearch(searchInput);
+    setPage(1);
+  };
+
+  const handleAdd = () => {
+    setEditData(null);
+    setFormOpen(true);
   };
 
   const handleEdit = (data) => {
-    console.log("Edit:", data);
+    setEditData(data);
+    setFormOpen(true);
   };
 
   const handleDeleteClick = (id) => {
@@ -84,16 +90,45 @@ const DosenManagement = () => {
   const handleConfirmDelete = async () => {
     if (!deleteId) return;
     try {
-      const response = await fetch(`http://localhost:8000/dosen/${deleteId}`, {
+      const response = await fetch(`${API_URL}/${deleteId}`, {
         method: "DELETE",
       });
       if (!response.ok) throw new Error("Failed to delete dosen");
+
+      toast.success("Dosen dan user berhasil dihapus");
       fetchDosen();
     } catch (error) {
+      toast.error("Gagal menghapus dosen.");
       console.error("Error deleting dosen:", error);
     } finally {
       setDeleteModalOpen(false);
       setDeleteId(null);
+    }
+  };
+
+  const handleFormSubmit = async (formData) => {
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        toast.error(`Gagal menambahkan dosen: ${errorData.detail}`);
+        return;
+      }
+
+      const responseData = await response.json();
+      toast.success(
+        `Dosen berhasil ditambahkan dengan ID: ${responseData.dosen_id}`
+      );
+      fetchDosen();
+      setFormOpen(false);
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      toast.error("Terjadi kesalahan saat menyimpan data.");
     }
   };
 
@@ -102,7 +137,10 @@ const DosenManagement = () => {
       <CardHeader className="bg-primary/5">
         <CardTitle className="flex items-center justify-between">
           <span>Manajemen Dosen</span>
-          <Button className="bg-primary hover:bg-primary/90">
+          <Button
+            onClick={handleAdd}
+            className="bg-primary hover:bg-primary/90"
+          >
             <Plus className="mr-2 h-4 w-4" />
             Tambah Dosen
           </Button>
@@ -118,14 +156,13 @@ const DosenManagement = () => {
                 type="text"
                 placeholder="Cari berdasarkan nama atau email..."
                 value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)} // ✅ Updates input only
+                onChange={(e) => setSearchInput(e.target.value)}
               />
               <Button onClick={handleSearchClick} className="bg-primary">
                 <Search />
               </Button>
             </div>
           </div>
-
           <div>
             <Label>Per page</Label>
             <Select
@@ -181,6 +218,13 @@ const DosenManagement = () => {
           </div>
         </div>
 
+        <DosenForm
+          isOpen={formOpen}
+          onClose={() => setFormOpen(false)}
+          onSubmit={handleFormSubmit}
+          initialData={editData}
+        />
+
         {/* Delete Confirmation Modal */}
         <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
           <DialogContent>
@@ -188,7 +232,7 @@ const DosenManagement = () => {
               <DialogTitle>Konfirmasi Hapus</DialogTitle>
             </DialogHeader>
             <p>Apakah Anda yakin ingin menghapus Dosen ini?</p>
-            <DialogFooter className="flex justify-end gap-2 mt-4">
+            <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => setDeleteModalOpen(false)}

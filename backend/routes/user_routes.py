@@ -251,21 +251,22 @@ async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     if not user or not verify_password(login_request.password, user.password):
         raise HTTPException(status_code=401, detail="NIM/NIP or password is incorrect")
 
-    # Default role_id is None
-    role_id = None  
+    role_id = None
+    user_name = user.nim_nip
 
-    # Check the user's role and fetch role_id accordingly
     match user.role:
         case "mahasiswa":
             mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.user_id == user.id).first()
             role_id = mahasiswa.id if mahasiswa else None
+            user_name = mahasiswa.nama if mahasiswa else user.nim_nip
 
         case "dosen":
             dosen = db.query(Dosen).filter(Dosen.user_id == user.id).first()
             role_id = dosen.pegawai_id if dosen else None
+            user_name = dosen.nama if dosen else user.nim_nip
 
         case "admin":
-            role_id = None  
+            role_id = None 
 
         case _:
             raise HTTPException(status_code=400, detail="Invalid user role")
@@ -275,9 +276,9 @@ async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
         "sub": user.nim_nip,
         "role": user.role,
         "user_id": user.id,
+        "name": user_name  
     }
 
-    # Only add role_id if it exists
     if role_id is not None:
         token_data["role_id"] = role_id
 
@@ -288,8 +289,9 @@ async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
         "token_type": "bearer",
         "role": user.role,
         "user_id": user.id,
-        "role_id": role_id,  
+        "role_id": role_id,
     }
+
 
 
 @router.get("/{user_id}", response_model=UserRead)

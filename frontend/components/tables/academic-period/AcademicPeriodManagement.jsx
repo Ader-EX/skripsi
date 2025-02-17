@@ -97,10 +97,19 @@ const AcademicPeriodManagement = () => {
 
   const handleActivate = async (id) => {
     try {
-      await fetch(`${API_URL}/${id}/activate`, { method: "PUT" });
+      const response = await fetch(`${API_URL}/${id}/activate`, {
+        method: "PUT",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to activate academic period");
+      }
+
+      toast.success("Periode akademik berhasil diaktifkan.");
       fetchAcademicPeriods();
       fetchActiveAcademicPeriod();
     } catch (error) {
+      toast.error("Gagal mengaktifkan periode akademik.");
       console.error("Error activating academic period:", error);
     }
   };

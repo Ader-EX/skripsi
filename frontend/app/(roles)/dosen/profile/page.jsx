@@ -15,10 +15,13 @@ import {
 import { Label } from "@/components/ui/label";
 import Cookies from "js-cookie";
 import { decodeToken } from "@/utils/decoder";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const DosenProfile = () => {
+  const router = useRouter();
   const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -48,28 +51,38 @@ const DosenProfile = () => {
   const fetchUserData = async () => {
     try {
       const token = Cookies.get("access_token");
-      if (!token) throw new Error("No access token found");
+      if (!token) {
+        router.push("/");
+        return;
+      }
 
       const payload = decodeToken(token);
       if (!payload?.sub) throw new Error("Invalid token payload");
 
-      const encodedEmail = encodeURIComponent(payload.sub);
-      const response = await fetch(
-        `${BASE_URL}/user/details?email=${encodedEmail}`
-      );
-
+      const response = await fetch(`${BASE_URL}/dosen/${payload.role_id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       if (!response.ok) throw new Error("Failed to fetch user details");
-
       const data = await response.json();
-      if (data.role !== "dosen") throw new Error("User is not a dosen");
 
-      setUserId(data.id);
+      setUserId(payload.role_id);
       setFormData((prev) => ({
         ...prev,
-        ...data,
-        tanggalLahir: data.tanggal_lahir || "",
+        nama: data.user?.nim_nip || "",
+        nidn: data.nidn || "",
+        nip: data.user?.nim_nip || "",
+        nomorKtp: data.nomor_ktp || "",
+        tanggalLahir: data.tanggal_lahir ? formatDate(data.tanggal_lahir) : "",
+        progdiId: data.progdi_id || "",
         ijinMengajar: data.ijin_mengajar ? "true" : "false",
+        jabatan: data.jabatan || "",
+        titleDepan: data.title_depan || "",
+        titleBelakang: data.title_belakang || "",
         isSekdos: data.is_sekdos ? "true" : "false",
+        pegawai_id: data.pegawai_id || 0,
+        jabatan_id: data.jabatan_id || 0,
       }));
     } catch (err) {
       setError(err.message);
@@ -77,6 +90,11 @@ const DosenProfile = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatDate = (dateString) => {
+    const [day, month, year] = dateString.split("/");
+    return `${year}-${month}-${day}`;
   };
 
   const handleChange = (e) => {
@@ -102,7 +120,17 @@ const DosenProfile = () => {
     try {
       if (!userId) throw new Error("User ID not found");
 
-      const { id, user_id, ...updateData } = formData;
+      const updateData = {
+        nomor_ktp: formData.nomorKtp,
+        email: formData.email,
+        progdi_id: formData.progdiId,
+        tanggal_lahir: formData.tanggalLahir,
+        title_depan: formData.titleDepan,
+        title_belakang: formData.titleBelakang,
+        ijin_mengajar: formData.ijinMengajar === "true",
+        jabatan: formData.jabatan,
+        is_sekdos: formData.isSekdos === "true",
+      };
 
       const response = await fetch(`${BASE_URL}/dosen/${userId}`, {
         method: "PUT",
@@ -119,12 +147,12 @@ const DosenProfile = () => {
       }
 
       setSuccessMessage("Profile updated successfully");
+      toast.success("Profile updated successfully");
     } catch (err) {
       setError(err.message);
       console.error("Error updating profile:", err);
     }
   };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -160,6 +188,7 @@ const DosenProfile = () => {
                   <Label htmlFor="nama">Nama Lengkap</Label>
                   <Input
                     id="nama"
+                    required
                     value={formData.nama || ""}
                     onChange={handleChange}
                     placeholder="Nama Lengkap"
@@ -170,6 +199,7 @@ const DosenProfile = () => {
                   <Label htmlFor="nidn">NIDN</Label>
                   <Input
                     id="nidn"
+                    required
                     value={formData.nidn || ""}
                     onChange={handleChange}
                     placeholder="NIDN"
@@ -190,6 +220,7 @@ const DosenProfile = () => {
                   <Label htmlFor="nomorKtp">Nomor KTP</Label>
                   <Input
                     id="nomorKtp"
+                    required
                     value={formData.nomorKtp || ""}
                     onChange={handleChange}
                     placeholder="Nomor KTP"
@@ -201,6 +232,7 @@ const DosenProfile = () => {
                   <Input
                     type="date"
                     id="tanggalLahir"
+                    required
                     value={formData.tanggalLahir || ""}
                     onChange={handleChange}
                   />
@@ -210,6 +242,7 @@ const DosenProfile = () => {
                   <Label htmlFor="jabatan">Jabatan</Label>
                   <Input
                     id="jabatan"
+                    required
                     value={formData.jabatan || ""}
                     onChange={handleChange}
                     placeholder="Jabatan"
@@ -220,6 +253,7 @@ const DosenProfile = () => {
                   <Label htmlFor="titleDepan">Gelar Depan</Label>
                   <Input
                     id="titleDepan"
+                    required
                     value={formData.titleDepan || ""}
                     onChange={handleChange}
                     placeholder="Gelar Depan"
@@ -230,6 +264,7 @@ const DosenProfile = () => {
                   <Label htmlFor="titleBelakang">Gelar Belakang</Label>
                   <Input
                     id="titleBelakang"
+                    required
                     value={formData.titleBelakang || ""}
                     onChange={handleChange}
                     placeholder="Gelar Belakang"
@@ -239,6 +274,7 @@ const DosenProfile = () => {
                 <div className="space-y-2">
                   <Label htmlFor="ijinMengajar">Izin Mengajar</Label>
                   <Select
+                    required
                     value={formData.ijinMengajar || ""}
                     onValueChange={(value) =>
                       handleSelectChange(value, "ijinMengajar")

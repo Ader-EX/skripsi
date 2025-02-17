@@ -6,8 +6,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Eye, Pencil, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import React, { useState } from "react";
-
+import { useSearchParams, usePathname } from "next/navigation";
 const getTipeMKLabel = (tipe) => {
   const mapping = {
     S: "Spesial",
@@ -18,7 +19,10 @@ const getTipeMKLabel = (tipe) => {
 };
 
 export const OpenedClassTable = ({ classList, onDelete, loading }) => {
+  const router = useRouter();
   const [selectedClass, setSelectedClass] = useState(null);
+  const searchParams = useSearchParams(); // ✅ Get current searchParams
+  const pathname = usePathname(); // ✅ Get current pathname
 
   if (loading) {
     return <div className="text-center py-4">Loading...</div>;
@@ -62,7 +66,17 @@ export const OpenedClassTable = ({ classList, onDelete, loading }) => {
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button size="icon" variant="outline">
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => {
+                      const newParams = new URLSearchParams(searchParams);
+                      newParams.set("id", classItem.id); // ✅ Set opened_class_id in searchParams
+                      router.push(
+                        `${pathname}/edit-opened?${newParams.toString()}`
+                      ); // ✅ Updates URL without full reload
+                    }}
+                  >
                     <Pencil className="h-4 w-4" />
                   </Button>
                   <Button

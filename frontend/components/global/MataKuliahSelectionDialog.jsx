@@ -19,9 +19,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 
-const MATKUL_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/matakuliah/get-matakuliah/names`;
+const MatakuliahSelectionDialog = ({
+  isOpen,
+  onClose,
+  onSelect,
+  url = "/matakuliah/get-matakuliah/names",
+}) => {
+  const MATKUL_API_URL = `${process.env.NEXT_PUBLIC_API_URL}${url}`;
 
-const MatakuliahSelectionDialog = ({ isOpen, onClose, onSelect }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [matakuliahList, setMatakuliahList] = useState([]);
   const [page, setPage] = useState(1);
@@ -34,6 +39,7 @@ const MatakuliahSelectionDialog = ({ isOpen, onClose, onSelect }) => {
 
   const fetchMatakuliah = async () => {
     setLoading(true);
+    console.log(MATKUL_API_URL);
     try {
       const params = new URLSearchParams({ page, limit: 10 });
       if (searchTerm) params.append("search", searchTerm);
@@ -42,7 +48,8 @@ const MatakuliahSelectionDialog = ({ isOpen, onClose, onSelect }) => {
       if (!response.ok) throw new Error("Failed to fetch Matakuliah");
 
       const data = await response.json();
-      setMatakuliahList(data.data || []); // Make sure data is an array
+
+      setMatakuliahList(data.data || []);
       setTotalPages(Math.ceil(data.total / 10));
     } catch (error) {
       console.error("Error fetching Matakuliah:", error);
@@ -51,9 +58,19 @@ const MatakuliahSelectionDialog = ({ isOpen, onClose, onSelect }) => {
     }
   };
 
+  // ✅ Convert tipe_mk values to human-readable format
+  const getTipeMKLabel = (tipe) => {
+    const mapping = {
+      T: "Teori",
+      P: "Praktikum",
+      S: "Spesial",
+    };
+    return mapping[tipe] || "Unknown";
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>Pilih Mata Kuliah</DialogTitle>
         </DialogHeader>
@@ -77,21 +94,36 @@ const MatakuliahSelectionDialog = ({ isOpen, onClose, onSelect }) => {
               <TableRow>
                 <TableHead>Kode MK</TableHead>
                 <TableHead>Nama MK</TableHead>
+                <TableHead>Tipe MK</TableHead>
+                <TableHead>SKS</TableHead>
+                <TableHead>Kelas Besar?</TableHead>
                 <TableHead>Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center">
+                  <TableCell colSpan={6} className="text-center">
                     Loading...
                   </TableCell>
                 </TableRow>
+              ) : !loading && matakuliahList.data.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center">
+                    Semua Kelas Sudah Memiliki Timetable, silahkan Hapus Data
+                    yang telah ada terlebih dahulu
+                  </TableCell>
+                </TableRow>
               ) : (
-                (matakuliahList || []).map((mk) => (
+                matakuliahList.map((mk) => (
                   <TableRow key={mk.kodemk}>
                     <TableCell>{mk.kodemk}</TableCell>
                     <TableCell>{mk.namamk}</TableCell>
+                    <TableCell>{getTipeMKLabel(mk.tipe_mk)}</TableCell>
+                    <TableCell>{mk.sks}</TableCell>
+                    <TableCell>
+                      {mk.have_kelas_besar ? "Ya" : "Tidak"}
+                    </TableCell>
                     <TableCell>
                       <Button
                         className="bg-primary"
@@ -110,6 +142,7 @@ const MatakuliahSelectionDialog = ({ isOpen, onClose, onSelect }) => {
           </Table>
         </div>
 
+        {/* Pagination */}
         <div className="flex justify-between items-center mt-4">
           <Button
             disabled={page === 1}

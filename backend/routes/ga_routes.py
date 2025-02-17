@@ -239,9 +239,6 @@ def fetch_dosen_preferences(db: Session, opened_classes: List[OpenedClass]):
     return preferences_cache
 
 def initialize_population(opened_classes, rooms, timeslots, population_size, opened_class_cache):
-    """
-    Membuat populasi awal jadwal secara heuristik sederhana.
-    """
     population = []
     timeslots_list = sorted(timeslots, key=lambda x: (x.day_index, x.start_time))
 
@@ -250,68 +247,72 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
         room_schedule = {}
         lecturer_schedule = {}
 
-        # Urutkan kelas berdasarkan SKS (descending) agar yang SKS besar dialokasikan lebih dulu
         sorted_classes = sorted(
             opened_classes, key=lambda oc: opened_class_cache[oc.id]["sks"], reverse=True
         )
 
         for oc in sorted_classes:
-            try:
-                class_info = opened_class_cache[oc.id]
-                sks = class_info["sks"]
-                tipe_mk = class_info["mata_kuliah"].tipe_mk  
+            class_info = opened_class_cache[oc.id]
+            sks = class_info["sks"]
+            tipe_mk = class_info["mata_kuliah"].tipe_mk
 
-                compatible_rooms = [r for r in rooms if r.tipe_ruangan == tipe_mk]
-                if not compatible_rooms:
-                    logger.warning(f"No available room for class {oc.id} ({tipe_mk})")
-                    continue
+            compatible_rooms = [r for r in rooms if r.tipe_ruangan == tipe_mk]
+            if not compatible_rooms:
+                logger.warning(f"No available room for {oc.id} ({tipe_mk})")
+                continue
 
-                assigned = False
-                random.shuffle(compatible_rooms)
+            assigned = False
+            random.shuffle(compatible_rooms)
 
-                for room in compatible_rooms:
-                    if assigned:
-                        break
+            # Buat list indeks start, lalu shuffle
+            possible_starts = list(range(len(timeslots_list) - sks + 1))
+            random.shuffle(possible_starts)
 
-                    # Coba semua start_idx
-                    for start_idx in range(len(timeslots_list) - sks + 1):
-                        slots = timeslots_list[start_idx : start_idx + sks]
-                        # Pastikan day sama dan ID berurutan
-                        if not all(slots[i].day_index == slots[0].day_index and slots[i].id == slots[i - 1].id + 1 for i in range(1, sks)):
-                            continue
+            for room in compatible_rooms:
+                if assigned:
+                    break
 
-                        slot_available = True
-                        for slot in slots:
-                            if (room.id, slot.id) in room_schedule:
+                for start_idx in possible_starts:
+                    slots = timeslots_list[start_idx : start_idx + sks]
+
+                    # Pastikan day sama & ID berurutan
+                    if not all(
+                        slots[i].day_index == slots[0].day_index 
+                        and slots[i].id == slots[i - 1].id + 1
+                        for i in range(1, sks)
+                    ):
+                        continue
+
+                    # Cek ketersediaan
+                    slot_available = True
+                    for slot in slots:
+                        if (room.id, slot.id) in room_schedule:
+                            slot_available = False
+                            break
+                        for dosen_id in class_info["dosen_ids"]:
+                            if (dosen_id, slot.id) in lecturer_schedule:
                                 slot_available = False
                                 break
-                            for dosen_id in class_info["dosen_ids"]:
-                                if (dosen_id, slot.id) in lecturer_schedule:
-                                    slot_available = False
-                                    break
-
-                        if slot_available:
-                            # Tandai ruangan & dosen
-                            for slot in slots:
-                                room_schedule[(room.id, slot.id)] = oc.id
-                                for dosen_id in class_info["dosen_ids"]:
-                                    lecturer_schedule[(dosen_id, slot.id)] = oc.id
-
-                            solution.append((oc.id, room.id, slots[0].id))
-                            assigned = True
+                        if not slot_available:
                             break
 
-                if not assigned:
-                    logger.warning(f"Could not assign class {oc.id} in initial population")
+                    if slot_available:
+                        # Tandai
+                        for slot in slots:
+                            room_schedule[(room.id, slot.id)] = oc.id
+                            for dosen_id in class_info["dosen_ids"]:
+                                lecturer_schedule[(dosen_id, slot.id)] = oc.id
 
-            except Exception as e:
-                logger.error(f"Error initializing class {oc.id}: {e}")
-                continue
+                        solution.append((oc.id, room.id, slots[0].id))
+                        assigned = True
+                        break
+
+            if not assigned:
+                logger.warning(f"Could not assign class {oc.id} in initial population")
 
         population.append(solution)
 
     return population
-
 
 # ------------------------------------------------------------------------
 # ------------------- FUNGSI FORMAT & INSERT KE DATABASE -----------------

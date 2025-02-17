@@ -48,6 +48,9 @@ async def create_preference(preference: PreferenceCreate, db: Session = Depends(
     return new_preference
 
 
+
+
+
 # Read Preference by ID
 @router.get("/{preference_id}", response_model=PreferenceRead)
 async def read_preference(preference_id: int, db: Session = Depends(get_db)):
@@ -75,6 +78,28 @@ async def read_all_preferences(
     if timeslot_id:
         query = query.filter(Preference.timeslot_id == timeslot_id)
     return query.all()
+
+
+@router.put("/set-special-needs/{dosen_id}")
+async def toggle_special_needs(dosen_id: int, db: Session = Depends(get_db)):
+    preferences = db.query(Preference).filter(Preference.dosen_id == dosen_id).all()
+
+    if not preferences:
+        raise HTTPException(status_code=404, detail="No preferences found for the given dosen_id")
+
+    # Flip the current value (if at least one is True, set all to False, otherwise set all to True)
+    current_status = any(pref.is_special_needs for pref in preferences)
+    new_status = not current_status
+
+    db.query(Preference).filter(Preference.dosen_id == dosen_id).update(
+        {"is_special_needs": new_status}, synchronize_session=False
+    )
+
+    db.commit()
+    return {
+        "message": f"Special needs preferences toggled to {new_status} for dosen {dosen_id}"
+    }
+
 
 
 # Update Preference

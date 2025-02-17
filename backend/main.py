@@ -26,6 +26,7 @@ from routes.timetable_routes import router as timetable_router
 from routes.admin_routes import router as admin_router
 from routes.dosenopened_routes import router as dosenopened_router
 from routes.sa_routes import router as sa_router
+from routes.ga_routes import router as ga_router
 
 
 # Initialize the FastAPI application
@@ -82,3 +83,4 @@ app.include_router(timetable_router, prefix="/timetable", tags=["Timetable"])
 app.include_router(admin_router, prefix="/admin", tags=["Admin"])
 app.include_router(dosenopened_router, prefix="/dosen-opened", tags=["Dosen Opened Class"])
 app.include_router(sa_router, prefix="/sa-router", tags=["Simulated Annealing"])
+app.include_router(ga_router, prefix="/ga-router", tags=["Genetic Algorithm"])

@@ -53,7 +53,7 @@ const AppSidebar = () => {
 
       try {
         const decoded = jwtDecode(token);
-        setEmail(decoded.sub);
+        setEmail(decoded.name || "admin");
         setRole(decoded.role);
       } catch (error) {
         console.log(error);
@@ -79,14 +79,14 @@ const AppSidebar = () => {
   if (role === "mahasiswa") {
     sidebarItems = [
       { title: "Dashboard", url: `${rolePrefix}/dashboard`, icon: Home },
-      { title: "Schedule", url: `${rolePrefix}/schedule`, icon: Calendar },
+      { title: "Jadwal", url: `${rolePrefix}/jadwal`, icon: Calendar },
       { title: "Profile", url: `${rolePrefix}/profile`, icon: User2 },
     ];
   } else if (role === "dosen") {
     sidebarItems = [
       { title: "Dashboard", url: `${rolePrefix}/dashboard`, icon: Home },
-      { title: "Schedule", url: `${rolePrefix}/jadwal`, icon: Calendar },
-      { title: "Preferences", url: `${rolePrefix}/preferensi`, icon: Settings },
+      { title: "Jadwal", url: `${rolePrefix}/jadwal`, icon: Calendar },
+      { title: "Preferensi", url: `${rolePrefix}/preferensi`, icon: Settings },
       { title: "Profile", url: `${rolePrefix}/profile`, icon: User2 },
     ];
   } else if (role === "admin") {
@@ -153,12 +153,10 @@ const AppSidebar = () => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton className="py-3 text-sm flex items-center gap-x-3 w-full">
-                  <Avatar className="size-8">
-                    <AvatarImage src="https://github.com/shadcn.png" />
-                    <AvatarFallback>C N</AvatarFallback>
-                  </Avatar>
                   <div className="flex flex-col text-text-secondary">
-                    <p className="text-text-primary font-semibold">{email}</p>
+                    <p className="text-text-primary font-semibold">
+                      {email ? email : decoded.sub}
+                    </p>
                     <p className="text-xs">{role}</p>
                   </div>
                   <ChevronUp className="ml-auto" />

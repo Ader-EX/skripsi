@@ -122,13 +122,15 @@ const EditTimetable = () => {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to save timetable");
+      if (!response.ok) {
+        const errorData = await response.json(); // ✅ Read the error response
+        throw new Error(errorData.detail || "Failed to save timetable");
+      }
 
       toast.success("Timetable saved successfully!");
       router.push("/admin/data-manajemen");
     } catch (error) {
-      console.error("Error saving timetable:", error);
-      toast.error("Failed to save timetable");
+      toast.error(error.message || "Error saving timetable");
     }
   };
 

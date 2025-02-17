@@ -28,7 +28,7 @@ class GroupCodeEnum(str, Enum):
 class TipeRuanganEnum(str, Enum):
     P = "P"
     T = "T"
-    S = "Ss"
+    S = "S"
 
 class TipeRuangan(str, Enum):
     P = "P"

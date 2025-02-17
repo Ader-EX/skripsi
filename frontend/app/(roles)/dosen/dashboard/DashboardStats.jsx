@@ -27,21 +27,9 @@ const DashboardStats = () => {
           throw new Error("Invalid token format.");
         }
 
-        // Encode email and fetch user details
-        const encodedEmail = encodeURIComponent(payload.sub);
-        const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-        const userResponse = await fetch(
-          `${API_URL}/user/details?email=${encodedEmail}`
-        );
-        if (!userResponse.ok) throw new Error("Failed to fetch user details.");
-
-        const userData = await userResponse.json();
-        const userId = userData.id;
-
         // Fetch dashboard stats
         const statsResponse = await fetch(
-          `${API_URL}/dosen/dashboard-stats/${userId}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/dosen/dashboard-stats/${payload.role_id}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
