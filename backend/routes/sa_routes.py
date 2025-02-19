@@ -112,6 +112,44 @@ def check_special_needs_compliance(solution, opened_class_cache, room_cache, pre
     return penalty
 
 
+def check_daily_load_balance(solution, opened_class_cache, timeslot_cache):
+    """
+    Penalize solutions where a lecturer's class assignments are heavily unbalanced across days.
+    For example, if a lecturer has too many classes on one day compared to their average, we add a penalty.
+    """
+    penalty = 0
+    # Dictionary to count number of classes per lecturer per day.
+    lecturer_daily_counts = {}
+
+    # Iterate over each assignment in the solution.
+    for opened_class_id, _, timeslot_id in solution:
+        class_info = opened_class_cache[opened_class_id]
+        # Assume each class might have multiple lecturers.
+        for dosen_id in class_info['dosen_ids']:
+            # Get the day from the timeslot.
+            day = timeslot_cache[timeslot_id].day  # Could be a string or enum.
+            if dosen_id not in lecturer_daily_counts:
+                lecturer_daily_counts[dosen_id] = {}
+            if day not in lecturer_daily_counts[dosen_id]:
+                lecturer_daily_counts[dosen_id][day] = 0
+            lecturer_daily_counts[dosen_id][day] += 1
+
+    # Now calculate a penalty based on imbalance.
+    # One simple approach: for each lecturer, calculate the average classes per day,
+    # then penalize any day that deviates significantly from the average.
+    for dosen_id, day_counts in lecturer_daily_counts.items():
+        counts = list(day_counts.values())
+        if not counts:
+            continue
+        avg = sum(counts) / len(counts)
+        for count in counts:
+            # If a day's count deviates by more than 2 classes from the average,
+            # apply a penalty proportional to the deviation.
+            if abs(count - avg) > 2:
+                penalty += 500 * abs(count - avg)
+    return penalty
+
+
 def check_preference_compliance(solution, opened_class_cache, timeslot_cache, preferences_cache):
     """
     Check if the solution complies with lecturer preferences.
@@ -137,7 +175,8 @@ def check_preference_compliance(solution, opened_class_cache, timeslot_cache, pr
     
     return penalty
 
-def calculate_fitness(solution, opened_class_cache, room_cache, timeslot_cache, preferences_cache):
+
+def calculate_fitness(solution, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache):
     """
     Calculate the fitness score for a solution.
     Lower scores are better.
@@ -146,14 +185,25 @@ def calculate_fitness(solution, opened_class_cache, room_cache, timeslot_cache, 
     conflict_score = check_conflicts(solution, opened_class_cache, room_cache, timeslot_cache)
     if conflict_score > 0:
         return conflict_score * 1000  # Heavy penalty for conflicts
-    
+
     # Room type compatibility
     room_type_score = check_room_type_compatibility(solution, opened_class_cache, room_cache)
-    
+
     # Preference compliance
     preference_score = check_preference_compliance(solution, opened_class_cache, timeslot_cache, preferences_cache)
-    
-    return room_type_score + preference_score
+
+    # Special needs compliance
+    special_needs_penalty = check_special_needs_compliance(solution, opened_class_cache, room_cache, preferences_cache)
+
+    # Enforce the jabatan constraint for Senin timeslots.
+    jabatan_penalty = check_jabatan_constraint(solution, opened_class_cache, timeslot_cache, dosen_cache)
+
+    # Additionally, you might add your daily load balance or other soft constraints here.
+    # daily_load_penalty = check_daily_load_balance(solution, opened_class_cache, timeslot_cache)
+
+    # Total fitness: Lower is better
+    return room_type_score  + preference_score + special_needs_penalty + jabatan_penalty
+    # + daily_load_penalty
 
 def generate_neighbor_solution(current_solution, opened_classes, rooms, timeslots, opened_class_cache):
     """
@@ -363,32 +413,80 @@ def format_solution_for_db(db: Session, solution, opened_class_cache, room_cache
 
     return formatted
 
+
+def check_jabatan_constraint(solution, opened_class_cache, timeslot_cache, dosen_cache):
+    """
+    Checks that if a dosen's jabatan is not null, then they are not scheduled in a timeslot on Senin (day_index == 0).
+    Returns a heavy penalty for each violation.
+    
+    Args:
+        solution: List of assignments (opened_class_id, room_id, timeslot_id)
+        opened_class_cache: Dict mapping opened_class_id to class info, including list of dosen_ids.
+        timeslot_cache: Dict mapping timeslot_id to timeslot details (including day_index).
+        dosen_cache: Dict mapping dosen_id to the Dosen model instance (with the 'jabatan' field).
+        
+    Returns:
+        penalty: An integer penalty to be added to the fitness score.
+    """
+    penalty = 0
+    for opened_class_id, room_id, timeslot_id in solution:
+        class_info = opened_class_cache[opened_class_id]
+        timeslot = timeslot_cache[timeslot_id]
+        
+        # If this timeslot is Senin (day_index 0)
+        if timeslot.day_index == 0:
+            for dosen_id in class_info["dosen_ids"]:
+                dosen = dosen_cache.get(dosen_id)
+                if dosen and dosen.jabatan is not None:
+                    # Hard constraint violation: dosen with a jabatan should not be scheduled on Senin.
+                    penalty += 10000
+    return penalty
+
+
 def simulated_annealing(db: Session, initial_temperature=1000, cooling_rate=0.95, iterations_per_temp=100):
     """
-    Simulated Annealing for timetable scheduling with debugging logs.
+    Simulated Annealing for timetable scheduling with early stopping when fitness is 0.
     """
     clear_timetable(db)
     logger.info("🔥 Starting Simulated Annealing for scheduling...")
 
+    # Fetch all necessary data
     courses, lecturers, rooms, timeslots, preferences, opened_classes, opened_class_cache, room_cache, timeslot_cache = fetch_data(db)
     preferences_cache = fetch_dosen_preferences(db, opened_classes)
+    
+    # Build dosen_cache using their unique pegawai_id
+    dosen_cache = {dosen.pegawai_id: dosen for dosen in lecturers}
 
     # Initialize first solution
     current_solution = initialize_population(opened_classes, rooms, timeslots, 1, opened_class_cache)[0]
     best_solution = current_solution
-    best_fitness = calculate_fitness(current_solution, opened_class_cache, room_cache, timeslot_cache, preferences_cache)
+    best_fitness = calculate_fitness(
+        current_solution,
+        opened_class_cache,
+        room_cache,
+        timeslot_cache,
+        preferences_cache,
+        dosen_cache
+    )
 
     temperature = initial_temperature
     iteration = 0
 
+    # Main simulated annealing loop
     while temperature > 1:
         iteration += 1
 
         for i in range(iterations_per_temp):
             new_solution = generate_neighbor_solution(current_solution, opened_classes, rooms, timeslots, opened_class_cache)
-            new_fitness = calculate_fitness(new_solution, opened_class_cache, room_cache, timeslot_cache, preferences_cache)
+            new_fitness = calculate_fitness(
+                new_solution,
+                opened_class_cache,
+                room_cache,
+                timeslot_cache,
+                preferences_cache,
+                dosen_cache
+            )
 
-            # Debugging logs for tracking fitness score improvement
             logger.debug(f"🌀 Iteration {iteration}.{i}: Temp={temperature:.2f}, Current Score={best_fitness}, New Score={new_fitness}")
 
             # Accept better solutions or use probability for worse ones
@@ -396,6 +494,16 @@ def simulated_annealing(db: Session, initial_temperature=1000, cooling_rate=0.95
                 best_solution = new_solution
                 best_fitness = new_fitness
                 logger.info(f"✅ Iteration {iteration}.{i}: New Best Solution Found! Score={new_fitness}")
+
+                # Early stopping condition if an optimal solution is found
+                if best_fitness == 0:
+                    logger.info("🏆 Optimal solution found with fitness 0. Stopping early!")
+                    temperature = 0  # Force exit from outer loop
+                    break
+
+        # Break out of the while loop if an optimal solution was found
+        if best_fitness == 0:
+            break
 
         # Cool down the temperature
         temperature *= cooling_rate
@@ -406,7 +514,6 @@ def simulated_annealing(db: Session, initial_temperature=1000, cooling_rate=0.95
 
     logger.info(f"🎯 Final Best Score={best_fitness}")
     return formatted_solution
-
 
 
 def insert_timetable(db: Session, timetable: List[Dict], opened_class_cache: Dict, room_cache: Dict, timeslot_cache: Dict):
@@ -454,7 +561,8 @@ def insert_timetable(db: Session, timetable: List[Dict], opened_class_cache: Dic
                 opened_class_id=entry["opened_class_id"],
                 ruangan_id=entry["ruangan_id"],
                 timeslot_ids=entry["timeslot_ids"],
-                is_conflicted=entry["is_conflicted"],
+                is_conflicted=True,
+                # is_conflicted=entry["is_conflicted"],
                 kelas=entry["kelas"],
                 kapasitas=opened_class["kapasitas"],
                 academic_period_id=active_period.id,  # Use the active academic period's ID

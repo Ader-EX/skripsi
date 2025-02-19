@@ -75,65 +75,209 @@ import json
 
 
 
+# @router.post("/resolve-conflicts")
+# async def resolve_conflicts(db: Session = Depends(get_db)):
+#     """
+#     Smart conflict resolution that:
+#     - Resolves the most severe conflicts first.
+#     - Ensures no new conflicts are created.
+#     - Rolls back changes if conflicts remain after resolution.
+#     """
+
+#     from .algorithm_routes import check_timetable_conflicts
+
+#     # ✅ Step 1: Fetch existing conflicts
+#     conflict_response = await check_timetable_conflicts(db)
+#     conflicts = conflict_response.get("conflict_details", [])
+
+#     resolved_conflicts = []
+
+#     for conflict in sorted(conflicts, key=lambda x: conflict_priority(x["type"])):
+#         timetable_id = conflict["timetable_id"]
+#         conflict_type = conflict["type"]
+
+#         # ✅ Fetch the conflicting timetable entry
+#         timetable_entry = db.query(TimeTable).filter(TimeTable.id == timetable_id).first()
+#         if not timetable_entry:
+#             continue  # Skip if timetable not found
+
+#         # ✅ Step 2: Try finding a new available room first
+#         new_room = find_available_room(db, timetable_entry)
+#         if new_room:
+#             new_timeslot_ids = timetable_entry.timeslot_ids  # Keep existing timeslot
+#         else:
+#             # ✅ Step 3: If no new room, try a new timeslot
+#             new_timeslot_ids = find_available_consecutive_timeslots(db, timetable_entry, timetable_entry.ruangan_id)
+
+#         # ✅ Step 4: Verify no new conflicts are introduced
+#         if new_room and new_timeslot_ids:
+#             if not causes_new_conflict(db, new_room.id, new_timeslot_ids):
+#                 # ✅ Apply changes if it's a safe move
+#                 timetable_entry.ruangan_id = new_room.id
+#                 timetable_entry.timeslot_ids = new_timeslot_ids
+#                 timetable_entry.is_conflicted = False
+#                 timetable_entry.reason = None  # Conflict resolved
+
+#                 # ✅ Generate placeholder
+#                 new_placeholder = generate_placeholder(db, new_room.id, new_timeslot_ids)
+#                 timetable_entry.placeholder = new_placeholder
+
+#                 resolved_conflicts.append({
+#                     "timetable_id": timetable_entry.id,
+#                     "previous_timeslot": conflict.get("timeslot_id"),
+#                     "new_timeslot": new_timeslot_ids,
+#                     "previous_room": timetable_entry.ruangan_id,
+#                     "new_room": new_room.id,
+#                     "resolved_conflict_type": conflict_type
+#                 })
+#             else:
+#                 continue  # Skip if the move creates new conflicts
+
+#     # ✅ Commit only if no new conflicts were created
+#     db.commit()
+
+#     return {
+#         "message": "Conflicts resolved successfully",
+#         "resolved_conflicts": resolved_conflicts
+#     }
+
+
+# def conflict_priority(conflict_type):
+#     """
+#     Assigns priority levels to conflict types.
+#     Higher priority conflicts are resolved first.
+#     """
+#     priority_map = {
+#         "Lecturer Conflict": 3,  # Most important
+#         "Room Conflict": 2,
+#         "Timeslot Conflict": 1,
+#         "Day Crossing": 0  # Least important
+#     }
+#     return priority_map.get(conflict_type, 0)  # Default priority: 0
+
+
+# def find_available_consecutive_timeslots(db: Session, timetable_entry, room_id):
+#     """
+#     Finds a set of consecutive available timeslots for a given room.
+#     Ensures that the timeslots are in the same day and do not introduce new conflicts.
+#     """
+#     required_timeslot_count = len(timetable_entry.timeslot_ids)
+
+#     # Fetch all timeslots grouped by day
+#     all_timeslots = db.query(TimeSlot).order_by(TimeSlot.day_index, TimeSlot.start_time).all()
+#     grouped_by_day = {}
+
+#     for ts in all_timeslots:
+#         if ts.day_index not in grouped_by_day:
+#             grouped_by_day[ts.day_index] = []
+#         grouped_by_day[ts.day_index].append(ts)
+
+#     # Try to find consecutive timeslots for the selected room
+#     for day_index, timeslots in grouped_by_day.items():
+#         for i in range(len(timeslots) - required_timeslot_count + 1):
+#             selected_slots = timeslots[i:i + required_timeslot_count]
+#             new_timeslot_ids = [ts.id for ts in selected_slots]
+
+#             # Check if this move introduces new conflicts
+#             if not causes_new_conflict(db, room_id, new_timeslot_ids):
+#                 return new_timeslot_ids
+
+#     return None  # No valid timeslots found
+
+
+# def find_available_room(db: Session, timetable_entry):
+#     """
+#     Finds an available room that has sufficient capacity and is not occupied.
+#     """
+#     candidate_rooms = db.query(Ruangan).filter(Ruangan.kapasitas >= timetable_entry.kapasitas).all()
+
+#     for room in candidate_rooms:
+#         # Check if the room is free during all required timeslots
+#         if not causes_new_conflict(db, room.id, timetable_entry.timeslot_ids):
+#             return room  # Found an available room
+
+#     return None  # No available room
+
+
+# def causes_new_conflict(db: Session, room_id, timeslot_ids):
+#     """
+#     Checks if assigning a room and timeslot would cause new conflicts.
+#     """
+#     conflict = db.query(TimeTable).filter(
+#         TimeTable.ruangan_id == room_id,
+#         func.json_contains(TimeTable.timeslot_ids, json.dumps(timeslot_ids))
+#     ).first()
+
+#     return conflict is not None  # Returns True if conflict exists
+
+
+# def generate_placeholder(db: Session, room_id, timeslot_ids):
+#     """
+#     Generates a placeholder string based on the new room and timeslot assignment.
+#     """
+#     timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
+
+#     if timeslots:
+#         return f"1. {room_id} - {timeslots[0].day} ({timeslots[0].start_time} - {timeslots[-1].end_time})"
+#     return "1. Unknown Room - Unknown Timeslot"
+
+
 @router.post("/resolve-conflicts")
 async def resolve_conflicts(db: Session = Depends(get_db)):
     """
     Smart conflict resolution that:
-    - Resolves the most severe conflicts first.
-    - Ensures no new conflicts are created.
-    - Rolls back changes if conflicts remain after resolution.
+    - For each conflict, tries to find ANY new room and ANY new consecutive timeslots,
+      ignoring the original room/time and ignoring any preference or day restrictions.
+    - Applies the first valid combination that does not create a new conflict.
     """
 
     from .algorithm_routes import check_timetable_conflicts
 
-    # ✅ Step 1: Fetch existing conflicts
+    # Step 1: Fetch existing conflicts
     conflict_response = await check_timetable_conflicts(db)
     conflicts = conflict_response.get("conflict_details", [])
-
     resolved_conflicts = []
 
+    # Sort conflicts by severity (Lecturer > Room > Timeslot > DayCrossing, etc.)
     for conflict in sorted(conflicts, key=lambda x: conflict_priority(x["type"])):
         timetable_id = conflict["timetable_id"]
         conflict_type = conflict["type"]
 
-        # ✅ Fetch the conflicting timetable entry
+        # Fetch the conflicting timetable entry
         timetable_entry = db.query(TimeTable).filter(TimeTable.id == timetable_id).first()
         if not timetable_entry:
-            continue  # Skip if timetable not found
+            continue
 
-        # ✅ Step 2: Try finding a new available room first
-        new_room = find_available_room(db, timetable_entry)
-        if new_room:
-            new_timeslot_ids = timetable_entry.timeslot_ids  # Keep existing timeslot
-        else:
-            # ✅ Step 3: If no new room, try a new timeslot
-            new_timeslot_ids = find_available_consecutive_timeslots(db, timetable_entry, timetable_entry.ruangan_id)
+        # Attempt to find any new (room, consecutive timeslot) combination
+        new_room, new_timeslot_ids = find_new_room_and_timeslot(db, timetable_entry)
 
-        # ✅ Step 4: Verify no new conflicts are introduced
+        # If a valid combination is found, apply it
         if new_room and new_timeslot_ids:
+            # Double-check that assigning them won't create new conflicts
             if not causes_new_conflict(db, new_room.id, new_timeslot_ids):
-                # ✅ Apply changes if it's a safe move
+                # Apply the changes
+                old_room_id = timetable_entry.ruangan_id
+                old_timeslots = timetable_entry.timeslot_ids
+
                 timetable_entry.ruangan_id = new_room.id
                 timetable_entry.timeslot_ids = new_timeslot_ids
                 timetable_entry.is_conflicted = False
-                timetable_entry.reason = None  # Conflict resolved
+                timetable_entry.reason = None  # conflict resolved
 
-                # ✅ Generate placeholder
+                # Generate placeholder
                 new_placeholder = generate_placeholder(db, new_room.id, new_timeslot_ids)
                 timetable_entry.placeholder = new_placeholder
 
                 resolved_conflicts.append({
                     "timetable_id": timetable_entry.id,
-                    "previous_timeslot": conflict.get("timeslot_id"),
-                    "new_timeslot": new_timeslot_ids,
-                    "previous_room": timetable_entry.ruangan_id,
+                    "previous_room": old_room_id,
                     "new_room": new_room.id,
+                    "previous_timeslot": old_timeslots,
+                    "new_timeslot": new_timeslot_ids,
                     "resolved_conflict_type": conflict_type
                 })
-            else:
-                continue  # Skip if the move creates new conflicts
+            # else: if it introduces a new conflict, skip
 
-    # ✅ Commit only if no new conflicts were created
     db.commit()
 
     return {
@@ -153,75 +297,74 @@ def conflict_priority(conflict_type):
         "Timeslot Conflict": 1,
         "Day Crossing": 0  # Least important
     }
-    return priority_map.get(conflict_type, 0)  # Default priority: 0
+    return priority_map.get(conflict_type, 0)
 
 
-def find_available_consecutive_timeslots(db: Session, timetable_entry, room_id):
+def find_new_room_and_timeslot(db: Session, timetable_entry: TimeTable):
     """
-    Finds a set of consecutive available timeslots for a given room.
-    Ensures that the timeslots are in the same day and do not introduce new conflicts.
+    Tries all candidate rooms and all possible consecutive timeslots
+    (any day, ignoring original timeslot) to find a valid combination.
+    Returns (room, timeslot_ids) or (None, None) if no valid combination is found.
     """
-    required_timeslot_count = len(timetable_entry.timeslot_ids)
 
-    # Fetch all timeslots grouped by day
+    required_sks = len(timetable_entry.timeslot_ids)
+    candidate_rooms = db.query(Ruangan).filter(
+        Ruangan.kapasitas >= timetable_entry.kapasitas
+    ).all()
+
+    # Gather all timeslots, grouped by day
     all_timeslots = db.query(TimeSlot).order_by(TimeSlot.day_index, TimeSlot.start_time).all()
     grouped_by_day = {}
-
     for ts in all_timeslots:
-        if ts.day_index not in grouped_by_day:
-            grouped_by_day[ts.day_index] = []
-        grouped_by_day[ts.day_index].append(ts)
+        grouped_by_day.setdefault(ts.day_index, []).append(ts)
 
-    # Try to find consecutive timeslots for the selected room
-    for day_index, timeslots in grouped_by_day.items():
-        for i in range(len(timeslots) - required_timeslot_count + 1):
-            selected_slots = timeslots[i:i + required_timeslot_count]
-            new_timeslot_ids = [ts.id for ts in selected_slots]
-
-            # Check if this move introduces new conflicts
-            if not causes_new_conflict(db, room_id, new_timeslot_ids):
-                return new_timeslot_ids
-
-    return None  # No valid timeslots found
-
-
-def find_available_room(db: Session, timetable_entry):
-    """
-    Finds an available room that has sufficient capacity and is not occupied.
-    """
-    candidate_rooms = db.query(Ruangan).filter(Ruangan.kapasitas >= timetable_entry.kapasitas).all()
-
+    # For each candidate room
     for room in candidate_rooms:
-        # Check if the room is free during all required timeslots
-        if not causes_new_conflict(db, room.id, timetable_entry.timeslot_ids):
-            return room  # Found an available room
+        # For each day
+        for day_index, timeslots in grouped_by_day.items():
+            # Slide over the timeslots to find consecutive blocks of length = required_sks
+            for i in range(len(timeslots) - required_sks + 1):
+                selected_block = timeslots[i : i + required_sks]
 
-    return None  # No available room
+                # Ensure these timeslots are truly consecutive (IDs are sequential & same day)
+                # or at least that they share the same day_index
+                # (If you want strict "ID must be consecutive", you can check that too)
+                if not all(ts.day_index == day_index for ts in selected_block):
+                    continue
+
+                new_timeslot_ids = [ts.id for ts in selected_block]
+
+                # Check if there's a conflict
+                if not causes_new_conflict(db, room.id, new_timeslot_ids):
+                    return (room, new_timeslot_ids)
+
+    return (None, None)
 
 
-def causes_new_conflict(db: Session, room_id, timeslot_ids):
+def causes_new_conflict(db: Session, room_id: int, timeslot_ids: list[int]) -> bool:
     """
-    Checks if assigning a room and timeslot would cause new conflicts.
+    Checks if assigning a given room and a list of timeslot IDs would cause new conflicts.
     """
+    # If any timetable entry in the DB uses the same room AND
+    # intersects the same timeslot IDs, that's a conflict
     conflict = db.query(TimeTable).filter(
         TimeTable.ruangan_id == room_id,
         func.json_contains(TimeTable.timeslot_ids, json.dumps(timeslot_ids))
     ).first()
 
-    return conflict is not None  # Returns True if conflict exists
+    return conflict is not None
 
 
-def generate_placeholder(db: Session, room_id, timeslot_ids):
+def generate_placeholder(db: Session, room_id: int, timeslot_ids: list[int]) -> str:
     """
     Generates a placeholder string based on the new room and timeslot assignment.
     """
     timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
-
     if timeslots:
-        return f"1. {room_id} - {timeslots[0].day} ({timeslots[0].start_time} - {timeslots[-1].end_time})"
+        first_ts = min(timeslots, key=lambda t: t.start_time)
+        last_ts = max(timeslots, key=lambda t: t.end_time)
+        return f"1. Room {room_id} - {first_ts.day.value} ({first_ts.start_time} - {last_ts.end_time})"
     return "1. Unknown Room - Unknown Timeslot"
-
-
 
 @router.post("/", response_model=TimeTableResponse)
 def create_timetable(timetable: TimeTableCreate, db: Session = Depends(get_db)):

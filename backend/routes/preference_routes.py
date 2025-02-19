@@ -39,8 +39,13 @@ async def create_preference(preference: PreferenceCreate, db: Session = Depends(
     timeslot = db.query(TimeSlot).filter(TimeSlot.id == preference.timeslot_id).first()
     if not timeslot:
         raise HTTPException(status_code=404, detail="Timeslot not found")
+   
+    if dosen.jabatan and dosen.jabatan.strip() and timeslot.day_index == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Dosen dengan jabatan tidak bisa memilih timeslot dengan hari Senin",
+        )
 
-    # Create the preference
     new_preference = Preference(**preference.dict())
     db.add(new_preference)
     db.commit()

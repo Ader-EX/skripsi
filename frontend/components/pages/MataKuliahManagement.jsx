@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Book, Plus } from "lucide-react";
 import MataKuliahTable from "./MataKuliahTable";
 import MataKuliahForm from "./MataKuliahForm";
+import toast from "react-hot-toast";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 

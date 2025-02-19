@@ -171,7 +171,7 @@ const AdminJadwal = () => {
     }
   };
   const handleCheckConflicts = async () => {
-    setIsCheckingConflicts(true); // Disable button and show "Loading..."
+    setIsCheckingConflicts(true);
     try {
       const response = await fetch(API_CHECK_CONFLICTS);
       if (!response.ok) throw new Error("Failed to check conflicts.");
@@ -183,9 +183,6 @@ const AdminJadwal = () => {
         setShowConflictDialog(true);
 
         toast.error(`Found ${data.total_conflicts} conflicts`);
-        setTimeout(() => {
-          location.reload();
-        }, 2000);
       } else {
         toast.success("No conflicts found");
         setTimeout(() => {
@@ -237,34 +234,40 @@ const AdminJadwal = () => {
   return (
     <div className="flex flex-col h-screen w-full">
       <div className="flex-none p-4 mb-4">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Timetable Management</h1>
-        </div>
-        <div className="flex w-full justify-between my-4  items-end">
-          <div className="relative w-full max-w-sm ">
+        <div className="flex justify-between  items-start mt-4">
+          <h1 className="text-2xl font-bold ">Timetable Management</h1>
+          <div className="relative w-full flex flex-col sm:flex-row max-w-sm mb-4 ">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search courses..."
               value={searchQuery}
-              onChange={handleSearchChange}
-              className="pl-8"
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 flex-1"
             />
-          </div>
-          <div className="flex gap-4">
             <Button
-              onClick={handleOpenAlgorithmDialog}
-              disabled={isGenerating}
-              className="flex items-center gap-2"
+              onClick={() => fetchTimetableData(searchQuery)}
+              className="ml-2"
             >
-              <Settings className={isGenerating ? "animate-spin" : ""} />
-              {isGenerating ? "Generating..." : "Generate Timetable"}
+              <Search className="h-4 w-4 text-muted-foreground" />
             </Button>
+          </div>
+        </div>
 
+        <div className="flex w-full  flex-col sm:flex-row  gap-4">
+          <Button
+            onClick={handleOpenAlgorithmDialog}
+            disabled={isGenerating}
+            className="flex items-center gap-2"
+          >
+            <Settings className={isGenerating ? "animate-spin" : ""} />
+            {isGenerating ? "Generating..." : "Generate Timetable"}
+          </Button>
+          <div className="flex w-full flex-col sm:flex-row gap-x-4 justify-end ">
             <Button
               onClick={handleResetSchedule}
               disabled={isResetting}
               variant="outline"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 bg-red-500 text-white"
             >
               <RefreshCcw className={isResetting ? "animate-spin" : ""} />
               {isResetting ? "Resetting..." : "Reset Timetable"}
@@ -273,8 +276,8 @@ const AdminJadwal = () => {
             <Button
               onClick={handleCheckConflicts}
               disabled={isCheckingConflicts}
-              variant="destructive"
-              className="flex items-center gap-2"
+              variant="outline"
+              className="flex items-center gap-2 bg-yellow-400"
             >
               <AlertTriangle />
               {isCheckingConflicts ? "Checking..." : "Check Conflicts"}

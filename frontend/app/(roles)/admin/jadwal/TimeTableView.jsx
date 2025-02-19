@@ -25,7 +25,13 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Pencil } from "lucide-react";
 
-const TimeTableView = ({ schedules, rooms, timeSlots, filters }) => {
+const TimeTableView = ({
+  schedules,
+  rooms,
+  timeSlots,
+  filters,
+  role = "admin",
+}) => {
   const [DAYS, setDAYS] = useState(filters?.available_days || ["Senin"]);
   const [selectedDay, setSelectedDay] = useState(DAYS[0] || "Senin");
   const [selectedBuilding, setSelectedBuilding] = useState("all");
@@ -125,59 +131,88 @@ const TimeTableView = ({ schedules, rooms, timeSlots, filters }) => {
   }, [rooms]);
 
   const getScheduleForSlot = (timeSlot, roomId) => {
-    return schedules.filter(
-      (schedule) =>
-        schedule.room_id === roomId &&
-        schedule.time_slots.some(
-          (slot) =>
-            slot.day === selectedDay && slot.start_time === timeSlot.start_time
-        )
-    );
+    return schedules.filter((schedule) => {
+      if (schedule.room_id !== roomId) return false;
+      return schedule.time_slots.some((ts) => ts.id === timeSlot.id);
+    });
   };
 
   const renderScheduleCard = (scheduleList, timeSlot, roomId) => {
     if (!scheduleList.length) return null;
 
-    if (scheduleList.length === 1) {
-      const schedule = scheduleList[0];
+    // If there's more than 1 schedule in the cell, treat it as a multi-schedule conflict => Red
+    if (scheduleList.length > 1) {
       return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div
-                className={`h-full w-full p-2 ${getConflictClass(schedule)}`}
-                onClick={() => handleConflictClick(schedule)}
-              >
-                <div className="font-semibold truncate">
-                  {schedule.subject.name}
-                </div>
-                <div className="text-xs truncate">
-                  {schedule.subject.code} - {schedule.subject.kelas}
-                </div>
-                <div className="text-xs truncate">
-                  {schedule.lecturers.map((l) => l.name).join(", ")}
-                </div>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{schedule.subject.name}</p>
-              <p>
-                {schedule.subject.code} - {schedule.subject.kelas}
-              </p>
-              <p>Room: {schedule.room_id}</p>
-              <p>
-                Lecturers: {schedule.lecturers.map((l) => l.name).join(", ")}
-              </p>
-              {schedule.is_conflicted && schedule.reason && (
-                <p className="text-red-500">Click to view conflicts</p>
-              )}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <div
+          className="h-full w-full p-2 flex flex-row gap-2 bg-red-100"
+          style={{ whiteSpace: "nowrap", overflow: "hidden" }}
+        >
+          {scheduleList.map((schedule) => renderSingleSchedule(schedule))}
+        </div>
       );
     }
-    return null;
+
+    // If exactly one schedule, check its conflict status
+    const schedule = scheduleList[0];
+    let containerClass = "bg-green-100"; // default = no conflict
+
+    if (schedule.is_conflicted) {
+      if (schedule.reason) {
+        // Conflict with reason => Red
+        containerClass = "bg-red-100";
+      } else {
+        // Conflict without reason => Yellow
+        containerClass = "bg-yellow-100";
+      }
+    }
+
+    return (
+      <div
+        className={`h-full w-full p-2 flex flex-row gap-2 ${containerClass}`}
+        style={{ whiteSpace: "nowrap", overflow: "hidden" }}
+      >
+        {renderSingleSchedule(schedule)}
+      </div>
+    );
   };
+
+  // Factor out the rendering of a single schedule into a helper function
+  function renderSingleSchedule(schedule) {
+    return (
+      <TooltipProvider key={schedule.id}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className="flex-1 p-2 rounded cursor-pointer overflow-hidden"
+              style={{ minWidth: 0 }}
+              onClick={() => handleConflictClick(schedule)}
+            >
+              <div className="font-semibold truncate">
+                {schedule.subject.name}
+              </div>
+              <div className="text-xs truncate">
+                {schedule.subject.code} - {schedule.subject.kelas}
+              </div>
+              <div className="text-xs truncate">
+                {schedule.lecturers.map((l) => l.name).join(", ")}
+              </div>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{schedule.subject.name}</p>
+            <p>
+              {schedule.subject.code} - {schedule.subject.kelas}
+            </p>
+            <p>Room: {schedule.room_id}</p>
+            <p>Lecturers: {schedule.lecturers.map((l) => l.name).join(", ")}</p>
+            {schedule.is_conflicted && schedule.reason && (
+              <p className="text-red-500">{schedule.reason}</p>
+            )}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
 
   return (
     <Card className="flex flex-col h-full w-full p-2">
@@ -214,12 +249,13 @@ const TimeTableView = ({ schedules, rooms, timeSlots, filters }) => {
               </SelectContent>
             </Select>
           </div>
-
-          <Button>
-            <Link href={"data-manajemen"} className="flex items-center gap-2">
-              <Pencil /> Edit Timetable
-            </Link>
-          </Button>
+          {role === "admin" && (
+            <Button>
+              <Link href={"data-manajemen"} className="flex items-center gap-2">
+                <Pencil /> Edit Timetable
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 

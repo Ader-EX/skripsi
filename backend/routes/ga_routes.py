@@ -24,9 +24,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 # ------------------------------------------------------------------------
-# -------------------- FUNGSI PEMERIKSAAN & FITNESS ----------------------
+# -------------------- CONSTRAINT & FITNESS FUNCTIONS --------------------
 # ------------------------------------------------------------------------
 
 def check_conflicts(solution, opened_class_cache, room_cache, timeslot_cache):
@@ -49,7 +48,7 @@ def check_conflicts(solution, opened_class_cache, room_cache, timeslot_cache):
             if current_id not in timeslot_cache:
                 conflicts += 1000  
                 continue
-                
+
             next_timeslot = timeslot_cache[current_id]
             # Jika day berbeda, berarti melampaui batas hari
             if next_timeslot.day != current_timeslot.day:
@@ -127,9 +126,28 @@ def check_preference_compliance(solution, opened_class_cache, timeslot_cache, pr
                         penalty += 200
     return penalty
 
-def fitness(solution, opened_class_cache, room_cache, timeslot_cache, preferences_cache):
+def check_jabatan_constraint(solution, opened_class_cache, timeslot_cache, dosen_cache):
+    """
+    Memastikan bahwa jika dosen memiliki jabatan (non-null), 
+    mereka tidak dijadwalkan pada hari Senin (day_index == 0).
+    Setiap pelanggaran mendapatkan penalti besar.
+    """
+    penalty = 0
+    for opened_class_id, room_id, timeslot_id in solution:
+        class_info = opened_class_cache[opened_class_id]
+        timeslot = timeslot_cache[timeslot_id]
+        # Jika timeslot berada di Senin (day_index == 0)
+        if timeslot.day_index == 0:
+            for dosen_id in class_info["dosen_ids"]:
+                dosen = dosen_cache.get(dosen_id)
+                if dosen and dosen.jabatan is not None:
+                    penalty += 10000
+    return penalty
+
+def fitness(solution, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache):
     """
     Hitung total penalti (semakin kecil semakin baik).
+    Jika ada konflik, langsung kembalikan penalti besar.
     """
     conflict_score = check_conflicts(solution, opened_class_cache, room_cache, timeslot_cache)
     if conflict_score > 0:
@@ -138,15 +156,16 @@ def fitness(solution, opened_class_cache, room_cache, timeslot_cache, preference
     room_type_score = check_room_type_compatibility(solution, opened_class_cache, room_cache)
     special_needs_score = check_special_needs_compliance(solution, opened_class_cache, room_cache, preferences_cache)
     preference_score = check_preference_compliance(solution, opened_class_cache, timeslot_cache, preferences_cache)
+    jabatan_penalty = check_jabatan_constraint(solution, opened_class_cache, timeslot_cache, dosen_cache)
 
-    return room_type_score + special_needs_score + preference_score
-
+    total = room_type_score + special_needs_score + preference_score + jabatan_penalty
+    return total
 
 # ------------------------------------------------------------------------
-# --------------------- FUNGSI PENDUKUNG GA (SELECTION, ETC.) -----------
+# --------------------- GA SUPPORT FUNCTIONS -----------------------------
 # ------------------------------------------------------------------------
 
-def selection(population, opened_class_cache, room_cache, timeslot_cache, preferences_cache, k=3):
+def selection(population, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache, k=3):
     """
     Tournament selection: pilih individu terbaik dari k calon secara acak.
     """
@@ -155,7 +174,7 @@ def selection(population, opened_class_cache, room_cache, timeslot_cache, prefer
         candidates = random.sample(population, k)
         best_candidate = min(
             candidates,
-            key=lambda sol: fitness(sol, opened_class_cache, room_cache, timeslot_cache, preferences_cache)
+            key=lambda sol: fitness(sol, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache)
         )
         selected.append(best_candidate)
     return selected
@@ -193,12 +212,7 @@ def mutate(solution, opened_classes, rooms, timeslots, opened_class_cache, mutat
             new_room = random.choice(compatible_rooms)
 
             # Cari timeslot baru (asal satu hari)
-            valid_timeslots = []
-            for slot in timeslots:
-                # Bebas, asalkan day sama
-                # (Jika mau lebih ketat, cek SKS dsb. - tapi di sini disederhanakan)
-                valid_timeslots.append(slot.id)
-
+            valid_timeslots = [slot.id for slot in timeslots]
             if valid_timeslots:
                 new_timeslot_id = random.choice(valid_timeslots)
                 new_solution[idx] = (opened_class_id, new_room.id, new_timeslot_id)
@@ -206,9 +220,8 @@ def mutate(solution, opened_classes, rooms, timeslots, opened_class_cache, mutat
 
     return new_solution
 
-
 # ------------------------------------------------------------------------
-# --------------------- FUNGSI PENYIAPAN DATA & SOLUSI -------------------
+# ---------------- DATA PREPARATION & SOLUTION INITIALIZATION ------------
 # ------------------------------------------------------------------------
 
 def fetch_dosen_preferences(db: Session, opened_classes: List[OpenedClass]):
@@ -231,7 +244,6 @@ def fetch_dosen_preferences(db: Session, opened_classes: List[OpenedClass]):
             key = (oc.id, dosen_id)
             preferences_cache[key] = {
                 'used_preference': used_preference,
-                # timeslot_id → objek preference
                 'preferences': {p.timeslot_id: p for p in dosen_prefs},
                 'is_high_priority': any(p.is_high_priority for p in dosen_prefs),
                 'is_special_needs': any(p.is_special_needs for p in dosen_prefs)
@@ -264,7 +276,6 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
             assigned = False
             random.shuffle(compatible_rooms)
 
-            # Buat list indeks start, lalu shuffle
             possible_starts = list(range(len(timeslots_list) - sks + 1))
             random.shuffle(possible_starts)
 
@@ -277,13 +288,11 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
 
                     # Pastikan day sama & ID berurutan
                     if not all(
-                        slots[i].day_index == slots[0].day_index 
-                        and slots[i].id == slots[i - 1].id + 1
+                        slots[i].day_index == slots[0].day_index and slots[i].id == slots[i - 1].id + 1
                         for i in range(1, sks)
                     ):
                         continue
 
-                    # Cek ketersediaan
                     slot_available = True
                     for slot in slots:
                         if (room.id, slot.id) in room_schedule:
@@ -297,7 +306,6 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
                             break
 
                     if slot_available:
-                        # Tandai
                         for slot in slots:
                             room_schedule[(room.id, slot.id)] = oc.id
                             for dosen_id in class_info["dosen_ids"]:
@@ -315,7 +323,7 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
     return population
 
 # ------------------------------------------------------------------------
-# ------------------- FUNGSI FORMAT & INSERT KE DATABASE -----------------
+# ---------------- FORMAT & INSERT INTO DATABASE FUNCTIONS --------------
 # ------------------------------------------------------------------------
 
 def format_solution_for_db(db: Session, solution, opened_class_cache, room_cache, timeslot_cache):
@@ -346,7 +354,7 @@ def format_solution_for_db(db: Session, solution, opened_class_cache, room_cache
                 "opened_class_id": opened_class_id,
                 "ruangan_id": room_id,
                 "timeslot_ids": timeslot_ids,
-                "is_conflicted": True,  # Default, nanti dicek conflict
+                "is_conflicted": True,
                 "kelas": class_info["kelas"],
                 "kapasitas": class_info["kapasitas"],
                 "academic_period_id": active_period.id
@@ -374,7 +382,6 @@ def insert_timetable(db: Session, timetable: List[Dict], opened_class_cache: Dic
             room = room_cache[entry["ruangan_id"]]
             timeslot_ids = entry["timeslot_ids"]
 
-            # Buat placeholder
             first_timeslot = timeslot_cache[timeslot_ids[0]]
             day = first_timeslot.day.value  
             start_time = first_timeslot.start_time.strftime("%H:%M")
@@ -382,7 +389,6 @@ def insert_timetable(db: Session, timetable: List[Dict], opened_class_cache: Dic
 
             placeholder = f"1. {room.kode_ruangan} - {day} ({start_time} - {end_time})"
 
-            # Jika mata kuliah have_kelas_besar, tambahkan placeholder kedua
             if mata_kuliah.have_kelas_besar:
                 first_entry_same_kodemk = next(
                     (e for e in timetable if opened_class_cache[e["opened_class_id"]]["mata_kuliah"].kodemk == mata_kuliah.kodemk),
@@ -395,7 +401,6 @@ def insert_timetable(db: Session, timetable: List[Dict], opened_class_cache: Dic
                     first_entry_end_time = timeslot_cache[first_entry_same_kodemk["timeslot_ids"][-1]].end_time.strftime("%H:%M")
                     placeholder += f"\n2. FIK-VCR-KB-1 - {first_entry_day} ({first_entry_start_time} - {first_entry_end_time})"
 
-            # Buat TimeTable entry
             timetable_entry = TimeTable(
                 opened_class_id=entry["opened_class_id"],
                 ruangan_id=entry["ruangan_id"],
@@ -413,9 +418,8 @@ def insert_timetable(db: Session, timetable: List[Dict], opened_class_cache: Dic
 
     db.commit()
 
-
 # ------------------------------------------------------------------------
-# ------------------- IMPLEMENTASI GENETIC ALGORITHM ---------------------
+# ------------------ GENETIC ALGORITHM IMPLEMENTATION --------------------
 # ------------------------------------------------------------------------
 
 def genetic_algorithm(db: Session, population_size=50, generations=50, mutation_prob=0.1):
@@ -429,6 +433,7 @@ def genetic_algorithm(db: Session, population_size=50, generations=50, mutation_
          - crossover
          - mutate
          - evaluasi fitness
+         - Jika ditemukan solusi dengan fitness 0, berhenti lebih awal.
       5. Pilih solusi terbaik, format, dan simpan.
     """
     # 1. Hapus jadwal lama
@@ -438,6 +443,8 @@ def genetic_algorithm(db: Session, population_size=50, generations=50, mutation_
     # 2. Ambil data
     courses, lecturers, rooms, timeslots, preferences, opened_classes, opened_class_cache, room_cache, timeslot_cache = fetch_data(db)
     preferences_cache = fetch_dosen_preferences(db, opened_classes)
+    # Buat dosen_cache untuk pengecekan jabatan (menggunakan pegawai_id sebagai key)
+    dosen_cache = {dosen.pegawai_id: dosen for dosen in lecturers}
 
     # 3. Buat populasi awal
     population = initialize_population(opened_classes, rooms, timeslots, population_size, opened_class_cache)
@@ -445,7 +452,7 @@ def genetic_algorithm(db: Session, population_size=50, generations=50, mutation_
     # 4. Loop evolusi
     for gen in range(generations):
         # 4a. Selection
-        selected_pop = selection(population, opened_class_cache, room_cache, timeslot_cache, preferences_cache, k=3)
+        selected_pop = selection(population, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache, k=3)
 
         # 4b. Crossover
         new_population = []
@@ -456,7 +463,6 @@ def genetic_algorithm(db: Session, population_size=50, generations=50, mutation_
                 child1, child2 = crossover(parent1, parent2)
                 new_population.extend([child1, child2])
             else:
-                # Jika jumlah populasi ganjil, copy individu terakhir
                 new_population.append(selected_pop[i])
 
         # 4c. Mutation
@@ -468,14 +474,26 @@ def genetic_algorithm(db: Session, population_size=50, generations=50, mutation_
         # Ganti populasi dengan hasil baru
         population = mutated_population
 
-        # Cek fitness terbaik generasi ini
-        best_solution = min(population, key=lambda sol: fitness(sol, opened_class_cache, room_cache, timeslot_cache, preferences_cache))
-        best_fitness = fitness(best_solution, opened_class_cache, room_cache, timeslot_cache, preferences_cache)
+        # Evaluasi fitness terbaik generasi ini
+        best_solution = min(
+            population,
+            key=lambda sol: fitness(sol, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache)
+        )
+        best_fitness = fitness(best_solution, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache)
         logger.info(f"🌀 Generasi {gen+1}: Fitness terbaik = {best_fitness}")
 
+        # Early stopping jika solusi optimal ditemukan (fitness == 0)
+        if best_fitness == 0:
+            logger.info("🏆 Solusi optimal ditemukan dengan fitness 0. Menghentikan evolusi lebih awal.")
+            population = [best_solution]
+            break
+
     # 5. Pilih solusi terbaik dari populasi akhir
-    final_best = min(population, key=lambda sol: fitness(sol, opened_class_cache, room_cache, timeslot_cache, preferences_cache))
-    final_score = fitness(final_best, opened_class_cache, room_cache, timeslot_cache, preferences_cache)
+    final_best = min(
+        population,
+        key=lambda sol: fitness(sol, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache)
+    )
+    final_score = fitness(final_best, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache)
 
     # Format dan masukkan ke DB
     formatted_solution = format_solution_for_db(db, final_best, opened_class_cache, room_cache, timeslot_cache)
@@ -484,9 +502,8 @@ def genetic_algorithm(db: Session, population_size=50, generations=50, mutation_
     logger.info(f"🎯 GA Selesai! Skor Akhir Terbaik = {final_score}")
     return formatted_solution
 
-
 # ------------------------------------------------------------------------
-# -------------------------- ROUTE FASTAPI -------------------------------
+# -------------------------- FASTAPI ROUTE -------------------------------
 # ------------------------------------------------------------------------
 
 @router.post("/generate-schedule-ga")

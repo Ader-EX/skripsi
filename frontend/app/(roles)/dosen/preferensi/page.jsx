@@ -174,13 +174,20 @@ const DosenPreferensi = () => {
       );
 
       if (prefData.delete) {
-        await fetch(
+        const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/preference/${existingPref.id}`,
           {
             method: "DELETE",
           }
         );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || "Failed to delete preference");
+        }
+
         setPreferences(preferences.filter((p) => p.id !== existingPref.id));
+        toast.success("Preferensi berhasil dihapus");
       } else if (existingPref) {
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/preference/${existingPref.id}`,
@@ -195,11 +202,16 @@ const DosenPreferensi = () => {
           }
         );
 
-        if (!response.ok) throw new Error("Failed to update preference");
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || "Failed to update preference");
+        }
+
         const updatedPref = await response.json();
         setPreferences(
           preferences.map((p) => (p.id === updatedPref.id ? updatedPref : p))
         );
+        toast.success("Preferensi berhasil diperbarui");
       } else {
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/preference/`,
@@ -216,14 +228,21 @@ const DosenPreferensi = () => {
           }
         );
 
-        if (!response.ok) throw new Error("Failed to create preference");
+        // Parse error response if not OK
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || "Failed to create preference");
+        }
+
         const newPref = await response.json();
         toast.success("Preferensi Berhasil Ditambahkan");
         setPreferences([...preferences, newPref]);
       }
     } catch (error) {
-      console.error("Error updating preference:", error);
-      setError("Failed to update preference");
+      toast.error(
+        error.message || "Terjadi kesalahan saat memperbarui preferensi"
+      );
+      setError(error.message);
     }
   };
 

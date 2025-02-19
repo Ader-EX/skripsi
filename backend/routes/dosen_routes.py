@@ -77,18 +77,7 @@ class DosenRead(BaseModel):
             return value.strftime("%d/%m/%Y")
         return value
 
-class DosenUpdate(BaseModel):
-    nidn: Optional[str] = None
-    nomor_ktp: Optional[str] = None
-    email: Optional[EmailStr] = None
-    progdi_id: Optional[int] = None
-    tanggal_lahir: Optional[date] = None
-    ijin_mengajar: Optional[bool] = True
-    jabatan: Optional[str] = None
-    title_depan: Optional[str] = None
-    title_belakang: Optional[str] = None
-    jabatan_id: Optional[int] = None
-    is_sekdos: Optional[bool] = False
+
 
 router = APIRouter()
 
@@ -272,7 +261,7 @@ async def get_dosen(dosen_id: int, db: Session = Depends(get_db)):
 
 class DosenUpdate(BaseModel):
     nama: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     password: str = None
     nim_nip: str = None
     nidn: Optional[str] = None
@@ -289,7 +278,6 @@ class DosenUpdate(BaseModel):
 @router.put("/{dosen_id}", response_model=dict)
 async def update_dosen(dosen_id: int, dosen: DosenUpdate, db: Session = Depends(get_db)):
     """ ✅ Update both Dosen and User """
-
     # 🔹 Find the Dosen
     db_dosen = db.query(Dosen).filter(Dosen.pegawai_id == dosen_id).first()
     if not db_dosen:
@@ -301,30 +289,43 @@ async def update_dosen(dosen_id: int, dosen: DosenUpdate, db: Session = Depends(
         raise HTTPException(status_code=404, detail="Associated User not found")
 
     # 🔹 Update User Data
-    db_user.nim_nip = dosen.nim_nip
-    db_user.password = dosen.password  # ⚠️ Ensure password is hashed before saving in production
+    if dosen.nim_nip is not None:
+        db_user.nim_nip = dosen.nim_nip
+    if dosen.password is not None:
+        db_user.password = dosen.password  
 
     # 🔹 Update Dosen Data
-    db_dosen.nama = dosen.nama
-    db_dosen.email = dosen.email
-    db_dosen.nidn = dosen.nidn
-    db_dosen.nomor_ktp = dosen.nomor_ktp
-    db_dosen.tanggal_lahir = datetime.strptime(dosen.tanggal_lahir, "%d/%m/%Y")
-    db_dosen.progdi_id = dosen.progdi_id
-    db_dosen.ijin_mengajar = dosen.ijin_mengajar
-    db_dosen.jabatan = dosen.jabatan
-    db_dosen.title_depan = dosen.title_depan
-    db_dosen.title_belakang = dosen.title_belakang
-    db_dosen.jabatan_id = dosen.jabatan_id
-    db_dosen.is_sekdos = dosen.is_sekdos
+    if dosen.nama is not None:
+        db_dosen.nama = dosen.nama
+    if dosen.email is not None:
+        db_dosen.email = dosen.email
+    if dosen.nidn is not None:
+        db_dosen.nidn = dosen.nidn
+    if dosen.nomor_ktp is not None:
+        db_dosen.nomor_ktp = dosen.nomor_ktp
+    if dosen.tanggal_lahir is not None:
+        # Updated to expect "YYYY-MM-DD"
+        db_dosen.tanggal_lahir = datetime.strptime(dosen.tanggal_lahir, "%Y-%m-%d")
+    if dosen.progdi_id is not None:
+        db_dosen.progdi_id = dosen.progdi_id
+    if dosen.ijin_mengajar is not None:
+        db_dosen.ijin_mengajar = dosen.ijin_mengajar
+    if dosen.jabatan is not None:
+        db_dosen.jabatan = dosen.jabatan
+    if dosen.title_depan is not None:
+        db_dosen.title_depan = dosen.title_depan
+    if dosen.title_belakang is not None:
+        db_dosen.title_belakang = dosen.title_belakang
+    if dosen.jabatan_id is not None:
+        db_dosen.jabatan_id = dosen.jabatan_id
+    if dosen.is_sekdos is not None:
+        db_dosen.is_sekdos = dosen.is_sekdos
 
-    # 🔹 Save updates
     db.commit()
     db.refresh(db_dosen)
     db.refresh(db_user)
 
     return {"message": "Dosen berhasil diperbarui", "dosen_id": db_dosen.pegawai_id}
-
 
 @router.get("/timetable/{dosen_id}", response_model=Dict[str, Any])
 async def get_timetable_by_dosen(

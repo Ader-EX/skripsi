@@ -27,6 +27,7 @@ const DosenProfile = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
 
+  // Added a password field. Email is already present.
   const [formData, setFormData] = useState({
     nama: "",
     nidn: "",
@@ -39,9 +40,11 @@ const DosenProfile = () => {
     titleDepan: "",
     titleBelakang: "",
     isSekdos: "false",
-    isDosenKb: "false",
+    // We do not allow editing nim/nip, so these are read-only.
     pegawai_id: 0,
     jabatan_id: 0,
+    email: "",
+    password: "",
   });
 
   useEffect(() => {
@@ -70,7 +73,7 @@ const DosenProfile = () => {
       setUserId(payload.role_id);
       setFormData((prev) => ({
         ...prev,
-        nama: data.user?.nim_nip || "",
+        nama: data.user?.nim_nip || "", // if you want to update nama separately, adjust as needed
         nidn: data.nidn || "",
         nip: data.user?.nim_nip || "",
         nomorKtp: data.nomor_ktp || "",
@@ -83,6 +86,7 @@ const DosenProfile = () => {
         isSekdos: data.is_sekdos ? "true" : "false",
         pegawai_id: data.pegawai_id || 0,
         jabatan_id: data.jabatan_id || 0,
+        email: data.email || "",
       }));
     } catch (err) {
       setError(err.message);
@@ -92,7 +96,9 @@ const DosenProfile = () => {
     }
   };
 
+  // Convert a date string from "DD/MM/YYYY" to "YYYY-MM-DD" if needed.
   const formatDate = (dateString) => {
+    if (dateString.includes("-")) return dateString;
     const [day, month, year] = dateString.split("/");
     return `${year}-${month}-${day}`;
   };
@@ -120,17 +126,24 @@ const DosenProfile = () => {
     try {
       if (!userId) throw new Error("User ID not found");
 
+      // Build update data.
+      // Do not include nim/nip because they are not allowed to be changed.
       const updateData = {
         nomor_ktp: formData.nomorKtp,
         email: formData.email,
         progdi_id: formData.progdiId,
-        tanggal_lahir: formData.tanggalLahir,
+        tanggal_lahir: formData.tanggalLahir, // expecting YYYY-MM-DD
         title_depan: formData.titleDepan,
         title_belakang: formData.titleBelakang,
         ijin_mengajar: formData.ijinMengajar === "true",
         jabatan: formData.jabatan,
         is_sekdos: formData.isSekdos === "true",
       };
+
+      // Only include password if user provided a new one.
+      if (formData.password.trim() !== "") {
+        updateData.password = formData.password;
+      }
 
       const response = await fetch(`${BASE_URL}/dosen/${userId}`, {
         method: "PUT",
@@ -153,6 +166,7 @@ const DosenProfile = () => {
       console.error("Error updating profile:", err);
     }
   };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -188,7 +202,6 @@ const DosenProfile = () => {
                   <Label htmlFor="nama">Nama Lengkap</Label>
                   <Input
                     id="nama"
-                    required
                     value={formData.nama || ""}
                     onChange={handleChange}
                     placeholder="Nama Lengkap"
@@ -199,7 +212,6 @@ const DosenProfile = () => {
                   <Label htmlFor="nidn">NIDN</Label>
                   <Input
                     id="nidn"
-                    required
                     value={formData.nidn || ""}
                     onChange={handleChange}
                     placeholder="NIDN"
@@ -207,12 +219,33 @@ const DosenProfile = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="nip">NIP</Label>
+                  <Label htmlFor="nip">NIP (Tidak bisa diubah)</Label>
                   <Input
                     id="nip"
                     value={formData.nip || ""}
+                    readOnly
+                    placeholder="NIP (tidak dapat diubah)"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    value={formData.email || ""}
                     onChange={handleChange}
-                    placeholder="NIP"
+                    placeholder="Email"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password">Change Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={formData.password || ""}
+                    onChange={handleChange}
+                    placeholder="Leave blank to keep unchanged"
                   />
                 </div>
 
@@ -220,7 +253,6 @@ const DosenProfile = () => {
                   <Label htmlFor="nomorKtp">Nomor KTP</Label>
                   <Input
                     id="nomorKtp"
-                    required
                     value={formData.nomorKtp || ""}
                     onChange={handleChange}
                     placeholder="Nomor KTP"
@@ -232,7 +264,6 @@ const DosenProfile = () => {
                   <Input
                     type="date"
                     id="tanggalLahir"
-                    required
                     value={formData.tanggalLahir || ""}
                     onChange={handleChange}
                   />
@@ -242,7 +273,6 @@ const DosenProfile = () => {
                   <Label htmlFor="jabatan">Jabatan</Label>
                   <Input
                     id="jabatan"
-                    required
                     value={formData.jabatan || ""}
                     onChange={handleChange}
                     placeholder="Jabatan"
@@ -253,7 +283,6 @@ const DosenProfile = () => {
                   <Label htmlFor="titleDepan">Gelar Depan</Label>
                   <Input
                     id="titleDepan"
-                    required
                     value={formData.titleDepan || ""}
                     onChange={handleChange}
                     placeholder="Gelar Depan"
@@ -264,7 +293,6 @@ const DosenProfile = () => {
                   <Label htmlFor="titleBelakang">Gelar Belakang</Label>
                   <Input
                     id="titleBelakang"
-                    required
                     value={formData.titleBelakang || ""}
                     onChange={handleChange}
                     placeholder="Gelar Belakang"
@@ -274,7 +302,6 @@ const DosenProfile = () => {
                 <div className="space-y-2">
                   <Label htmlFor="ijinMengajar">Izin Mengajar</Label>
                   <Select
-                    required
                     value={formData.ijinMengajar || ""}
                     onValueChange={(value) =>
                       handleSelectChange(value, "ijinMengajar")

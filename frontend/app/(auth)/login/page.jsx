@@ -116,8 +116,7 @@ const Login = () => {
               autoComplete="off"
             />
           </div>
-
-          {/* Remember Me Checkbox */}
+          {/* 
           <div className="mb-4 flex items-center">
             <input
               type="checkbox"
@@ -129,12 +128,12 @@ const Login = () => {
             <label htmlFor="remember" className="text-gray-600 ml-2">
               Remember Me
             </label>
-          </div>
+          </div>  */}
 
           {/* Forgot Password Link */}
           <div className="mb-6 text-blue-500">
             <a href="#" className="hover:underline">
-              Forgot Password?
+              Forgot Password
             </a>
           </div>
 

@@ -268,12 +268,12 @@ const EditOpenedClass = () => {
         {classId ? "Update Opened Class" : "Create Opened Class"}
       </Button>
 
-      <MatakuliahSelectionDialog
+      {/* <MatakuliahSelectionDialog
         isOpen={isMataKuliahDialogOpen}
         onClose={() => setIsMataKuliahDialogOpen(false)}
         onSelect={handleMataKuliahSelect}
         url={"/opened-class/get-matakuliah/names"}
-      />
+      /> */}
 
       <DosenSelectionDialog
         isOpen={isDosenDialogOpen}

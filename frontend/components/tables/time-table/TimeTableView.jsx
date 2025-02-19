@@ -16,6 +16,7 @@ import {
   AlertCircle,
   CheckCircle,
   RefreshCcw,
+  BotIcon,
 } from "lucide-react";
 import {
   Dialog,
@@ -34,6 +35,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
 const API_CHECK_CONFLICTS = `${process.env.NEXT_PUBLIC_API_URL}/algorithm/check-conflicts`;
+const API_RESOLVER_CONFLICTS = `${process.env.NEXT_PUBLIC_API_URL}/timetable/resolve-conflicts`;
 
 const TimeTableView = ({ scheduleList, loading }) => {
   const [selectedSchedule, setSelectedSchedule] = useState(null);
@@ -65,7 +67,6 @@ const TimeTableView = ({ scheduleList, loading }) => {
     }
   };
 
-  // ✅ Fetch Conflict Data
   const fetchConflicts = async () => {
     try {
       const response = await fetch(API_CHECK_CONFLICTS);
@@ -73,12 +74,31 @@ const TimeTableView = ({ scheduleList, loading }) => {
 
       const data = await response.json();
       if (data.total_conflicts > 0) {
-        setConflicts(data.conflict_details);
-        setShowConflictDialog(true);
+        toast.error("Bentrok Ditemukan di jadwal");
+        setTimeout(() => location.reload(), 2000);
       } else {
         toast.success("Tidak ada bentrok dalam jadwal.");
-        router.refresh();
+        setTimeout(() => location.reload(), 2000);
       }
+    } catch (error) {
+      console.error("Error checking conflicts:", error);
+    }
+  };
+
+  const AutomateConflict = async () => {
+    try {
+      const response = await fetch(API_RESOLVER_CONFLICTS, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) throw new Error("Gagal menyelesaikan bentrok.");
+
+      const data = await response.json();
+
+      toast.success("Konflik berhasil diubah");
+      setTimeout(() => location.reload(), 2000);
     } catch (error) {
       console.error("Error checking conflicts:", error);
     }
@@ -86,20 +106,28 @@ const TimeTableView = ({ scheduleList, loading }) => {
 
   return (
     <div className="overflow-x-auto">
-      <div className="flex justify-end mb-4">
-        <Button onClick={fetchConflicts} variant="outline">
-          <RefreshCcw className="h-4 w-4 mr-2" />
-          Cek Bentrok
+      <div className="flex flex-col sm:flex-row justify-end mb-4 gap-x-4">
+        <Button
+          onClick={fetchConflicts}
+          variant="outline"
+          className="bg-blue-500 text-white"
+        >
+          <RefreshCcw className="h-4 w-4 mr-2 " />
+          Cek Konflik
+        </Button>
+        <Button onClick={AutomateConflict} variant="outline">
+          <BotIcon className="h-4 w-4 mr-2 " />
+          Selesaikan Konflik Otomatis
         </Button>
       </div>
 
       <Table className="w-full">
         <TableHeader>
           <TableRow className="bg-primary/5">
-            <TableHead>Hari</TableHead>
             <TableHead>Mata Kuliah</TableHead>
             <TableHead>Kelas</TableHead>
             <TableHead>Dosen</TableHead>
+            <TableHead>Hari</TableHead>
             <TableHead>Waktu</TableHead>
             <TableHead>Ruangan</TableHead>
             <TableHead>Kapasitas</TableHead>
@@ -110,7 +138,6 @@ const TimeTableView = ({ scheduleList, loading }) => {
         <TableBody>
           {scheduleList.map((schedule) => (
             <TableRow key={schedule.id}>
-              <TableCell>{schedule.timeslots[0]?.day || "-"}</TableCell>
               <TableCell>
                 <div>
                   <div>{schedule.subject?.name}</div>
@@ -125,6 +152,7 @@ const TimeTableView = ({ scheduleList, loading }) => {
                   ?.map((lecturer) => lecturer.name)
                   .join(", ")}
               </TableCell>
+              <TableCell>{schedule.timeslots[0]?.day || "-"}</TableCell>
               <TableCell>
                 {schedule.timeslots.length > 0 &&
                   `${schedule.timeslots[0].startTime} - ${

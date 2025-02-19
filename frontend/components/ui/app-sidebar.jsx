@@ -147,14 +147,14 @@ const AppSidebar = () => {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="mt-auto p-4">
+      <SidebarFooter className="mt-auto h-14">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton className="py-3 text-sm flex items-center gap-x-3 w-full">
                   <div className="flex flex-col text-text-secondary">
-                    <p className="text-text-primary font-semibold">
+                    <p className="text-text-primary font-semibold truncate">
                       {email ? email : decoded.sub}
                     </p>
                     <p className="text-xs">{role}</p>

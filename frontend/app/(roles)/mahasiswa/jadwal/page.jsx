@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import TimeTableView from "./TimeTableView";
+
 import {
   Info,
   RefreshCcw,
@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
+import TimeTableView from "../../admin/jadwal/TimeTableView";
 
 const MahasiswaJadwal = () => {
   const [timetableData, setTimetableData] = useState(null);
