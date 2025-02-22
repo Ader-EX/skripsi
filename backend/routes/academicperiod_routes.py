@@ -101,7 +101,9 @@ async def get_active_academic_period(db: Session = Depends(get_db)):
     return {
         "id" : active_period.id,
         "semester": active_period.semester,
-        "tahun_ajaran": active_period.tahun_ajaran
+        "tahun_ajaran": active_period.tahun_ajaran,
+        "week_start": active_period.start_date.isoformat(),
+        "week_end": active_period.end_date.isoformat()
     }
 
 
@@ -184,4 +186,5 @@ async def activate_academic_period(id: int, db: Session = Depends(get_db)):
         "id": period.id,
         "semester": period.semester,
         "tahun_ajaran": period.tahun_ajaran
+       
     }

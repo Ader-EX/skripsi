@@ -5,12 +5,17 @@ from sqlalchemy.orm import Session, joinedload
 from typing import Any, Dict, List, Optional
 
 
-from insert_dosen_csv import hash_password
 from database import get_db
 from pydantic import BaseModel
 from model.mahasiswa_model import Mahasiswa
 from model.programstudi_model import ProgramStudi
 from model.user_model import User  # Import the User model
+from passlib.context import CryptContext
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(password: str) -> str:
+    """Hash a password for security."""
+    return pwd_context.hash(password)
 
 router = APIRouter()
 

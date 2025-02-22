@@ -243,7 +243,10 @@ async def get_timetable_by_mahasiswa(
             "academic_period": {
                 "id": active_period.id,
                 "tahun_ajaran": active_period.tahun_ajaran,
-                "semester": active_period.semester
+                "semester": active_period.semester,
+                "week_start": active_period.start_date,
+                "week_end": active_period.end_date,
+                "is_active": active_period.is_active,
             },
             "data": formatted_timetable,
         }

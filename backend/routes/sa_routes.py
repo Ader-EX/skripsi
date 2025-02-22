@@ -36,10 +36,6 @@ logger = logging.getLogger(__name__)
 
 
 def check_conflicts(solution, opened_class_cache, room_cache, timeslot_cache):
-    """
-    Check for room and lecturer conflicts in a solution.
-    Returns the number of conflicts found.
-    """
     conflicts = 0
     timeslot_usage = {}  
     lecturer_schedule = {}  
@@ -47,10 +43,10 @@ def check_conflicts(solution, opened_class_cache, room_cache, timeslot_cache):
     for assignment in solution:
         opened_class_id, room_id, timeslot_id = assignment
         class_info = opened_class_cache[opened_class_id]
-        sks = class_info['sks']
+        effective_sks = get_effective_sks(class_info)
         current_timeslot = timeslot_cache[timeslot_id]
 
-        for i in range(sks):
+        for i in range(effective_sks):
             current_id = timeslot_id + i
             if current_id not in timeslot_cache:
                 conflicts += 1000  
@@ -75,6 +71,7 @@ def check_conflicts(solution, opened_class_cache, room_cache, timeslot_cache):
                 lecturer_schedule[schedule_key] = opened_class_id
 
     return conflicts
+
 
 
 def check_room_type_compatibility(solution, opened_class_cache, room_cache):
@@ -204,54 +201,49 @@ def calculate_fitness(solution, opened_class_cache, room_cache, timeslot_cache, 
     # Total fitness: Lower is better
     return room_type_score  + preference_score + special_needs_penalty + jabatan_penalty
     # + daily_load_penalty
-
-def generate_neighbor_solution(current_solution, opened_classes, rooms, timeslots, opened_class_cache):
-    """
-    Generate a neighboring solution by making small modifications.
-    Now we also randomize timeslot selection so it's not always day[0].
-    """
+def generate_neighbor_solution(current_solution, opened_classes, rooms, timeslots, opened_class_cache, recess_times):
     new_solution = current_solution.copy()
-
     if not new_solution:
         return new_solution
 
-    # Pilih satu assignment secara acak
     idx = random.randrange(len(new_solution))
     opened_class_id, _, _ = new_solution[idx]
     class_info = opened_class_cache[opened_class_id]
 
-    # Filter ruangan
+    # Filter rooms by tipe_mk
     tipe_mk = class_info["mata_kuliah"].tipe_mk
     compatible_rooms = [r for r in rooms if r.tipe_ruangan == tipe_mk]
     if not compatible_rooms:
         return new_solution
 
-    # Pilih ruangan acak
     new_room = random.choice(compatible_rooms)
-
-    # Pilih timeslot secara acak
-    # (Bisa juga random shuffle + validasi SKS, tapi untuk contoh sederhana, kita random langsung)
+    
+    # ✅ FIX: Use effective SKS
+    effective_sks = get_effective_sks(class_info)
+    
     possible_indices = list(range(len(timeslots)))
     random.shuffle(possible_indices)
 
-    sks = class_info["sks"]
     for start_idx in possible_indices:
-        # Pastikan start_idx + sks tidak melebihi list
-        if start_idx + sks > len(timeslots):
+        if start_idx + effective_sks > len(timeslots):
             continue
 
-        slots = timeslots[start_idx : start_idx + sks]
-        # Cek day & ID berurutan
+        slots = timeslots[start_idx : start_idx + effective_sks]
+
+        # ✅ FIX: Check that timeslots are consecutive & do not overlap with recess breaks
         if all(
-            slots[i].day_index == slots[0].day_index
-            and slots[i].id == slots[i - 1].id + 1
-            for i in range(1, sks)
+            slots[i].day_index == slots[0].day_index and 
+            slots[i].id == slots[i - 1].id + 1 and 
+            slots[i].start_time == slots[i - 1].end_time and
+            slots[i].id not in recess_times  # 🛑 Avoid recess times
+            for i in range(1, effective_sks)
         ):
-            # Jika valid, assign
+            # ✅ FIX: Assign correct timeslot count
             new_solution[idx] = (opened_class_id, new_room.id, slots[0].id)
             break
 
     return new_solution
+
 
 def fetch_dosen_preferences(db: Session, opened_classes):
 
@@ -286,13 +278,7 @@ def fetch_dosen_preferences(db: Session, opened_classes):
 
     return preferences_cache
 
-def initialize_population(opened_classes, rooms, timeslots, population_size, opened_class_cache):
-    """
-    Initialize a population of valid schedules, ensuring:
-    - "P" classes go to "P" rooms
-    - "T" classes go to "T" rooms
-    - Timeslots are allocated more randomly, so classes don't always fall on Monday.
-    """
+def initialize_population(opened_classes, rooms, timeslots, population_size, opened_class_cache, recess_times):
     population = []
     timeslots_list = sorted(timeslots, key=lambda x: (x.day_index, x.start_time))
 
@@ -301,17 +287,17 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
         room_schedule = {}
         lecturer_schedule = {}
 
-        # Urutkan kelas berdasarkan SKS (descending)
         sorted_classes = sorted(
             opened_classes, key=lambda oc: opened_class_cache[oc.id]["sks"], reverse=True
         )
 
         for oc in sorted_classes:
             class_info = opened_class_cache[oc.id]
-            sks = class_info["sks"]
+            
+            # ✅ FIX: Use effective SKS
+            effective_sks = get_effective_sks(class_info)
             tipe_mk = class_info["mata_kuliah"].tipe_mk
 
-            # Filter ruangan sesuai tipe MK
             compatible_rooms = [r for r in rooms if r.tipe_ruangan == tipe_mk]
             if not compatible_rooms:
                 logger.warning(f"No available room for {oc.id} ({tipe_mk})")
@@ -320,8 +306,7 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
             assigned = False
             random.shuffle(compatible_rooms)
 
-            # Buat daftar possible start_idx dan acak
-            possible_start_idxs = list(range(len(timeslots_list) - sks + 1))
+            possible_start_idxs = list(range(len(timeslots_list) - effective_sks + 1))
             random.shuffle(possible_start_idxs)
 
             for room in compatible_rooms:
@@ -329,23 +314,22 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
                     break
 
                 for start_idx in possible_start_idxs:
-                    slots = timeslots_list[start_idx : start_idx + sks]
+                    slots = timeslots_list[start_idx : start_idx + effective_sks]
 
-                    # Pastikan day sama & ID berurutan
+                    # ✅ FIX: Ensure the timeslots are consecutive and do not overlap recess
                     if not all(
-                        slots[i].day_index == slots[0].day_index 
-                        and slots[i].id == slots[i - 1].id + 1
-                        for i in range(1, sks)
+                        slots[i].day_index == slots[0].day_index and 
+                        slots[i].id == slots[i - 1].id + 1 and
+                        slots[i].id not in recess_times
+                        for i in range(1, effective_sks)
                     ):
                         continue
 
                     slot_available = True
                     for slot in slots:
-                        # Cek ruangan
                         if (room.id, slot.id) in room_schedule:
                             slot_available = False
                             break
-                        # Cek dosen
                         for dosen_id in class_info["dosen_ids"]:
                             if (dosen_id, slot.id) in lecturer_schedule:
                                 slot_available = False
@@ -354,7 +338,6 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
                             break
 
                     if slot_available:
-                        # Tandai ruangan & dosen
                         for slot in slots:
                             room_schedule[(room.id, slot.id)] = oc.id
                             for dosen_id in class_info["dosen_ids"]:
@@ -362,7 +345,7 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
 
                         solution.append((oc.id, room.id, slots[0].id))
                         assigned = True
-                        break  # Selesai menempatkan kelas ini
+                        break
 
             if not assigned:
                 logger.warning(f"Could not assign class {oc.id} in initial population")
@@ -372,10 +355,8 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
 
     return population
 
+
 def format_solution_for_db(db: Session, solution, opened_class_cache, room_cache, timeslot_cache):
-    """
-    Ensure all timeslot entries are correctly formatted and inserted into the database.
-    """
     active_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
     if not active_period:
         raise ValueError("No active academic period found. Ensure an active period is set.")
@@ -384,11 +365,12 @@ def format_solution_for_db(db: Session, solution, opened_class_cache, room_cache
     for opened_class_id, room_id, start_timeslot_id in solution:
         try:
             class_info = opened_class_cache[opened_class_id]
-            sks = class_info["sks"]
+            effective_sks = get_effective_sks(class_info)  # ✅ FIX
+
             timeslot_ids = []
             current_day = timeslot_cache[start_timeslot_id].day_index
 
-            for i in range(sks):
+            for i in range(effective_sks):
                 current_id = start_timeslot_id + i
                 if current_id not in timeslot_cache:
                     raise ValueError(f"Invalid timeslot ID: {current_id}")
@@ -443,6 +425,28 @@ def check_jabatan_constraint(solution, opened_class_cache, timeslot_cache, dosen
     return penalty
 
 
+from datetime import datetime
+
+def identify_recess_times(timeslot_cache):
+    """Identify recess gaps dynamically from the timeslot list."""
+    recess_times = set()
+    sorted_timeslots = sorted(timeslot_cache.values(), key=lambda x: (x.day_index, x.start_time))
+
+    for i in range(len(sorted_timeslots) - 1):
+        current_slot = sorted_timeslots[i]
+        next_slot = sorted_timeslots[i + 1]
+
+        # Convert time to datetime (use a fixed date)
+        current_end = datetime.combine(datetime.today(), current_slot.end_time)
+        next_start = datetime.combine(datetime.today(), next_slot.start_time)
+
+        # If there is a gap of more than 10 minutes, it's a recess
+        if (next_start - current_end).total_seconds() > 600:  # 10 minutes or more
+            recess_times.add(next_slot.id)  # Mark the start of the recess slot
+    
+    return recess_times
+
+
 def simulated_annealing(db: Session, initial_temperature=1000, cooling_rate=0.95, iterations_per_temp=100):
     """
     Simulated Annealing for timetable scheduling with early stopping when fitness is 0.
@@ -454,11 +458,14 @@ def simulated_annealing(db: Session, initial_temperature=1000, cooling_rate=0.95
     courses, lecturers, rooms, timeslots, preferences, opened_classes, opened_class_cache, room_cache, timeslot_cache = fetch_data(db)
     preferences_cache = fetch_dosen_preferences(db, opened_classes)
     
+    # Identify recess times
+    recess_times = identify_recess_times(timeslot_cache)
+
     # Build dosen_cache using their unique pegawai_id
     dosen_cache = {dosen.pegawai_id: dosen for dosen in lecturers}
 
-    # Initialize first solution
-    current_solution = initialize_population(opened_classes, rooms, timeslots, 1, opened_class_cache)[0]
+    # Initialize first solution with recess avoidance
+    current_solution = initialize_population(opened_classes, rooms, timeslots, 1, opened_class_cache, recess_times)[0]
     best_solution = current_solution
     best_fitness = calculate_fitness(
         current_solution,
@@ -477,7 +484,7 @@ def simulated_annealing(db: Session, initial_temperature=1000, cooling_rate=0.95
         iteration += 1
 
         for i in range(iterations_per_temp):
-            new_solution = generate_neighbor_solution(current_solution, opened_classes, rooms, timeslots, opened_class_cache)
+            new_solution = generate_neighbor_solution(current_solution, opened_classes, rooms, timeslots, opened_class_cache, recess_times)
             new_fitness = calculate_fitness(
                 new_solution,
                 opened_class_cache,
@@ -514,6 +521,15 @@ def simulated_annealing(db: Session, initial_temperature=1000, cooling_rate=0.95
 
     logger.info(f"🎯 Final Best Score={best_fitness}")
     return formatted_solution
+
+
+def get_effective_sks(class_info):
+    """Return effective SKS: if tipe_mk is 'P', multiply by 2, else return sks."""
+    sks = class_info['sks']
+    if class_info['mata_kuliah'].tipe_mk == 'P':
+        return sks * 2
+    return sks
+
 
 
 def insert_timetable(db: Session, timetable: List[Dict], opened_class_cache: Dict, room_cache: Dict, timeslot_cache: Dict):

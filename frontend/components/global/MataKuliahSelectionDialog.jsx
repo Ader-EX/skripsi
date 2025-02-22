@@ -58,7 +58,7 @@ const MatakuliahSelectionDialog = ({
     }
   };
 
-  // ✅ Convert tipe_mk values to human-readable format
+  // Convert tipe_mk values to human-readable format
   const getTipeMKLabel = (tipe) => {
     const mapping = {
       T: "Teori",
@@ -67,6 +67,7 @@ const MatakuliahSelectionDialog = ({
     };
     return mapping[tipe] || "Unknown";
   };
+  console.log(matakuliahList);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -107,9 +108,9 @@ const MatakuliahSelectionDialog = ({
                     Loading...
                   </TableCell>
                 </TableRow>
-              ) : !loading && matakuliahList.data.length === 0 ? (
+              ) : !loading && matakuliahList.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center">
+                  <TableCell colSpan={6} className="text-center p-8 h-10">
                     Semua Kelas Sudah Memiliki Timetable, silahkan Hapus Data
                     yang telah ada terlebih dahulu
                   </TableCell>

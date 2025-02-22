@@ -406,23 +406,22 @@ def create_timetable(timetable: TimeTableCreate, db: Session = Depends(get_db)):
 
     selected_class_times = [f"1. {timeslot_str}"]
 
-    # 6️⃣ Find `kelas A` for the same `mata_kuliah_kodemk`
+    # 6️⃣ Find the **first alphabetical class** instead of assuming "A"
     mata_kuliah_kodemk = opened_class.mata_kuliah_kodemk
     mata_kuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == mata_kuliah_kodemk).first()
 
-    kelas_a = db.query(OpenedClass).filter(
-        OpenedClass.mata_kuliah_kodemk == mata_kuliah_kodemk,
-        OpenedClass.kelas == "A"
-    ).first()
+    base_class = db.query(OpenedClass).filter(
+        OpenedClass.mata_kuliah_kodemk == mata_kuliah_kodemk
+    ).order_by(OpenedClass.kelas).first()  # ✅ Sorted alphabetically
 
-    if kelas_a:
-        kelas_a_timetable = db.query(TimeTable).filter(TimeTable.opened_class_id == kelas_a.id).first()
-        if kelas_a_timetable:
-            kelas_a_timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(kelas_a_timetable.timeslot_ids)).all()
-            if kelas_a_timeslots:
-                kelas_a_str = f"{kelas_a_timetable.ruangan_id} - {kelas_a_timeslots[0].day} ({kelas_a_timeslots[0].start_time} - {kelas_a_timeslots[-1].end_time})"
+    if base_class:
+        base_timetable = db.query(TimeTable).filter(TimeTable.opened_class_id == base_class.id).first()
+        if base_timetable:
+            base_timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(base_timetable.timeslot_ids)).all()
+            if base_timeslots:
+                base_str = f"{base_timetable.ruangan_id} - {base_timeslots[0].day} ({base_timeslots[0].start_time} - {base_timeslots[-1].end_time})"
                 if mata_kuliah and mata_kuliah.tipe_mk == "T":
-                    selected_class_times.append(f"2. {kelas_a_str}")
+                    selected_class_times.append(f"2. {base_str}")
 
     # 7️⃣ Generate final placeholder string
     placeholder = "\n".join(selected_class_times)
@@ -432,7 +431,7 @@ def create_timetable(timetable: TimeTableCreate, db: Session = Depends(get_db)):
         opened_class_id=timetable.opened_class_id,
         ruangan_id=timetable.ruangan_id,
         timeslot_ids=timetable.timeslot_ids,
-        is_conflicted=False,  # Always False
+        is_conflicted=True,  # Always True first time to check for conflicts
         kelas=kelas,  # Ensure this value is included
         kapasitas=kapasitas,  # Ensure this value is included
         reason=None,
@@ -542,45 +541,64 @@ def update_timetable(id: int, updated_timetable: TimeTableUpdate, db: Session = 
             if conflict:
                 raise HTTPException(status_code=400, detail=f"Room {updated_timetable.ruangan_id} is already booked for timeslot {timeslot}.")
 
-    # ✅ Fetch Timeslot Details
-    timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(updated_timetable.timeslot_ids or timetable.timeslot_ids)).all()
-    
-    # ✅ Generate Correct Placeholder Entry for Current Class
+    # Fetch Timeslot Details (from updated data if provided, else from the existing record)
+    timeslot_ids = updated_timetable.timeslot_ids or timetable.timeslot_ids
+    timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
     if timeslots:
-        timeslot_str = f"{updated_timetable.ruangan_id} - {timeslots[0].day} ({timeslots[0].start_time} - {timeslots[-1].end_time})"
+        timeslot_str = f"{updated_timetable.ruangan_id or timetable.ruangan_id} - {timeslots[0].day} ({timeslots[0].start_time} - {timeslots[-1].end_time})"
     else:
-        timeslot_str = f"{updated_timetable.ruangan_id} - Unknown TimeSlot"
+        timeslot_str = f"{updated_timetable.ruangan_id or timetable.ruangan_id} - Unknown TimeSlot"
 
     selected_class_times = [f"1. {timeslot_str}"]
 
-    # ✅ Find `kelas A` for the same `mata_kuliah_kodemk`
+    # Get the course identifier from the associated opened class
     mata_kuliah_kodemk = timetable.opened_class.mata_kuliah_kodemk
     mata_kuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == mata_kuliah_kodemk).first()
 
-    kelas_a = db.query(OpenedClass).filter(
-        OpenedClass.mata_kuliah_kodemk == mata_kuliah_kodemk,
-        OpenedClass.kelas == "A"
-    ).first()
+    # Find the **first alphabetical class** instead of assuming "A"
+    base_class = db.query(OpenedClass).filter(
+        OpenedClass.mata_kuliah_kodemk == mata_kuliah_kodemk
+    ).order_by(OpenedClass.kelas).first()  # ✅ Sorted alphabetically
 
-    if kelas_a:
-        kelas_a_timetable = db.query(TimeTable).filter(TimeTable.opened_class_id == kelas_a.id).first()
-        if kelas_a_timetable:
-            kelas_a_timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(kelas_a_timetable.timeslot_ids)).all()
-            if kelas_a_timeslots:
-                kelas_a_str = f"{kelas_a_timetable.ruangan_id} - {kelas_a_timeslots[0].day} ({kelas_a_timeslots[0].start_time} - {kelas_a_timeslots[-1].end_time})"
+    # Generate base class placeholder
+    if base_class:
+        base_timetable = db.query(TimeTable).filter(TimeTable.opened_class_id == base_class.id).first()
+        if base_timetable:
+            base_timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(base_timetable.timeslot_ids)).all()
+            if base_timeslots:
+                base_str = f"{base_timetable.ruangan_id} - {base_timeslots[0].day} ({base_timeslots[0].start_time} - {base_timeslots[-1].end_time})"
                 if mata_kuliah and mata_kuliah.tipe_mk == "T":
-                    selected_class_times.append(f"2. {kelas_a_str}")
+                    selected_class_times.append(f"2. {base_str}")
 
-    # ✅ Generate final placeholder string
+    # Generate final placeholder string
     updated_placeholder = "\n".join(selected_class_times)
 
-    # ✅ Merge updated fields
+    
     for key, value in updated_timetable.dict(exclude_unset=True).items():
         setattr(timetable, key, value)
-
-    timetable.placeholder = updated_placeholder  # Overwrite placeholder
+    timetable.placeholder = updated_placeholder
     db.commit()
     db.refresh(timetable)
+
+    # Cascading update: If the updated record is the base class (first alphabetically), update all related timetables.
+    if timetable.opened_class.kelas.upper() == base_class.kelas.upper():
+        related_timetables = db.query(TimeTable).join(OpenedClass).filter(
+            OpenedClass.mata_kuliah_kodemk == mata_kuliah_kodemk,
+            OpenedClass.kelas != base_class.kelas
+        ).all()
+        for other_tt in related_timetables:
+            other_timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(other_tt.timeslot_ids)).all()
+            if other_timeslots:
+                other_str = f"{other_tt.ruangan_id} - {other_timeslots[0].day} ({other_timeslots[0].start_time} - {other_timeslots[-1].end_time})"
+            else:
+                other_str = f"{other_tt.ruangan_id} - Unknown TimeSlot"
+            other_selected_class_times = [f"1. {other_str}"]
+            if mata_kuliah and mata_kuliah.tipe_mk == "T":
+                other_selected_class_times.append(f"2. {base_str}")
+            other_tt.placeholder = "\n".join(other_selected_class_times)
+            db.add(other_tt)
+        db.commit()
+
     return timetable
 
 

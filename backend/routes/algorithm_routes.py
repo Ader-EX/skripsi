@@ -180,38 +180,45 @@ from fastapi import HTTPException, Query, Depends
 from sqlalchemy.orm import Session
 from typing import Optional
 
+
+
 @router.get("/formatted-timetable")
 async def get_timetable(
     db: Session = Depends(get_db),
     is_conflicted: Optional[bool] = Query(None, description="Filter by conflict status"),
+    program_studi_id: Optional[str] = Query(None, description="Filter by program studi id"),
     page: int = Query(1, description="Page number"),
     limit: int = Query(10, description="Number of items per page"),
     filterText: Optional[str] = Query(None, description="Filter by subject or lecturer")
 ):
     try:
-        # Ambil periode akademik aktif
         active_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
         if not active_period:
             raise HTTPException(status_code=404, detail="Periode akademik aktif tidak ditemukan.")
 
-        # Query dasar dengan join
+        # Base query with joinedload for efficient relationship loading
         query = db.query(TimeTable).options(
             joinedload(TimeTable.opened_class).joinedload(OpenedClass.mata_kuliah),
             joinedload(TimeTable.ruangan),
             joinedload(TimeTable.opened_class).joinedload(OpenedClass.dosens),
-        )
+        ).filter(TimeTable.academic_period_id == active_period.id)
 
-        # Filter berdasarkan periode akademik aktif
-        query = query.filter(TimeTable.academic_period_id == active_period.id)
-
-        # Filter berdasarkan status konflik jika diberikan
+        # Filter by conflict status if provided
         if is_conflicted is not None:
             query = query.filter(TimeTable.is_conflicted == is_conflicted)
 
-        # Filter pencarian jika ada
+        # If filtering by program_studi_id or filterText, join necessary tables
+        if program_studi_id is not None or filterText:
+            query = query.join(OpenedClass).join(MataKuliah)
+
+        
+        if program_studi_id is not None:
+            query = query.filter(MataKuliah.program_studi_id == program_studi_id)
+
+        # Apply search filter if provided
         if filterText:
             search_term = f"%{filterText}%"
-            query = query.join(OpenedClass).join(MataKuliah).join(OpenedClass.dosens).filter(
+            query = query.join(OpenedClass.dosens).filter(
                 or_(
                     MataKuliah.namamk.ilike(search_term),
                     MataKuliah.kodemk.ilike(search_term),
@@ -220,24 +227,24 @@ async def get_timetable(
             ).distinct()
 
         # Custom ordering:
-        #   1. Entri dengan is_conflicted True dan reason tidak null
-        #   2. Entri dengan is_conflicted True dan reason null
-        #   3. Entri lainnya
+        # 1. Entries with is_conflicted True and reason not null
+        # 2. Entries with is_conflicted True and reason null
+        # 3. Other entries
         conflict_order = case(
             (and_(TimeTable.is_conflicted == True, TimeTable.reason.isnot(None)), 1),
             (and_(TimeTable.is_conflicted == True, TimeTable.reason.is_(None)), 2),
             else_=3
         )
         query = query.order_by(
-    desc(TimeTable.is_conflicted),
-    TimeTable.reason.is_(None),  # False (i.e. not NULL) sorts before True (NULL)
-    TimeTable.id
-)
+            desc(TimeTable.is_conflicted),
+            TimeTable.reason.is_(None),  # False (i.e. not NULL) sorts before True (NULL)
+            TimeTable.id
+        )
 
-        # Hitung total record sebelum pagination
+        # Get total record count before pagination
         total_records = query.count()
 
-        # Terapkan pagination
+        # Apply pagination
         timetables = query.offset((page - 1) * limit).limit(limit).all()
 
         formatted_data = []
@@ -247,7 +254,7 @@ async def get_timetable(
             dosens = opened_class.dosens
             room = timetable.ruangan
 
-            # Ambil timeslots
+            # Get timeslots
             timeslot_ids = timetable.timeslot_ids
             timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
 
@@ -291,7 +298,7 @@ async def get_timetable(
             "semester": f"{active_period.tahun_ajaran} - Semester {active_period.semester}",
             "week_start": str(active_period.start_date),
             "week_end": str(active_period.end_date),
-            "is_active": active_period.is_active  # Menambahkan is_active di metadata
+            "is_active": active_period.is_active
         }
 
         return {
@@ -304,6 +311,8 @@ async def get_timetable(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching timetable: {str(e)}")
+
+
 
 @router.post("/formatted-timetable")
 async def create_timetable(

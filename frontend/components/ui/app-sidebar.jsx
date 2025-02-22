@@ -22,6 +22,7 @@ import {
   Timer,
   User2,
   LogOut,
+  Layers2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -80,12 +81,22 @@ const AppSidebar = () => {
     sidebarItems = [
       { title: "Dashboard", url: `${rolePrefix}/dashboard`, icon: Home },
       { title: "Jadwal", url: `${rolePrefix}/jadwal`, icon: Calendar },
+      {
+        title: "Tabel Jadwal",
+        url: `${rolePrefix}/tabel-jadwal`,
+        icon: Layers2,
+      },
       { title: "Profile", url: `${rolePrefix}/profile`, icon: User2 },
     ];
   } else if (role === "dosen") {
     sidebarItems = [
       { title: "Dashboard", url: `${rolePrefix}/dashboard`, icon: Home },
       { title: "Jadwal", url: `${rolePrefix}/jadwal`, icon: Calendar },
+      {
+        title: "Tabel Jadwal",
+        url: `${rolePrefix}/tabel-jadwal`,
+        icon: Layers2,
+      },
       { title: "Preferensi", url: `${rolePrefix}/preferensi`, icon: Settings },
       { title: "Profile", url: `${rolePrefix}/profile`, icon: User2 },
     ];

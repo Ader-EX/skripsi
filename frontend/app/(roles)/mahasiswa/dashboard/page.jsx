@@ -28,13 +28,13 @@ const MahasiswaDashboard = () => {
   const [selectedCourses, setSelectedCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState(null);
-
   const [error, setError] = useState(null);
 
   // Modal and pagination states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(3);
+  const [prodiId, setProdiId] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [filter, setFilter] = useState("");
   const [selectedCourseToAdd, setSelectedCourseToAdd] = useState(null);
@@ -46,8 +46,11 @@ const MahasiswaDashboard = () => {
 
   const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+  // Academic period states
   const [currentSemester, setCurrentSemester] = useState(null);
   const [currentAcademicYear, setCurrentAcademicYear] = useState(null);
+  const [weekStart, setWeekStart] = useState("");
+  const [weekEnd, setWeekEnd] = useState("");
 
   const fetchAcademicPeriod = async () => {
     try {
@@ -56,7 +59,9 @@ const MahasiswaDashboard = () => {
 
       const data = await response.json();
       setCurrentSemester(data.semester);
-      setCurrentAcademicYear(data.tahun_ajaran.toString()); // Convert to string
+      setCurrentAcademicYear(data.tahun_ajaran.toString());
+      setWeekStart(data.week_start);
+      setWeekEnd(data.week_end);
     } catch (error) {
       console.error("Error fetching academic period:", error);
       toast.error("Gagal mendapatkan semester aktif");
@@ -75,6 +80,7 @@ const MahasiswaDashboard = () => {
         const decodedToken = decodeToken(token);
 
         setUserId(decodedToken.role_id);
+        setProdiId(decodedToken.prodi_id);
         await fetchStudentTimetable(decodedToken.role_id);
       } catch (error) {
         toast.error(
@@ -87,6 +93,7 @@ const MahasiswaDashboard = () => {
     };
 
     fetchUserData();
+    fetchAcademicPeriod();
   }, []);
 
   const fetchStudentTimetable = async (mahasiswaId) => {
@@ -224,7 +231,7 @@ const MahasiswaDashboard = () => {
       setIsCoursesLoading(true);
       const token = Cookies.get("access_token");
       const response = await fetch(
-        `${BASE_URL}/algorithm/formatted-timetable?page=${pageNumber}&limit=${limit}&filterText=${filterText}`,
+        `${BASE_URL}/algorithm/formatted-timetable?page=${pageNumber}&limit=${limit}&filterText=${filterText}&program_studi_id=${prodiId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -235,7 +242,6 @@ const MahasiswaDashboard = () => {
       if (!response.ok) throw new Error("Failed to fetch courses");
 
       const data = await response.json();
-      console.log(data);
       setAvailableCourses(data.data || []);
       setTotalPages(data.total_pages || 1);
     } catch (error) {
@@ -383,10 +389,16 @@ const MahasiswaDashboard = () => {
       <Card className="bg-surface border-border">
         <CardHeader className="bg-primary text-primary-foreground">
           <h2 className="text-lg font-semibold">
-            Periode Pengisian KRS 2024/2025 Ganjil
+            Periode Pengisian KRS {currentAcademicYear}/
+            {Number(currentAcademicYear) + 1}{" "}
+            {currentSemester === 1 ? "Ganjil" : "Genap"}
           </h2>
           <p className="text-sm opacity-90">
-            07 Agustus 2024 Pukul 15.00 WIB s/d 08 Aug 2024 Pukul 23.59 WIB
+            {weekStart && weekEnd
+              ? `${new Date(weekStart).toLocaleDateString()} s/d ${new Date(
+                  weekEnd
+                ).toLocaleDateString()}`
+              : "Loading tanggal..."}
           </p>
         </CardHeader>
         <CardContent className="p-4">

@@ -17,12 +17,12 @@ class Dosen(Base):
     
     tanggal_lahir: Mapped[DateTime] = mapped_column(DateTime, nullable=True)
     progdi_id : Mapped[int] = mapped_column(Integer, nullable=True)
-    ijin_mengajar: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    status_dosen : Mapped[str] =  mapped_column(String(100), nullable=True)
     jabatan: Mapped[str] = mapped_column(String(100), nullable=True)
     title_depan: Mapped[str] = mapped_column(String(20), nullable=True)
     title_belakang: Mapped[str] = mapped_column(String(50), nullable=True)
-    jabatan_id: Mapped[int] = mapped_column(Integer, nullable=True)
-    is_sekdos: Mapped[bool] = mapped_column(Boolean, default=False)
+
     
     user_id : Mapped[int] = mapped_column(ForeignKey("users.id"),nullable=False)
 

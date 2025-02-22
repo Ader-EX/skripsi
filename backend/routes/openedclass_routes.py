@@ -46,6 +46,14 @@ async def create_opened_class(data: OpenedClassCreate, db: Session = Depends(get
     if not mata_kuliah:
         raise HTTPException(status_code=404, detail="Mata Kuliah not found")
 
+    # Check if an opened class with the same mata_kuliah and kelas already exists
+    existing_class = db.query(OpenedClass).filter(
+        OpenedClass.mata_kuliah_kodemk == data.mata_kuliah_kodemk,
+        OpenedClass.kelas == data.kelas
+    ).first()
+    if existing_class:
+        raise HTTPException(status_code=400, detail="Opened class with this Mata Kuliah and Kelas already exists")
+
     new_class = OpenedClass(
         mata_kuliah_kodemk=data.mata_kuliah_kodemk,
         kelas=data.kelas,
@@ -61,10 +69,9 @@ async def create_opened_class(data: OpenedClassCreate, db: Session = Depends(get
     if not dosens:
         raise HTTPException(status_code=404, detail="No valid Dosen found")
 
-    # ✅ **Respect frontend choice for `is_dosen_besar`**, but apply logic if not provided
+    # Determine dosen_besar using frontend choice if available, or auto-detect
     dosen_besar_id = next((dosen.id for dosen in data.dosens if dosen.is_dosen_besar), None)
-
-    if not dosen_besar_id and mata_kuliah.tipe_mk == "T":  # Auto-detect if not set
+    if not dosen_besar_id and mata_kuliah.tipe_mk == "T":
         dosen_appearance_counts = (
             db.query(openedclass_dosen.c.dosen_id, func.count(openedclass_dosen.c.opened_class_id).label("count"))
             .join(OpenedClass, OpenedClass.id == openedclass_dosen.c.opened_class_id)
@@ -77,19 +84,24 @@ async def create_opened_class(data: OpenedClassCreate, db: Session = Depends(get
         top_dosens = [dosen_id for dosen_id, count in dosen_appearance_dict.items() if count == max_appearance]
         dosen_besar_id = top_dosens[0] if top_dosens else None
 
-    # ✅ **Determine `used_preference`**
+    # If the course is theoretical, ensure there is a dosen besar
+    if mata_kuliah.tipe_mk == "T" and not dosen_besar_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Untuk kelas teori (dengan tipe MK T), salah satu dosen harus menjadi dosen besar."
+        )
+
+    # Determine used_preference for each dosen
     sorted_dosens = sorted(dosens, key=lambda d: d.tanggal_lahir)
     dosen_entries = []
-
     for dosen in sorted_dosens:
         is_dosen_besar = dosen.pegawai_id == dosen_besar_id
-        used_preference = False  # Default
-
-        if len(sorted_dosens) == 1:  # ✅ If only one dosen, they get both flags
+        used_preference = False
+        if len(sorted_dosens) == 1:
             used_preference = True
-        elif is_dosen_besar:  # ✅ If multiple dosens, Dosen Besar always gets False
+        elif is_dosen_besar:
             used_preference = False
-        elif dosen.pegawai_id == sorted_dosens[0].pegawai_id:  # ✅ Oldest non-Dosen Besar gets True
+        elif dosen.pegawai_id == sorted_dosens[0].pegawai_id:
             used_preference = True
 
         dosen_entries.append({
@@ -112,7 +124,6 @@ async def create_opened_class(data: OpenedClassCreate, db: Session = Depends(get
             for dosen in dosens
         ],
     }
-
 
 
 

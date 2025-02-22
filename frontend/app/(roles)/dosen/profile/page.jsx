@@ -27,22 +27,18 @@ const DosenProfile = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
 
-  // Added a password field. Email is already present.
+  // Form data now includes all fields required by the model.
   const [formData, setFormData] = useState({
     nama: "",
     nidn: "",
-    nip: "",
+    nip: "", // This holds nim_nip (read-only)
     nomorKtp: "",
     tanggalLahir: "",
     progdiId: "",
-    ijinMengajar: "true",
+    statusDosen: "",
     jabatan: "",
     titleDepan: "",
     titleBelakang: "",
-    isSekdos: "false",
-    // We do not allow editing nim/nip, so these are read-only.
-    pegawai_id: 0,
-    jabatan_id: 0,
     email: "",
     password: "",
   });
@@ -73,19 +69,16 @@ const DosenProfile = () => {
       setUserId(payload.role_id);
       setFormData((prev) => ({
         ...prev,
-        nama: data.user?.nim_nip || "", // if you want to update nama separately, adjust as needed
+        nama: data.nama || "",
         nidn: data.nidn || "",
         nip: data.user?.nim_nip || "",
         nomorKtp: data.nomor_ktp || "",
         tanggalLahir: data.tanggal_lahir ? formatDate(data.tanggal_lahir) : "",
         progdiId: data.progdi_id || "",
-        ijinMengajar: data.ijin_mengajar ? "true" : "false",
+        statusDosen: data.status_dosen || "",
         jabatan: data.jabatan || "",
         titleDepan: data.title_depan || "",
         titleBelakang: data.title_belakang || "",
-        isSekdos: data.is_sekdos ? "true" : "false",
-        pegawai_id: data.pegawai_id || 0,
-        jabatan_id: data.jabatan_id || 0,
         email: data.email || "",
       }));
     } catch (err) {
@@ -96,7 +89,7 @@ const DosenProfile = () => {
     }
   };
 
-  // Convert a date string from "DD/MM/YYYY" to "YYYY-MM-DD" if needed.
+  // Converts date to "YYYY-MM-DD" if not already in that format.
   const formatDate = (dateString) => {
     if (dateString.includes("-")) return dateString;
     const [day, month, year] = dateString.split("/");
@@ -126,21 +119,22 @@ const DosenProfile = () => {
     try {
       if (!userId) throw new Error("User ID not found");
 
-      // Build update data.
-      // Do not include nim/nip because they are not allowed to be changed.
+      // Build update payload matching the model:
       const updateData = {
+        nim_nip: formData.nip, // required for user update (read-only field)
+        nama: formData.nama,
+        nidn: formData.nidn,
         nomor_ktp: formData.nomorKtp,
-        email: formData.email,
+        tanggal_lahir: formData.tanggalLahir, // expecting YYYY-MM-DD format
         progdi_id: formData.progdiId,
-        tanggal_lahir: formData.tanggalLahir, // expecting YYYY-MM-DD
+        status_dosen: formData.statusDosen,
+        jabatan: formData.jabatan,
         title_depan: formData.titleDepan,
         title_belakang: formData.titleBelakang,
-        ijin_mengajar: formData.ijinMengajar === "true",
-        jabatan: formData.jabatan,
-        is_sekdos: formData.isSekdos === "true",
+        email: formData.email,
       };
 
-      // Only include password if user provided a new one.
+      // Include password only if the user provided a new one.
       if (formData.password.trim() !== "") {
         updateData.password = formData.password;
       }
@@ -219,12 +213,12 @@ const DosenProfile = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="nip">NIP (Tidak bisa diubah)</Label>
+                  <Label htmlFor="nip">NIM/NIP (Tidak bisa diubah)</Label>
                   <Input
                     id="nip"
                     value={formData.nip || ""}
                     readOnly
-                    placeholder="NIP (tidak dapat diubah)"
+                    placeholder="NIM/NIP (tidak dapat diubah)"
                   />
                 </div>
 
@@ -245,7 +239,7 @@ const DosenProfile = () => {
                     type="password"
                     value={formData.password || ""}
                     onChange={handleChange}
-                    placeholder="Leave blank to keep unchanged"
+                    placeholder="Kosongkan jika tidak mau diubah..."
                   />
                 </div>
 
@@ -300,19 +294,19 @@ const DosenProfile = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="ijinMengajar">Izin Mengajar</Label>
+                  <Label htmlFor="statusDosen">Status Dosen</Label>
                   <Select
-                    value={formData.ijinMengajar || ""}
+                    value={formData.statusDosen || ""}
                     onValueChange={(value) =>
-                      handleSelectChange(value, "ijinMengajar")
+                      handleSelectChange(value, "statusDosen")
                     }
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Pilih izin mengajar" />
+                      <SelectValue placeholder="Pilih status dosen" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="true">Ya</SelectItem>
-                      <SelectItem value="false">Tidak</SelectItem>
+                      <SelectItem value="tetap">Tetap</SelectItem>
+                      <SelectItem value="tidak tetap">Tidak Tetap</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -329,7 +323,7 @@ const DosenProfile = () => {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">Save Changes</Button>
+                <Button type="submit">Simpan</Button>
               </div>
             </section>
           </form>

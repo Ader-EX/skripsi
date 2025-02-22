@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Switch } from "@/components/ui/switch"; // ✅ Toggle switches
+import { Switch } from "@/components/ui/switch";
 import { Pencil, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -25,11 +25,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const EditOpenedClass = () => {
   const router = useRouter();
   const searchParams = typeof window !== "undefined" ? useSearchParams() : null;
-  const classId = searchParams ? searchParams.get("id") : null; // ✅ Check if it's PUT mode
+  const classId = searchParams ? searchParams.get("id") : null; // Check if it's PUT mode
 
   const [selectedMataKuliah, setSelectedMataKuliah] = useState(null);
   const [selectedDosen, setSelectedDosen] = useState([]);
-  const [kelas, setKelas] = useState("");
+  const [kelas, setKelas] = useState(""); // will hold one of A-L
   const [kapasitas, setKapasitas] = useState("");
   const [isMataKuliahDialogOpen, setIsMataKuliahDialogOpen] = useState(false);
   const [isDosenDialogOpen, setIsDosenDialogOpen] = useState(false);
@@ -57,7 +57,7 @@ const EditOpenedClass = () => {
       setKelas(data.kelas);
       setKapasitas(data.kapasitas);
 
-      // ✅ Ensure `isDosenBesar` and `usedPreference` are properly set
+      // Ensure isDosenBesar and usedPreference are properly set
       setSelectedDosen(
         data.dosens.map((dosen) => ({
           id: dosen.pegawai_id,
@@ -94,11 +94,10 @@ const EditOpenedClass = () => {
 
   const handleDosenBesarToggle = (dosenId) => {
     setSelectedDosen((prev) =>
-      prev.map(
-        (dosen) =>
-          dosen.id === dosenId
-            ? { ...dosen, isDosenBesar: !dosen.isDosenBesar } // ✅ Toggle this dosen's isDosenBesar
-            : { ...dosen, isDosenBesar: false } // ✅ Ensure others are false
+      prev.map((dosen) =>
+        dosen.id === dosenId
+          ? { ...dosen, isDosenBesar: !dosen.isDosenBesar }
+          : { ...dosen, isDosenBesar: false }
       )
     );
   };
@@ -139,7 +138,7 @@ const EditOpenedClass = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mata_kuliah_kodemk: selectedMataKuliah.kodemk,
-          kelas,
+          kelas, // now one of A-L
           kapasitas: parseInt(kapasitas, 10),
           dosens: selectedDosen.map((d) => ({
             id: d.id,
@@ -149,12 +148,15 @@ const EditOpenedClass = () => {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to save opened class");
+      const data = await response.json();
+      if (!response.ok) {
+        toast.error("Kelas gagal disimpan : " + data.detail);
+        return;
+      }
 
-      toast.success("Opened Class saved successfully!");
+      toast.success("Kelas disimpan!");
       router.push("/admin/data-manajemen");
     } catch (error) {
-      console.error("Error saving opened class:", error);
       toast.error("Failed to save opened class");
     }
   };
@@ -166,6 +168,9 @@ const EditOpenedClass = () => {
       </div>
     );
   }
+
+  // Options for class selection (A-L)
+  const classOptions = "ABCDEFGHIJKL".split("");
 
   return (
     <div className="p-8 flex flex-col w-full gap-6">
@@ -191,12 +196,21 @@ const EditOpenedClass = () => {
           />
 
           <Label>Kelas</Label>
-          <Input
-            type="text"
+          <select
             value={kelas}
             onChange={(e) => setKelas(e.target.value)}
-            className="w-full mb-4"
-          />
+            className="w-full mb-4 p-2 border rounded"
+          >
+            <option value="" disabled>
+              Pilih Kelas
+            </option>
+            {classOptions.map((letter) => (
+              <option key={letter} value={letter}>
+                {letter}
+              </option>
+            ))}
+          </select>
+
           <Label>Kapasitas</Label>
           <Input
             type="text"
@@ -204,12 +218,13 @@ const EditOpenedClass = () => {
             onChange={(e) => setKapasitas(e.target.value)}
             className="w-full mb-4"
           />
+
           <div className="flex flex-col sm:flex-row w-full justify-between my-4">
             <Label>Dosen Pengampu</Label>
             <Button
               className="mb-2 bg-primary"
               onClick={() => {
-                console.log("Opening Dosen Selection Dialog..."); // ✅ Debugging
+                console.log("Opening Dosen Selection Dialog...");
                 setIsDosenDialogOpen(true);
               }}
             >
@@ -268,12 +283,11 @@ const EditOpenedClass = () => {
         {classId ? "Update Opened Class" : "Create Opened Class"}
       </Button>
 
-      {/* <MatakuliahSelectionDialog
+      <MatakuliahSelectionDialog
         isOpen={isMataKuliahDialogOpen}
         onClose={() => setIsMataKuliahDialogOpen(false)}
         onSelect={handleMataKuliahSelect}
-        url={"/opened-class/get-matakuliah/names"}
-      /> */}
+      />
 
       <DosenSelectionDialog
         isOpen={isDosenDialogOpen}

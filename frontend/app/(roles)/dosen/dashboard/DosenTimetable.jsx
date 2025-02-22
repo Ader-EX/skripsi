@@ -78,19 +78,9 @@ const DosenTimetable = () => {
   };
 
   // Format Timeslot Display
-  const formatTimeslots = (timeslots) => {
-    if (!timeslots || !Array.isArray(timeslots) || timeslots.length === 0) {
-      return "-";
-    }
-
-    const sortedTimeslots = [...timeslots].sort((a, b) =>
-      a.start_time.localeCompare(b.start_time)
-    );
-
-    const firstSlot = sortedTimeslots[0];
-    const lastSlot = sortedTimeslots[sortedTimeslots.length - 1];
-
-    return `${firstSlot.day} - ${firstSlot.start_time} to ${lastSlot.end_time}`;
+  const formatSchedule = (schedule) => {
+    if (!schedule) return "-";
+    return schedule.replace("DayEnum.", "");
   };
 
   const handleSearchClick = () => {
@@ -170,9 +160,7 @@ const DosenTimetable = () => {
                         <TableCell>{course.matakuliah}</TableCell>
                         <TableCell>{course.kelas}</TableCell>
                         <TableCell>{course.sks}</TableCell>
-                        <TableCell>
-                          {formatTimeslots(course.timeslots)}
-                        </TableCell>
+                        <TableCell>{formatSchedule(course.schedule)}</TableCell>
                         <TableCell>{course.ruangan}</TableCell>
                         <TableCell>{course.dosen}</TableCell>
                       </TableRow>

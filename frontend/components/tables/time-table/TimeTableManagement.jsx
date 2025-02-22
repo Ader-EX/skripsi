@@ -23,6 +23,7 @@ const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/algorithm/formatted-timetabl
 const TimeTableManagement = () => {
   const router = useRouter();
   const [scheduleList, setScheduleList] = useState([]);
+  const [activePeriod, setActivePeriod] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
@@ -51,6 +52,7 @@ const TimeTableManagement = () => {
 
       const data = await response.json();
       setScheduleList(data.data || []);
+      setActivePeriod(data.metadata || []);
       setTotalPages(data.total_pages || 1);
     } catch (error) {
       console.error("Error fetching schedules:", error);
@@ -85,6 +87,12 @@ const TimeTableManagement = () => {
   return (
     <Card className="flex flex-col w-full">
       <CardHeader className="bg-primary/5">
+        <div className="mb-4 p-3 bg-green-100 border-l-4 border-green-500 text-green-700">
+          <strong>Periode Akademik Aktif</strong>
+          <br />
+          {activePeriod.semester || ""} - {activePeriod.week_start || ""} :{" "}
+          {activePeriod.week_end || ""}
+        </div>
         <CardTitle className="flex items-center justify-between">
           <span>Manajemen Jadwal Kuliah</span>
           <Button
@@ -97,7 +105,7 @@ const TimeTableManagement = () => {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex gap-4 mb-4">
+        <div className="flex flex-col gap-4 mb-4">
           <div className="flex-1">
             <Label>Pencarian</Label>
             <div className="flex gap-2">

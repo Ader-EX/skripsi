@@ -46,17 +46,12 @@ const TimeTableView = ({ scheduleList, loading }) => {
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
-
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/timetable/${confirmDelete}`,
-        {
-          method: "DELETE",
-        }
+        { method: "DELETE" }
       );
-
       if (!response.ok) throw new Error("Failed to delete timetable");
-
       toast.success("Jadwal berhasil dihapus");
       location.reload();
     } catch (error) {
@@ -71,7 +66,6 @@ const TimeTableView = ({ scheduleList, loading }) => {
     try {
       const response = await fetch(API_CHECK_CONFLICTS);
       if (!response.ok) throw new Error("Gagal mengecek bentrok.");
-
       const data = await response.json();
       if (data.total_conflicts > 0) {
         toast.error("Bentrok Ditemukan di jadwal");
@@ -89,14 +83,10 @@ const TimeTableView = ({ scheduleList, loading }) => {
     try {
       const response = await fetch(API_RESOLVER_CONFLICTS, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
       });
       if (!response.ok) throw new Error("Gagal menyelesaikan bentrok.");
-
       const data = await response.json();
-
       toast.success("Konflik berhasil diubah");
       setTimeout(() => location.reload(), 2000);
     } catch (error) {
@@ -112,11 +102,11 @@ const TimeTableView = ({ scheduleList, loading }) => {
           variant="outline"
           className="bg-blue-500 text-white"
         >
-          <RefreshCcw className="h-4 w-4 mr-2 " />
+          <RefreshCcw className="h-4 w-4 mr-2" />
           Cek Konflik
         </Button>
         <Button onClick={AutomateConflict} variant="outline">
-          <BotIcon className="h-4 w-4 mr-2 " />
+          <BotIcon className="h-4 w-4 mr-2" />
           Selesaikan Konflik Otomatis
         </Button>
       </div>
@@ -170,7 +160,7 @@ const TimeTableView = ({ scheduleList, loading }) => {
               <TableCell>
                 {schedule.enrolled || "0"}/{schedule.capacity}
               </TableCell>
-              {/* ✅ Conflict Status Column with Tooltip */}
+              {/* Conflict Status Column with Tooltip */}
               <TableCell className="text-center">
                 <Tooltip>
                   <TooltipTrigger>
@@ -188,7 +178,6 @@ const TimeTableView = ({ scheduleList, loading }) => {
                       <AlertCircle className="h-5 w-5 text-gray-500" />
                     )}
                   </TooltipTrigger>
-
                   <TooltipContent>
                     {schedule.is_conflicted === false ||
                     schedule.is_conflicted === 0
@@ -200,7 +189,6 @@ const TimeTableView = ({ scheduleList, loading }) => {
                   </TooltipContent>
                 </Tooltip>
               </TableCell>
-
               <TableCell className="text-right">
                 <div className="flex gap-2 justify-end">
                   <Button
@@ -210,7 +198,6 @@ const TimeTableView = ({ scheduleList, loading }) => {
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
-
                   {/* Edit Button */}
                   <Button size="icon" variant="outline">
                     <Link
@@ -220,7 +207,6 @@ const TimeTableView = ({ scheduleList, loading }) => {
                       <Pencil />
                     </Link>
                   </Button>
-
                   {/* Delete Button with Confirmation */}
                   <Button
                     size="icon"
@@ -236,7 +222,65 @@ const TimeTableView = ({ scheduleList, loading }) => {
         </TableBody>
       </Table>
 
-      {/* 🛑 Conflict Dialog */}
+      {/* Dialog for selected schedule details */}
+      <Dialog
+        open={!!selectedSchedule}
+        onOpenChange={(open) => {
+          if (!open) setSelectedSchedule(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Detail Jadwal</DialogTitle>
+          </DialogHeader>
+          {selectedSchedule && (
+            <div className="space-y-4">
+              <p>
+                <strong>Mata Kuliah:</strong> {selectedSchedule.subject?.name} (
+                {selectedSchedule.subject?.code})
+              </p>
+              <p>
+                <strong>Kelas:</strong> {selectedSchedule.class}
+              </p>
+              <p>
+                <strong>Dosen:</strong>{" "}
+                {selectedSchedule.lecturers
+                  ?.map((lecturer) => lecturer.name)
+                  .join(", ")}
+              </p>
+              <p>
+                <strong>Hari & Waktu:</strong>{" "}
+                {selectedSchedule.timeslots[0]?.day}{" "}
+                {selectedSchedule.timeslots.length > 0 &&
+                  `${selectedSchedule.timeslots[0].startTime} - ${
+                    selectedSchedule.timeslots[
+                      selectedSchedule.timeslots.length - 1
+                    ].endTime
+                  }`}
+              </p>
+              <p>
+                <strong>Ruangan:</strong> {selectedSchedule.room?.code}{" "}
+                (Kapasitas: {selectedSchedule.room?.capacity})
+              </p>
+              <p>
+                <strong>Jumlah Mahasiswa:</strong> {selectedSchedule.enrolled} /{" "}
+                {selectedSchedule.capacity}
+              </p>
+              <p>
+                <strong>Placeholder:</strong>
+              </p>
+              <pre className="bg-gray-100 p-2 rounded">
+                {selectedSchedule.placeholder}
+              </pre>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setSelectedSchedule(null)}>Tutup</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Conflict Dialog */}
       <Dialog open={showConflictDialog} onOpenChange={setShowConflictDialog}>
         <DialogContent>
           <DialogHeader>
@@ -282,6 +326,8 @@ const TimeTableView = ({ scheduleList, loading }) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
       <Dialog
         open={confirmDelete !== null}
         onOpenChange={() => setConfirmDelete(null)}

@@ -36,6 +36,7 @@ const TimeTableView = ({
   const [selectedDay, setSelectedDay] = useState(DAYS[0] || "Senin");
   const [selectedBuilding, setSelectedBuilding] = useState("all");
   const [selectedConflict, setSelectedConflict] = useState(null);
+  console.log(schedules);
 
   const handleConflictClick = (schedule) => {
     if (schedule.is_conflicted && schedule.reason) {

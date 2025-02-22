@@ -2,8 +2,6 @@ from database import Base
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 from sqlalchemy import Integer, String, ForeignKey, Boolean, Table, Column
 
-# Import MataKuliahProgramStudi
-
 
 metadata = Base.metadata 
 

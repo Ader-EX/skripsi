@@ -74,6 +74,7 @@ class Token(BaseModel):
     role: str
     user_id: int
     role_id: Optional[int] = None
+    prodi_id : Optional[int] = None
 
 
 class TokenData(BaseModel):
@@ -166,8 +167,6 @@ async def create_user(user: UserCreate, db: Session = Depends(get_db)):
             jabatan=None,
             title_depan=None,
             title_belakang=None,
-            jabatan_id=None,
-            is_sekdos=False,
             
         )
         db.add(new_dosen)
@@ -253,25 +252,29 @@ async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
 
     role_id = None
     user_name = user.nim_nip
+    prodi_id = None
 
     match user.role:
         case "mahasiswa":
             mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.user_id == user.id).first()
             role_id = mahasiswa.id if mahasiswa else None
             user_name = mahasiswa.nama if mahasiswa else user.nim_nip
+            prodi_id = mahasiswa.program_studi_id if mahasiswa else None
 
         case "dosen":
             dosen = db.query(Dosen).filter(Dosen.user_id == user.id).first()
             role_id = dosen.pegawai_id if dosen else None
             user_name = dosen.nama if dosen else user.nim_nip
+            prodi_id = dosen.progdi_id if dosen else None
 
         case "admin":
             role_id = None 
+            prodi_id = None
 
         case _:
             raise HTTPException(status_code=400, detail="Invalid user role")
 
-    # Token payload
+    
     token_data = {
         "sub": user.nim_nip,
         "role": user.role,
@@ -281,6 +284,9 @@ async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
 
     if role_id is not None:
         token_data["role_id"] = role_id
+    
+    if prodi_id is not None:
+        token_data["prodi_id"] = prodi_id
 
     access_token = create_access_token(data=token_data)
 

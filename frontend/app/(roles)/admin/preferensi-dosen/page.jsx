@@ -34,6 +34,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import toast from "react-hot-toast";
 
 const AdminPreferences = () => {
   const [timeSlots, setTimeSlots] = useState([]);
@@ -166,8 +167,12 @@ const AdminPreferences = () => {
           }
         );
 
-        if (!response.ok) throw new Error("Failed to update preference");
+        if (!response.ok) {
+          const errorData = await response.json();
+          toast.error(errorData.detail || "Failed to update preference");
+        }
         const updatedPref = await response.json();
+
         setPreferences(
           preferences.map((p) => (p.id === updatedPref.id ? updatedPref : p))
         );
@@ -189,12 +194,15 @@ const AdminPreferences = () => {
           }
         );
 
-        if (!response.ok) throw new Error("Failed to create preference");
+        if (!response.ok) {
+          const errorData = await response.json();
+          toast.error(errorData.detail || "Failed to update preference");
+        }
         const newPref = await response.json();
+
         setPreferences([...preferences, newPref]);
       }
     } catch (error) {
-      console.error("Error updating preference:", error);
       setError("Failed to update preference");
     }
   };

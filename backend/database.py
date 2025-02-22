@@ -57,7 +57,6 @@ def create_tables():
     from model.timetable_model import TimeTable
     from model.openedclass_model import OpenedClass
     from model.programstudi_model import ProgramStudi
-    # from model.matakuliah_programstudi import MataKuliahProgramStudi
     from model.academicperiod_model import AcademicPeriods
     from model.dosenopened_model import openedclass_dosen
 

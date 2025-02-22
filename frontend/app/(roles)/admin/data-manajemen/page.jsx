@@ -21,6 +21,7 @@ import OpenedClassManagement from "@/components/tables/opened-class/OpenedClassM
 import MahasiswaTimeTableManagement from "@/components/tables/mahasiswa-timetable-management/MahasiswaTimeTableManagement";
 import TimeTableManagement from "@/components/tables/time-table/TimeTableManagement";
 import DosenManagement from "@/components/tables/dosen/DosenManagement";
+import DosenTimeTableManagement from "@/components/tables/dosen-timetable-management/DosenTimetableManagement";
 
 const AdminManagement = () => {
   const tabs = [
@@ -28,6 +29,7 @@ const AdminManagement = () => {
     { value: "opened-class", icon: ClipboardCheck, label: "Kelas Dibuka" },
     { value: "matakuliah", icon: BookOpen, label: "Mata Kuliah" },
     { value: "mahasiswa-timetable", icon: Layers, label: "Jadwal Mhs" },
+    { value: "dosen-timetable", icon: Layers, label: "Jadwal Dosen" },
     { value: "ruangan", icon: Building2, label: "Ruangan" },
     { value: "dosen", icon: Users, label: "Dosen" },
     { value: "mahasiswa", icon: GraduationCap, label: "Mahasiswa" },
@@ -92,6 +94,13 @@ const AdminManagement = () => {
           className="border-none p-0 mt-4 md:mt-6"
         >
           <MahasiswaTimeTableManagement />
+        </TabsContent>
+
+        <TabsContent
+          value="dosen-timetable"
+          className="border-none p-0 mt-4 md:mt-6"
+        >
+          <DosenTimeTableManagement />
         </TabsContent>
 
         {/* <TabsContent
