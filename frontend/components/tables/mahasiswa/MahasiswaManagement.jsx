@@ -23,11 +23,17 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import toast from "react-hot-toast";
+import Cookies from "js-cookie";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/mahasiswa`;
 const PROGRAM_STUDI_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/program-studi`;
 
 const MahasiswaManagement = () => {
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
   const [mahasiswaList, setMahasiswaList] = useState([]);
   const [programStudiList, setProgramStudiList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,7 +64,9 @@ const MahasiswaManagement = () => {
         params.append("program_studi_id", filters.program_studi_id);
       if (filters.search) params.append("search", filters.search);
 
-      const response = await fetch(`${API_URL}/get-all?${params.toString()}`);
+      const response = await fetch(`${API_URL}/get-all?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok)
         throw new Error(`Error fetching data: ${response.status}`);
 
@@ -75,7 +83,10 @@ const MahasiswaManagement = () => {
   /** ✅ Fetch Program Studi Data */
   const fetchProgramStudi = async () => {
     try {
-      const response = await fetch(PROGRAM_STUDI_API_URL);
+      const response = await fetch(PROGRAM_STUDI_API_URL, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
       if (!response.ok) throw new Error("Failed to fetch program studi");
 
       const data = await response.json();
@@ -110,6 +121,7 @@ const MahasiswaManagement = () => {
     try {
       const response = await fetch(`${API_URL}/${deleteId}`, {
         method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error("Failed to delete mahasiswa");
 

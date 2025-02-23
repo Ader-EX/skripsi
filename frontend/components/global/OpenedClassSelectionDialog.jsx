@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import Cookies from "js-cookie";
 
 const OPENED_CLASS_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/opened-class/get-all`;
 
@@ -28,6 +29,11 @@ const OpenedClassSelectionDialog = ({ isOpen, onClose, onSelect }) => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   useEffect(() => {
     if (isOpen) fetchOpenedClasses();
@@ -40,7 +46,8 @@ const OpenedClassSelectionDialog = ({ isOpen, onClose, onSelect }) => {
       if (searchQuery) params.append("search", searchQuery);
 
       const response = await fetch(
-        `${OPENED_CLASS_API_URL}?${params.toString()}`
+        `${OPENED_CLASS_API_URL}?${params.toString()}`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       if (!response.ok) throw new Error("Failed to fetch Opened Classes");
 

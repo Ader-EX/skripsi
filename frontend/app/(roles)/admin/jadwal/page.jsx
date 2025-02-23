@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
+import Cookies from "js-cookie";
 
 const AdminJadwal = () => {
   const [timetableData, setTimetableData] = useState(null);
@@ -33,6 +34,8 @@ const AdminJadwal = () => {
   const [conflicts, setConflicts] = useState([]);
   const [showConflictDialog, setShowConflictDialog] = useState(false);
   const router = useRouter();
+  const token = Cookies.get("access_token");
+  if (!token) throw new Error("No authentication token found.");
 
   const [isAlgorithmDialogOpen, setIsAlgorithmDialogOpen] = useState(false);
 
@@ -51,7 +54,10 @@ const AdminJadwal = () => {
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/sa-router/generate-schedule-sa/`,
-        { method: "POST" }
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
 
       if (!response.ok) {
@@ -81,7 +87,10 @@ const AdminJadwal = () => {
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/ga-router/generate-schedule-ga/`,
-        { method: "POST" }
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
 
       if (!response.ok) {
@@ -113,7 +122,9 @@ const AdminJadwal = () => {
         url.searchParams.append("search", search);
       }
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -149,7 +160,10 @@ const AdminJadwal = () => {
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/algorithm/reset-schedule/`,
-        { method: "DELETE" }
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
 
       if (!response.ok) {
@@ -173,7 +187,9 @@ const AdminJadwal = () => {
   const handleCheckConflicts = async () => {
     setIsCheckingConflicts(true);
     try {
-      const response = await fetch(API_CHECK_CONFLICTS);
+      const response = await fetch(API_CHECK_CONFLICTS, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) throw new Error("Failed to check conflicts.");
 
       const data = await response.json();

@@ -41,6 +41,7 @@ const TimeTableView = ({ scheduleList, loading }) => {
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [conflicts, setConflicts] = useState([]);
+  const [showAutoResolveConfirm, setShowAutoResolveConfirm] = useState(false);
   const [showConflictDialog, setShowConflictDialog] = useState(false);
   const router = useRouter();
 
@@ -105,7 +106,10 @@ const TimeTableView = ({ scheduleList, loading }) => {
           <RefreshCcw className="h-4 w-4 mr-2" />
           Cek Konflik
         </Button>
-        <Button onClick={AutomateConflict} variant="outline">
+        <Button
+          onClick={() => setShowAutoResolveConfirm(true)}
+          variant="outline"
+        >
           <BotIcon className="h-4 w-4 mr-2" />
           Selesaikan Konflik Otomatis
         </Button>
@@ -118,7 +122,7 @@ const TimeTableView = ({ scheduleList, loading }) => {
             <TableHead>Kelas</TableHead>
             <TableHead>Dosen</TableHead>
             <TableHead>Hari</TableHead>
-            <TableHead>Waktu</TableHead>
+            <TableHead>Program Studi</TableHead>
             <TableHead>Ruangan</TableHead>
             <TableHead>Kapasitas</TableHead>
             <TableHead>Bentrok</TableHead>
@@ -142,13 +146,14 @@ const TimeTableView = ({ scheduleList, loading }) => {
                   ?.map((lecturer) => lecturer.name)
                   .join(", ")}
               </TableCell>
-              <TableCell>{schedule.timeslots[0]?.day || "-"}</TableCell>
               <TableCell>
+                {schedule.timeslots[0]?.day || "-"} -{" "}
                 {schedule.timeslots.length > 0 &&
                   `${schedule.timeslots[0].startTime} - ${
                     schedule.timeslots[schedule.timeslots.length - 1].endTime
                   }`}
               </TableCell>
+              <TableCell>{schedule.subject?.program_studi_name}</TableCell>
               <TableCell>
                 <div>
                   <div>{schedule.room?.code}</div>
@@ -346,6 +351,38 @@ const TimeTableView = ({ scheduleList, loading }) => {
             </Button>
             <Button variant="destructive" onClick={handleDelete}>
               Hapus
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={showAutoResolveConfirm}
+        onOpenChange={setShowAutoResolveConfirm}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Konfirmasi Penyelesaian Otomatis</DialogTitle>
+          </DialogHeader>
+          <p className="mb-4 text-red-600">
+            <span className="font-bold"> Peringatan:</span> <br /> Menggunakan
+            penyelesaian konflik otomatis kadang-kadang dapat menyebabkan
+            masalah tambahan atau perubahan jadwal yang tidak terduga. Apakah
+            Anda yakin ingin melanjutkan?
+          </p>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowAutoResolveConfirm(false)}
+            >
+              Batal
+            </Button>
+            <Button
+              onClick={() => {
+                setShowAutoResolveConfirm(false);
+                AutomateConflict();
+              }}
+            >
+              Lanjutkan
             </Button>
           </DialogFooter>
         </DialogContent>

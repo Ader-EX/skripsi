@@ -29,6 +29,30 @@ logger = logging.getLogger(__name__)
 # ------------------------------------------------------------------------
 
 
+def debug_fitness_components(solution, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache):
+    """
+    Returns a breakdown of each fitness component for the given solution.
+    """
+    # Check conflicts first – if there is any conflict, the fitness function multiplies it by 1000.
+    conflict = check_conflicts(solution, opened_class_cache, room_cache, timeslot_cache)
+    conflict_total = conflict * 1000 if conflict > 0 else 0
+
+    room_type = check_room_type_compatibility(solution, opened_class_cache, room_cache)
+    special_needs = check_special_needs_compliance(solution, opened_class_cache, room_cache, preferences_cache)
+    preference = check_preference_compliance(solution, opened_class_cache, timeslot_cache, preferences_cache)
+    jabatan = check_jabatan_constraint(solution, opened_class_cache, timeslot_cache, dosen_cache)
+
+    total = conflict_total + room_type + special_needs + preference + jabatan
+    return {
+        "conflict": conflict,
+        "conflict_total": conflict_total,
+        "room_type_score": room_type,
+        "special_needs_score": special_needs,
+        "preference_score": preference,
+        "jabatan_penalty": jabatan,
+        "total": total
+    }
+
 
 def check_conflicts(solution, opened_class_cache, room_cache, timeslot_cache):
     conflicts = 0
@@ -337,9 +361,17 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
                         solution.append((oc.id, room.id, slots[0].id))
                         assigned = True
                         break
-
             if not assigned:
-                logger.warning(f"Could not assign class {oc.id} in initial population")
+                logger.warning(f"Could not assign class {oc.id} in initial population; using fallback random assignment.")
+                # Pick a random room from the compatible ones
+                fallback_room = random.choice(compatible_rooms)
+                # Pick a random index for timeslot block that can accommodate effective_sks (ignoring consecutive constraint)
+                fallback_start_idx = random.randint(0, len(timeslots_list) - effective_sks)
+                fallback_slots = timeslots_list[fallback_start_idx : fallback_start_idx + effective_sks]
+                # Note: this fallback might violate consecutive or recess constraints.
+                solution.append((oc.id, fallback_room.id, fallback_slots[0].id))
+            # if not assigned:
+            #     logger.warning(f"Could not assign class {oc.id} in initial population")
 
         population.append(solution)
     return population
@@ -465,11 +497,12 @@ def genetic_algorithm(db: Session, population_size=50, generations=50, mutation_
     # 2. Ambil data
     courses, lecturers, rooms, timeslots, preferences, opened_classes, opened_class_cache, room_cache, timeslot_cache = fetch_data(db)
     preferences_cache = fetch_dosen_preferences(db, opened_classes)
+    recess_times = identify_recess_times(timeslot_cache)
     # Buat dosen_cache untuk pengecekan jabatan (menggunakan pegawai_id sebagai key)
     dosen_cache = {dosen.pegawai_id: dosen for dosen in lecturers}
 
     # 3. Buat populasi awal
-    population = initialize_population(opened_classes, rooms, timeslots, population_size, opened_class_cache)
+    population = initialize_population(opened_classes, rooms, timeslots, population_size, opened_class_cache, recess_times)
 
     # 4. Loop evolusi
     for gen in range(generations):
@@ -490,7 +523,7 @@ def genetic_algorithm(db: Session, population_size=50, generations=50, mutation_
         # 4c. Mutation
         mutated_population = []
         for indiv in new_population:
-            mutated_indiv = mutate(indiv, opened_classes, rooms, timeslots, opened_class_cache, mutation_prob)
+            mutated_indiv = mutate(indiv, opened_classes, rooms, timeslots, opened_class_cache, recess_times, mutation_prob)
             mutated_population.append(mutated_indiv)
 
         # Ganti populasi dengan hasil baru
@@ -503,6 +536,11 @@ def genetic_algorithm(db: Session, population_size=50, generations=50, mutation_
         )
         best_fitness = fitness(best_solution, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache)
         logger.info(f"🌀 Generasi {gen+1}: Fitness terbaik = {best_fitness}")
+
+
+        if best_fitness == 2000:
+            debug_info = debug_fitness_components(best_solution, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache)
+            logger.info(f"🛠 Debug info for solution at fitness 2000: {debug_info}")
 
         # Early stopping jika solusi optimal ditemukan (fitness == 0)
         if best_fitness == 0:

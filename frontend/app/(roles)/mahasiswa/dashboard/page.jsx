@@ -39,22 +39,27 @@ const MahasiswaDashboard = () => {
   const [filter, setFilter] = useState("");
   const [selectedCourseToAdd, setSelectedCourseToAdd] = useState(null);
 
-  // New loading states
   const [isCoursesLoading, setIsCoursesLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchValue, setSearchValue] = useState("");
 
   const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-  // Academic period states
   const [currentSemester, setCurrentSemester] = useState(null);
   const [currentAcademicYear, setCurrentAcademicYear] = useState(null);
   const [weekStart, setWeekStart] = useState("");
   const [weekEnd, setWeekEnd] = useState("");
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   const fetchAcademicPeriod = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/academic-period/active`);
+      const response = await fetch(`${BASE_URL}/academic-period/active`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) throw new Error("Failed to fetch academic period");
 
       const data = await response.json();
@@ -207,6 +212,7 @@ const MahasiswaDashboard = () => {
         `${BASE_URL}/mahasiswa-timetable/timetable/${mahasiswa_id}/${timetableId}`,
         {
           method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
 

@@ -15,6 +15,7 @@ import {
 import { OpenedClassTable } from "./OpenedClassTable";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import Cookies from "js-cookie";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/opened-class`;
 
@@ -28,6 +29,11 @@ const OpenedClassManagement = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const limit = 5;
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   useEffect(() => {
     fetchClasses();
@@ -42,7 +48,9 @@ const OpenedClassManagement = () => {
         search: currentSearch, // Use currentSearch instead of searchTerm
       });
 
-      const response = await fetch(`${API_URL}/get-all?${params.toString()}`);
+      const response = await fetch(`${API_URL}/get-all?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) throw new Error("Failed to fetch classes");
 
       const data = await response.json();
@@ -71,6 +79,7 @@ const OpenedClassManagement = () => {
     try {
       const response = await fetch(`${API_URL}/${deleteId}`, {
         method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error("Failed to delete class");
 

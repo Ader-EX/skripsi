@@ -48,6 +48,8 @@ const AdminPreferences = () => {
   const [selectedDosen, setSelectedDosen] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDosenSelectOpen, setIsDosenSelectOpen] = useState(false);
+  const token = Cookies.get("access_token");
+  if (!token) throw new Error("No authentication token found.");
 
   const reasonOptions = [
     "Jadwal bentrok",
@@ -68,8 +70,10 @@ const AdminPreferences = () => {
   const searchDosen = async (searchTerm) => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/dosen/get-dosen/names?page=1&limit=50&filter=${searchTerm}`
+        `${process.env.NEXT_PUBLIC_API_URL}/dosen/get-dosen/names?page=1&limit=50&filter=${searchTerm}`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
+
       if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
@@ -96,7 +100,9 @@ const AdminPreferences = () => {
           ? `${process.env.NEXT_PUBLIC_API_URL}/timeslot/`
           : `${process.env.NEXT_PUBLIC_API_URL}/timeslot/?day=${selectedDay}`;
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
@@ -112,7 +118,8 @@ const AdminPreferences = () => {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/preference/dosen/${selectedDosen.id}`
+        `${process.env.NEXT_PUBLIC_API_URL}/preference/dosen/${selectedDosen.id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       const data = await response.json();
       setPreferences(Array.isArray(data) ? data : []);
@@ -145,9 +152,7 @@ const AdminPreferences = () => {
       if (prefData.delete) {
         await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/preference/${existingPref.id}`,
-          {
-            method: "DELETE",
-          }
+          { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
         );
         setPreferences(preferences.filter((p) => p.id !== existingPref.id));
       } else if (existingPref) {
@@ -157,6 +162,7 @@ const AdminPreferences = () => {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
               ...existingPref,
@@ -183,6 +189,7 @@ const AdminPreferences = () => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
               dosen_id: selectedDosen.id,

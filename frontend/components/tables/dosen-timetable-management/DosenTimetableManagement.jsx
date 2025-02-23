@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Trash2 } from "lucide-react";
 import DosenTimetableManagementTable from "./DosenTimetableManagementTable";
+import Cookies from "js-cookie";
 
 const DosenTimeTableManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -30,6 +31,11 @@ const DosenTimeTableManagement = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   // When a dosen is selected, fetch its timetable
   useEffect(() => {
@@ -43,7 +49,8 @@ const DosenTimeTableManagement = () => {
       setIsLoading(true);
       setError(null);
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/dosen/get-dosen/names?page=1&limit=10&filter=${searchTerm}`
+        `${process.env.NEXT_PUBLIC_API_URL}/dosen/get-dosen/names?page=1&limit=10&filter=${searchTerm}`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       if (!response.ok) {
         throw new Error("Failed to fetch dosen data");
@@ -65,7 +72,8 @@ const DosenTimeTableManagement = () => {
       setIsLoading(true);
       setError(null);
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/dosen/timetable/${selectedDosen.id}?page=1&page_size=10`
+        `${process.env.NEXT_PUBLIC_API_URL}/dosen/timetable/${selectedDosen.id}?page=1&page_size=10`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       if (!response.ok) {
         throw new Error("Failed to fetch timetable data");
@@ -100,7 +108,10 @@ const DosenTimeTableManagement = () => {
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/timetable/${confirmDelete}`,
-        { method: "DELETE" }
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
       if (!response.ok) throw new Error("Failed to delete timetable");
 

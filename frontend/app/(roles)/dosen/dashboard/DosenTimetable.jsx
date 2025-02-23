@@ -36,7 +36,10 @@ const DosenTimetable = () => {
     const fetchUserData = async () => {
       try {
         const token = Cookies.get("access_token");
-        if (!token) throw new Error("No access token found");
+        if (!token) {
+          window.location.href = "/";
+          return;
+        }
 
         const decodedToken = decodeToken(token);
         setUserId(decodedToken.role_id);

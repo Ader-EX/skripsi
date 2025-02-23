@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import Cookies from "js-cookie";
 
 const MatakuliahSelectionDialog = ({
   isOpen,
@@ -32,6 +33,11 @@ const MatakuliahSelectionDialog = ({
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   useEffect(() => {
     if (isOpen) fetchMatakuliah();
@@ -44,7 +50,9 @@ const MatakuliahSelectionDialog = ({
       const params = new URLSearchParams({ page, limit: 10 });
       if (searchTerm) params.append("search", searchTerm);
 
-      const response = await fetch(`${MATKUL_API_URL}?${params.toString()}`);
+      const response = await fetch(`${MATKUL_API_URL}?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) throw new Error("Failed to fetch Matakuliah");
 
       const data = await response.json();
@@ -58,7 +66,6 @@ const MatakuliahSelectionDialog = ({
     }
   };
 
-  // Convert tipe_mk values to human-readable format
   const getTipeMKLabel = (tipe) => {
     const mapping = {
       T: "Teori",

@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import Cookies from "js-cookie";
 
 const MahasiswaTimeTableManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -26,6 +27,11 @@ const MahasiswaTimeTableManagement = () => {
   const [timetableList, setTimetableList] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   useEffect(() => {
     if (selectedMahasiswa?.id) {
@@ -38,7 +44,8 @@ const MahasiswaTimeTableManagement = () => {
       setIsLoading(true);
       setError(null);
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/mahasiswa/get-mahasiswa?page=1&limit=10&search=${searchTerm}`
+        `${process.env.NEXT_PUBLIC_API_URL}/mahasiswa/get-mahasiswa?page=1&limit=10&search=${searchTerm}`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (!response.ok) {
@@ -62,8 +69,10 @@ const MahasiswaTimeTableManagement = () => {
     try {
       setIsLoading(true);
       setError(null);
+
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/mahasiswa-timetable/timetable/${selectedMahasiswa.id}`
+        `${process.env.NEXT_PUBLIC_API_URL}/mahasiswa-timetable/timetable/${selectedMahasiswa.id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (!response.ok) {

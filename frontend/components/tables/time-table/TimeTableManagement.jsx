@@ -17,6 +17,7 @@ import toast from "react-hot-toast";
 
 import TimeTableForm from "./TimeTableForm"; // Import the form component
 import { useRouter } from "next/navigation";
+import Cookies from "js-cookie";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/algorithm/formatted-timetable/`;
 
@@ -36,6 +37,11 @@ const TimeTableManagement = () => {
     isConflicted: null,
   });
   const [searchInput, setSearchInput] = useState("");
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   const fetchSchedules = async () => {
     setLoading(true);
@@ -47,7 +53,9 @@ const TimeTableManagement = () => {
         params.append("filterText", searchParams.filterText);
       if (showConflicts) params.append("isConflicted", "true");
 
-      const response = await fetch(`${API_URL}?${params.toString()}`);
+      const response = await fetch(`${API_URL}?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) throw new Error("Failed to fetch schedules");
 
       const data = await response.json();

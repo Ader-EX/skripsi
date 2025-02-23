@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import toast from "react-hot-toast";
+import Cookies from "js-cookie";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/academic-period`;
 
@@ -23,6 +24,12 @@ const AcademicPeriodForm = ({ isOpen, onClose, onSubmit, initialData }) => {
       is_active: false, // New academic period should default to inactive
     }
   );
+
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   useEffect(() => {
     if (initialData) {
@@ -59,7 +66,10 @@ const AcademicPeriodForm = ({ isOpen, onClose, onSubmit, initialData }) => {
     try {
       const response = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(formData),
       });
 

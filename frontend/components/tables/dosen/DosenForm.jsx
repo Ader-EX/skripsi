@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 
 import toast from "react-hot-toast";
+import Cookies from "js-cookie";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/dosen`;
 const PROGRAM_STUDI_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/program-studi`;
@@ -47,6 +48,11 @@ const DosenForm = ({ isOpen, onClose, initialData, onSubmit }) => {
       is_sekdos: false,
     }
   );
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   useEffect(() => {
     if (initialData) {
@@ -95,7 +101,11 @@ const DosenForm = ({ isOpen, onClose, initialData, onSubmit }) => {
   useEffect(() => {
     const fetchProgramStudi = async () => {
       try {
-        const response = await fetch(PROGRAM_STUDI_API_URL);
+        const response = await fetch(PROGRAM_STUDI_API_URL, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         if (!response.ok) throw new Error("Failed to fetch program studi");
         const data = await response.json();
         setProgramStudiList(data);

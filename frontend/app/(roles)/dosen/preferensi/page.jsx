@@ -16,7 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -26,14 +26,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-} from "@/components/ui/form";
-import { Textarea } from "@/components/ui/textarea";
+
 import { Label } from "@/components/ui/label";
 import Cookies from "js-cookie";
 import { decodeToken } from "@/utils/decoder";
@@ -56,25 +49,21 @@ const DosenPreferensi = () => {
   const [selectedPreference, setSelectedPreference] = useState(null);
   const [isSpecialNeeds, setIsSpecialNeeds] = useState(false);
   const [userId, setUserId] = useState(null);
-  const [userRole, setUserRole] = useState(null);
 
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
   useEffect(() => {
     const token = Cookies.get("access_token");
     if (token) {
       const payload = decodeToken(token);
       if (payload) {
         setUserId(payload.role_id);
-        setUserRole(payload.role_id);
       }
     }
   }, []);
-
-  const reasonOptions = [
-    "Jadwal penelitian/riset",
-    "Kewajiban keluarga",
-    "Jadwal administrasi",
-    "Kendala jadwal lainnya",
-  ];
 
   useEffect(() => {
     if (userId) {
@@ -89,7 +78,9 @@ const DosenPreferensi = () => {
           ? `${process.env.NEXT_PUBLIC_API_URL}/timeslot/`
           : `${process.env.NEXT_PUBLIC_API_URL}/timeslot/?day=${selectedDay}`;
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
@@ -114,6 +105,7 @@ const DosenPreferensi = () => {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
         }
       );
@@ -132,7 +124,8 @@ const DosenPreferensi = () => {
   const fetchPreferences = async () => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/preference/dosen/${userId}`
+        `${process.env.NEXT_PUBLIC_API_URL}/preference/dosen/${userId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (!response.ok)
@@ -174,11 +167,9 @@ const DosenPreferensi = () => {
       );
 
       if (prefData.delete) {
-        const response = await fetch(
+        await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/preference/${existingPref.id}`,
-          {
-            method: "DELETE",
-          }
+          { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
         );
 
         if (!response.ok) {
@@ -193,7 +184,10 @@ const DosenPreferensi = () => {
           `${process.env.NEXT_PUBLIC_API_URL}/preference/${existingPref.id}`,
           {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
             body: JSON.stringify({
               ...existingPref,
               ...prefData,
@@ -217,7 +211,10 @@ const DosenPreferensi = () => {
           `${process.env.NEXT_PUBLIC_API_URL}/preference/`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
             body: JSON.stringify({
               dosen_id: userId,
               timeslot_id: timeSlotId,

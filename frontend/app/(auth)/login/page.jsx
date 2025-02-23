@@ -21,7 +21,7 @@ const Login = () => {
   const router = useRouter();
   const onSubmit = async (data) => {
     toast.loading("Logging in...");
-    console.log(data);
+
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/user/token`,
@@ -41,16 +41,10 @@ const Login = () => {
       if (response.ok) {
         toast.dismiss();
         toast.success("Login successful!");
-        console.log(
-          "Setting auth:",
-          result.access_token,
-          result.token_type,
-          result.role
-        );
+
         Cookies.set("access_token", result.access_token);
         Cookies.set("token_type", result.token_type);
         Cookies.set("role", result.role);
-        console.log(result.access_token);
         router.push(`/${result.role}/dashboard`);
       } else {
         toast.dismiss();

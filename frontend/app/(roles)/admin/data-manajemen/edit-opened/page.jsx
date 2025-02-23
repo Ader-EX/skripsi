@@ -35,6 +35,11 @@ const EditOpenedClass = () => {
   const [isDosenDialogOpen, setIsDosenDialogOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
+  const token = Cookies.get("access_token");
+  if (!token) {
+    throw new Error("No authentication token found.");
+  }
+
   useEffect(() => {
     setIsMounted(true);
     if (classId) {
@@ -44,7 +49,9 @@ const EditOpenedClass = () => {
 
   const fetchOpenedClassDetails = async (id) => {
     try {
-      const response = await fetch(`${API_URL}/opened-class/${id}`);
+      const response = await fetch(`${API_URL}/opened-class/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) throw new Error("Failed to fetch opened class details");
 
       const data = await response.json();
@@ -135,7 +142,10 @@ const EditOpenedClass = () => {
 
       const response = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           mata_kuliah_kodemk: selectedMataKuliah.kodemk,
           kelas, // now one of A-L

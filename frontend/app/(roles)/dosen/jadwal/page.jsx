@@ -27,83 +27,13 @@ const AdminJadwal = () => {
   const [timetableData, setTimetableData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
-  const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [conflicts, setConflicts] = useState([]);
-  const [showConflictDialog, setShowConflictDialog] = useState(false);
-  const router = useRouter();
 
-  const [isAlgorithmDialogOpen, setIsAlgorithmDialogOpen] = useState(false);
-
-  const handleOpenAlgorithmDialog = () => {
-    setIsAlgorithmDialogOpen(true);
-  };
-
-  const handleCloseAlgorithmDialog = () => {
-    setIsAlgorithmDialogOpen(false);
-  };
-
-  const API_CHECK_CONFLICTS = `${process.env.NEXT_PUBLIC_API_URL}/algorithm/check-conflicts`;
-
-  const handleGenerateSimulatedAnnealing = async () => {
-    setIsGenerating(true);
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/sa-router/generate-schedule-sa/`,
-        { method: "POST" }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      toast.success("Schedule Generated Successfully (Simulated Annealing)", {
-        description: "New timetable has been created",
-      });
-      router.refresh();
-      fetchTimetableData(searchQuery);
-    } catch (err) {
-      toast.error("Failed to Generate Schedule", {
-        description: err.message,
-      });
-    } finally {
-      setIsGenerating(false);
-      handleCloseAlgorithmDialog();
-    }
-  };
-
-  // Handler untuk Genetic Algorithm
-  const handleGenerateGeneticAlgorithm = async () => {
-    setIsGenerating(true);
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/ga-router/generate-schedule-ga/`,
-        { method: "POST" }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      toast.success("Schedule Generated Successfully (Genetic Algorithm)", {
-        description: "New timetable has been created",
-      });
-      router.refresh();
-      fetchTimetableData(searchQuery);
-    } catch (err) {
-      toast.error("Failed to Generate Schedule", {
-        description: err.message,
-      });
-    } finally {
-      setIsGenerating(false);
-      handleCloseAlgorithmDialog(); // Tutup dialog setelah selesai
-    }
-  };
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   const fetchTimetableData = async (search = "") => {
     try {
@@ -114,7 +44,9 @@ const AdminJadwal = () => {
         url.searchParams.append("search", search);
       }
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -130,7 +62,6 @@ const AdminJadwal = () => {
     }
   };
 
-  // Debounced search function
   const debouncedSearch = debounce((query) => {
     fetchTimetableData(query);
   }, 500);
@@ -138,12 +69,6 @@ const AdminJadwal = () => {
   useEffect(() => {
     fetchTimetableData();
   }, []);
-
-  const handleSearchChange = (e) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-    debouncedSearch(query);
-  };
 
   if (loading) {
     return (

@@ -13,6 +13,7 @@ import toast from "react-hot-toast";
 
 import DosenSelectionDialog from "@/components/global/DosenSelectionDialog";
 import OpenedClassSelectionDialog from "@/components/global/OpenedClassSelectionDialog";
+import Cookies from "js-cookie";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/timetable`;
 const TIMESLOT_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/timeslot/`;
@@ -21,6 +22,11 @@ const TimeTableForm = ({ isOpen, onClose, initialData, onSubmit }) => {
   const [timeslotList, setTimeslotList] = useState([]);
   const [isMatkulDialogOpen, setIsMatkulDialogOpen] = useState(false);
   const [isDosenDialogOpen, setIsDosenDialogOpen] = useState(false);
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   // Default form data
   const defaultFormData = {
@@ -57,7 +63,9 @@ const TimeTableForm = ({ isOpen, onClose, initialData, onSubmit }) => {
   useEffect(() => {
     const fetchTimeslots = async () => {
       try {
-        const response = await fetch(TIMESLOT_API_URL);
+        const response = await fetch(TIMESLOT_API_URL, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (!response.ok) throw new Error("Failed to fetch timeslots");
         const data = await response.json();
         setTimeslotList(data);
@@ -101,7 +109,10 @@ const TimeTableForm = ({ isOpen, onClose, initialData, onSubmit }) => {
 
       const response = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(formData),
       });
 

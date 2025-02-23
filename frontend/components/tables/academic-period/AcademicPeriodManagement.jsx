@@ -14,6 +14,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import toast from "react-hot-toast";
+import Cookies from "js-cookie";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/academic-period`;
 
@@ -25,6 +26,11 @@ const AcademicPeriodManagement = () => {
   const [activePeriod, setActivePeriod] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   useEffect(() => {
     fetchAcademicPeriods();
@@ -34,7 +40,9 @@ const AcademicPeriodManagement = () => {
   const fetchAcademicPeriods = async () => {
     setLoading(true);
     try {
-      const response = await fetch(API_URL);
+      const response = await fetch(API_URL, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await response.json();
       setAcademicPeriods(data);
     } catch (error) {
@@ -46,7 +54,9 @@ const AcademicPeriodManagement = () => {
 
   const fetchActiveAcademicPeriod = async () => {
     try {
-      const response = await fetch(`${API_URL}/active`);
+      const response = await fetch(`${API_URL}/active`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (response.ok) {
         const data = await response.json();
         setActivePeriod(data);
@@ -82,7 +92,10 @@ const AcademicPeriodManagement = () => {
   const handleConfirmDelete = async () => {
     if (!deleteId) return;
     try {
-      await fetch(`${API_URL}/${deleteId}`, { method: "DELETE" });
+      await fetch(`${API_URL}/${deleteId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
       fetchAcademicPeriods();
       fetchActiveAcademicPeriod();
     } catch (error) {
@@ -99,6 +112,7 @@ const AcademicPeriodManagement = () => {
     try {
       const response = await fetch(`${API_URL}/${id}/activate`, {
         method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {

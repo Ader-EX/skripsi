@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import toast from "react-hot-toast";
+import Cookies from "js-cookie";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -30,6 +31,11 @@ const RuanganForm = ({ isOpen, onClose, isEdit, ruangan, fetchRuangan }) => {
     group_code: "",
     alamat: "",
   });
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   useEffect(() => {
     if (isEdit && ruangan) {
@@ -71,10 +77,12 @@ const RuanganForm = ({ isOpen, onClose, isEdit, ruangan, fetchRuangan }) => {
 
       const response = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(formData),
       });
-
       if (!response.ok) throw new Error("Failed to save Ruangan");
 
       toast.success(
@@ -94,6 +102,7 @@ const RuanganForm = ({ isOpen, onClose, isEdit, ruangan, fetchRuangan }) => {
     try {
       const response = await fetch(`${API_URL}/ruangan/${formData.id}`, {
         method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) throw new Error("Failed to delete Ruangan");

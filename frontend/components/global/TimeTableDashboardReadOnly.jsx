@@ -20,6 +20,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import toast from "react-hot-toast";
+import Cookies from "js-cookie";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/algorithm/formatted-timetable/`;
 
@@ -30,6 +31,11 @@ const TimeTableDashboardReadOnly = () => {
   const [searchInput, setSearchInput] = useState("");
   const [pageNumber, setPageNumber] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   const fetchSchedules = async () => {
     setLoading(true);
@@ -38,7 +44,9 @@ const TimeTableDashboardReadOnly = () => {
       params.append("page", pageNumber);
       if (searchInput) params.append("filterText", searchInput);
 
-      const response = await fetch(`${API_URL}?${params.toString()}`);
+      const response = await fetch(`${API_URL}?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) throw new Error("Failed to fetch schedules");
 
       const data = await response.json();

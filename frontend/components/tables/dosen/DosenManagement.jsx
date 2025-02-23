@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import DosenForm from "./DosenForm";
 import toast from "react-hot-toast";
+import Cookies from "js-cookie";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/dosen`;
 const USER_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/user/users/`;
@@ -38,6 +39,11 @@ const DosenManagement = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   useEffect(() => {
     fetchDosen();
@@ -52,7 +58,9 @@ const DosenManagement = () => {
       });
       if (search) params.append("search", search);
 
-      const response = await fetch(`${API_URL}/get-all?${params}`);
+      const response = await fetch(`${API_URL}/get-all?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) throw new Error("Failed to fetch dosen");
 
       const data = await response.json();
@@ -92,6 +100,7 @@ const DosenManagement = () => {
     try {
       const response = await fetch(`${API_URL}/${deleteId}`, {
         method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error("Failed to delete dosen");
 
@@ -110,7 +119,10 @@ const DosenManagement = () => {
     try {
       const response = await fetch(API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(formData),
       });
 

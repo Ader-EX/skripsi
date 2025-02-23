@@ -9,6 +9,7 @@ class ProgramStudi(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    
 
     # Relationships
     mata_kuliah: Mapped[list["MataKuliah"]] = relationship("MataKuliah", back_populates="program_studi")

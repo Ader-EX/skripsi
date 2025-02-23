@@ -211,7 +211,6 @@ async def get_timetable(
         if program_studi_id is not None or filterText:
             query = query.join(OpenedClass).join(MataKuliah)
 
-        
         if program_studi_id is not None:
             query = query.filter(MataKuliah.program_studi_id == program_studi_id)
 
@@ -237,7 +236,7 @@ async def get_timetable(
         )
         query = query.order_by(
             desc(TimeTable.is_conflicted),
-            TimeTable.reason.is_(None),  # False (i.e. not NULL) sorts before True (NULL)
+            TimeTable.reason.is_(None),
             TimeTable.id
         )
 
@@ -264,7 +263,9 @@ async def get_timetable(
                     "code": mata_kuliah.kodemk,
                     "name": mata_kuliah.namamk,
                     "sks": mata_kuliah.sks,
-                    "semester": mata_kuliah.smt
+                    "semester": mata_kuliah.smt,
+                    "program_studi_id": mata_kuliah.program_studi_id,
+                    "program_studi_name": mata_kuliah.program_studi.name  
                 },
                 "class": opened_class.kelas,
                 "lecturers": [
@@ -311,7 +312,6 @@ async def get_timetable(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching timetable: {str(e)}")
-
 
 
 @router.post("/formatted-timetable")

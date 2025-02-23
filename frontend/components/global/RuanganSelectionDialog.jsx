@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import Cookies from "js-cookie";
 
 const RUANGAN_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/ruangan`;
 
@@ -28,6 +29,11 @@ const RuanganSelectionDialog = ({ isOpen, onClose, onSelect }) => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   useEffect(() => {
     if (isOpen) fetchRuangan();
@@ -39,7 +45,9 @@ const RuanganSelectionDialog = ({ isOpen, onClose, onSelect }) => {
       const params = new URLSearchParams({ page, limit: 10 });
       if (searchQuery) params.append("name", searchQuery);
 
-      const response = await fetch(`${RUANGAN_API_URL}?${params.toString()}`);
+      const response = await fetch(`${RUANGAN_API_URL}?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) throw new Error("Failed to fetch Ruangan");
 
       const data = await response.json();

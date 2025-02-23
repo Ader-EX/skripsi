@@ -577,6 +577,8 @@ def update_timetable(id: int, updated_timetable: TimeTableUpdate, db: Session = 
     for key, value in updated_timetable.dict(exclude_unset=True).items():
         setattr(timetable, key, value)
     timetable.placeholder = updated_placeholder
+    timetable.is_conflicted = True
+    timetable.reason = None
     db.commit()
     db.refresh(timetable)
 

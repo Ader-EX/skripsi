@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import toast from "react-hot-toast";
+import Cookies from "js-cookie";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/algorithm/formatted-timetable`;
 const TIMESLOT_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/timeslot/`;
@@ -25,6 +26,11 @@ const EditTimetable = () => {
   const [timeslotList, setTimeslotList] = useState([]);
   const [openedClassList, setOpenedClassList] = useState([]);
   const [ruanganList, setRuanganList] = useState([]);
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   const defaultFormData = {
     opened_class_id: "",
@@ -41,7 +47,9 @@ const EditTimetable = () => {
   // Fetch Timetable Data (if editing)
   useEffect(() => {
     if (timetableId) {
-      fetch(`${API_URL}/${timetableId}`)
+      fetch(`${API_URL}/${timetableId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
         .then((res) => res.json())
         .then((data) => {
           console.log("📥 Fetched Timetable Data:", data);
@@ -78,15 +86,16 @@ const EditTimetable = () => {
     const fetchData = async () => {
       try {
         const [timeslots, openedClasses, ruangans] = await Promise.all([
-          fetch(TIMESLOT_API_URL).then((res) => res.json()),
-          fetch(`${OPENED_CLASS_API_URL}?page=1&limit=50`).then((res) =>
-            res.json()
-          ),
-          fetch(`${RUANGAN_API_URL}?page=1&page_size=50`).then((res) =>
-            res.json()
-          ),
+          fetch(TIMESLOT_API_URL, {
+            headers: { Authorization: `Bearer ${token}` },
+          }).then((res) => res.json()),
+          fetch(`${OPENED_CLASS_API_URL}?page=1&limit=50`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }).then((res) => res.json()),
+          fetch(`${RUANGAN_API_URL}?page=1&page_size=50`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }).then((res) => res.json()),
         ]);
-
         setTimeslotList(timeslots);
         setOpenedClassList(openedClasses.data);
         setRuanganList(ruangans.data);
@@ -141,10 +150,12 @@ const EditTimetable = () => {
 
       const response = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(formData),
       });
-
       if (!response.ok) {
         throw new Error("Failed to submit timetable data");
       }

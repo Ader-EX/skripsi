@@ -22,20 +22,21 @@ import {
 } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import TimeTableView from "../../admin/jadwal/TimeTableView";
+import Cookies from "js-cookie";
 
 const MahasiswaJadwal = () => {
   const [timetableData, setTimetableData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
-  const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [conflicts, setConflicts] = useState([]);
   const [showConflictDialog, setShowConflictDialog] = useState(false);
-  const router = useRouter();
 
-  const API_CHECK_CONFLICTS = `${process.env.NEXT_PUBLIC_API_URL}/algorithm/check-conflicts`;
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   const fetchTimetableData = async (search = "") => {
     try {
@@ -46,7 +47,9 @@ const MahasiswaJadwal = () => {
         url.searchParams.append("search", search);
       }
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -61,11 +64,6 @@ const MahasiswaJadwal = () => {
       });
     }
   };
-
-  // Debounced search function
-  const debouncedSearch = debounce((query) => {
-    fetchTimetableData(query);
-  }, 500);
 
   useEffect(() => {
     fetchTimetableData();

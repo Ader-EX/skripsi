@@ -6,6 +6,7 @@ import { Building2, Plus } from "lucide-react";
 import RuanganTable from "./RuanganTable";
 import RuanganForm from "./RuanganForm";
 import toast from "react-hot-toast";
+import Cookies from "js-cookie";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -23,7 +24,11 @@ const RuanganManagement = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [currentRuangan, setCurrentRuangan] = useState(null);
-
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
   useEffect(() => {
     fetchRuangan();
   }, [filters, page, pageSize]);
@@ -34,7 +39,9 @@ const RuanganManagement = () => {
       const queryParams = new URLSearchParams(filters);
       url += `&${queryParams.toString()}`;
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await response.json();
       setRuangan(data.data);
       setTotal(data.total);
@@ -55,8 +62,8 @@ const RuanganManagement = () => {
     try {
       const response = await fetch(`${API_URL}/ruangan/${kode_ruangan}`, {
         method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
-
       if (response.ok) {
         toast.success("Ruangan berhasil dihapus");
         fetchRuangan();

@@ -49,12 +49,11 @@ def check_conflicts(solution, opened_class_cache, room_cache, timeslot_cache):
         for i in range(effective_sks):
             current_id = timeslot_id + i
             if current_id not in timeslot_cache:
-                conflicts += 1000  
+                conflicts += 20  # Previously 1000
                 continue
-                
             next_timeslot = timeslot_cache[current_id]
             if next_timeslot.day != current_timeslot.day:
-                conflicts += 1000
+                conflicts += 20  # Previously 1000
                 continue
 
             if current_id not in timeslot_usage:
@@ -73,11 +72,7 @@ def check_conflicts(solution, opened_class_cache, room_cache, timeslot_cache):
     return conflicts
 
 
-
 def check_room_type_compatibility(solution, opened_class_cache, room_cache):
-    """
-    Check if room types match class types (Strict "P" <-> "P", "T" <-> "T").
-    """
     penalty = 0
     for opened_class_id, room_id, _ in solution:
         class_info = opened_class_cache[opened_class_id]
@@ -85,16 +80,13 @@ def check_room_type_compatibility(solution, opened_class_cache, room_cache):
         room = room_cache[room_id]
 
         if mata_kuliah.tipe_mk == 'P' and room.tipe_ruangan != 'P':
-            penalty += 1000  
+            penalty += 20  
         elif mata_kuliah.tipe_mk == 'T' and room.tipe_ruangan != 'T':
-            penalty += 1000  
+            penalty += 20 
 
     return penalty
 
 def check_special_needs_compliance(solution, opened_class_cache, room_cache, preferences_cache):
-    """
-    Ensure lecturers with special needs are assigned to suitable rooms.
-    """
     penalty = 0
     for opened_class_id, room_id, _ in solution:
         class_info = opened_class_cache[opened_class_id]
@@ -104,8 +96,7 @@ def check_special_needs_compliance(solution, opened_class_cache, room_cache, pre
             dosen_key = (opened_class_id, dosen_id)
             if dosen_key in preferences_cache and preferences_cache[dosen_key].get('is_special_needs', False):
                 if room.group_code not in ['KHD2', 'DS2']:
-                    penalty += 1000  
-
+                    penalty += 30  # Previously 1000
     return penalty
 
 
@@ -148,10 +139,6 @@ def check_daily_load_balance(solution, opened_class_cache, timeslot_cache):
 
 
 def check_preference_compliance(solution, opened_class_cache, timeslot_cache, preferences_cache):
-    """
-    Check if the solution complies with lecturer preferences.
-    Returns a penalty score based on preference violations.
-    """
     penalty = 0
     for opened_class_id, _, timeslot_id in solution:
         class_info = opened_class_cache[opened_class_id]
@@ -159,18 +146,16 @@ def check_preference_compliance(solution, opened_class_cache, timeslot_cache, pr
             dosen_key = (opened_class_id, dosen_id)
             if dosen_key in preferences_cache:
                 pref_info = preferences_cache[dosen_key]
-                
                 if pref_info.get('is_high_priority', False):
-                    # Higher penalty for scheduling during high priority times 
-                    # (because these are times lecturers CANNOT teach)
+                   
                     if timeslot_id in pref_info['preferences']:
-                        penalty += 800
+                        penalty += 20 
                 elif pref_info.get('used_preference', False):
-                    # Normal penalty for regular preferences
+                    
                     if timeslot_id not in pref_info['preferences']:
-                        penalty += 200
-    
+                        penalty += 5   
     return penalty
+
 
 
 def calculate_fitness(solution, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache):
@@ -181,7 +166,7 @@ def calculate_fitness(solution, opened_class_cache, room_cache, timeslot_cache, 
     # Conflict checking (highest priority)
     conflict_score = check_conflicts(solution, opened_class_cache, room_cache, timeslot_cache)
     if conflict_score > 0:
-        return conflict_score * 1000  # Heavy penalty for conflicts
+        return conflict_score * 20  # Heavy penalty for conflicts
 
     # Room type compatibility
     room_type_score = check_room_type_compatibility(solution, opened_class_cache, room_cache)
@@ -346,9 +331,17 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
                         solution.append((oc.id, room.id, slots[0].id))
                         assigned = True
                         break
-
             if not assigned:
-                logger.warning(f"Could not assign class {oc.id} in initial population")
+                logger.warning(f"Could not assign class {oc.id} in initial population; using fallback random assignment.")
+                # Pick a random room from the compatible ones
+                fallback_room = random.choice(compatible_rooms)
+                # Pick a random index for timeslot block that can accommodate effective_sks (ignoring consecutive constraint)
+                fallback_start_idx = random.randint(0, len(timeslots_list) - effective_sks)
+                fallback_slots = timeslots_list[fallback_start_idx : fallback_start_idx + effective_sks]
+                # Note: this fallback might violate consecutive or recess constraints.
+                solution.append((oc.id, fallback_room.id, fallback_slots[0].id))
+            # if not assigned:
+            #     logger.warning(f"Could not assign class {oc.id} in initial population")
 
         logger.info(f"Population member has {len(solution)} assignments")
         population.append(solution)
@@ -440,9 +433,9 @@ def identify_recess_times(timeslot_cache):
         current_end = datetime.combine(datetime.today(), current_slot.end_time)
         next_start = datetime.combine(datetime.today(), next_slot.start_time)
 
-        # If there is a gap of more than 10 minutes, it's a recess
-        if (next_start - current_end).total_seconds() > 600:  # 10 minutes or more
-            recess_times.add(next_slot.id)  # Mark the start of the recess slot
+        # If there is a gap of more than 40 minit, its a recess
+        if (next_start - current_end).total_seconds() > 2400:  
+            recess_times.add(next_slot.id)  
     
     return recess_times
 
@@ -520,7 +513,7 @@ def simulated_annealing(db: Session, initial_temperature=1000, cooling_rate=0.95
     insert_timetable(db, formatted_solution, opened_class_cache, room_cache, timeslot_cache)
 
     logger.info(f"🎯 Final Best Score={best_fitness}")
-    return formatted_solution
+    return best_fitness
 
 
 def get_effective_sks(class_info):
@@ -596,7 +589,8 @@ async def generate_schedule_sa(db: Session = Depends(get_db)):
     try:
         logger.info("Generating schedule using Simulated Annealing...")
         best_timetable = simulated_annealing(db)
-        return {"message": "Schedule generated successfully using Simulated Annealing", "timetable": best_timetable}
+        return {"message": "Schedule generated successfully using Simulated Annealing",
+                "accuracy" : best_timetable }
     except Exception as e:
         logger.error(f"Error generating schedule: {e}")
         raise HTTPException(status_code=500, detail=str(e))

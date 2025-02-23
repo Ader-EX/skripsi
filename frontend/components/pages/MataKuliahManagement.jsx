@@ -6,6 +6,7 @@ import { Book, Plus } from "lucide-react";
 import MataKuliahTable from "./MataKuliahTable";
 import MataKuliahForm from "./MataKuliahForm";
 import toast from "react-hot-toast";
+import Cookies from "js-cookie";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -25,6 +26,11 @@ const MataKuliahManagement = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [currentMataKuliah, setCurrentMataKuliah] = useState(null);
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   useEffect(() => {
     fetchMataKuliah();
@@ -52,7 +58,9 @@ const MataKuliahManagement = () => {
         url += `&${queryParams.toString()}`;
       }
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await response.json();
       setMatakuliah(data.data);
       setTotal(data.total);
@@ -63,7 +71,9 @@ const MataKuliahManagement = () => {
 
   const fetchProgramStudi = async () => {
     try {
-      const response = await fetch(`${API_URL}/program-studi`);
+      const response = await fetch(`${API_URL}/program-studi`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await response.json();
       setProgramStudi(data);
     } catch (error) {
@@ -73,12 +83,10 @@ const MataKuliahManagement = () => {
 
   const handleDeleteConfirm = async (kodemk) => {
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/matakuliah/${kodemk}`,
-        {
-          method: "DELETE",
-        }
-      );
+      const response = await fetch(`${API_URL}/matakuliah/${kodemk}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       if (response.ok) {
         toast.success("MataKuliah deleted successfully");

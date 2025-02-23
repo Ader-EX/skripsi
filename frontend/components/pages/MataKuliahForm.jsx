@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label"; // ✅ Import Label
 import toast from "react-hot-toast";
+import Cookies from "js-cookie";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -29,6 +30,11 @@ const MataKuliahForm = ({
   fetchMataKuliah,
   programStudi,
 }) => {
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
   const [formData, setFormData] = useState({
     kodemk: "",
     namamk: "",
@@ -86,7 +92,10 @@ const MataKuliahForm = ({
 
       const response = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(formData),
       });
 

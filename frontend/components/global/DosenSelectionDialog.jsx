@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import Cookies from "js-cookie";
 
 const DOSEN_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/dosen/get-dosen/names`;
 
@@ -27,6 +28,11 @@ const DosenSelectionDialog = ({ isOpen, onClose, onSelect }) => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   useEffect(() => {
     if (isOpen) fetchDosen();
@@ -38,7 +44,12 @@ const DosenSelectionDialog = ({ isOpen, onClose, onSelect }) => {
       const params = new URLSearchParams({ page, limit: 10 });
       if (searchTerm) params.append("search", searchTerm);
 
-      const response = await fetch(`${DOSEN_API_URL}?${params.toString()}`);
+      const response = await fetch(`${DOSEN_API_URL}?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
       if (!response.ok) throw new Error("Failed to fetch Dosen");
 
       const data = await response.json();

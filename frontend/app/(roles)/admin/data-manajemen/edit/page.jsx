@@ -10,6 +10,7 @@ import TimeslotSelectionTable from "./TimeslotSelectionTable";
 import toast from "react-hot-toast";
 import { Label } from "@/components/ui/label";
 import { Pencil } from "lucide-react";
+import Cookies from "js-cookie";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -26,6 +27,11 @@ const EditTimetable = () => {
   const [isRuanganDialogOpen, setIsRuanganDialogOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
+  const token = Cookies.get("access_token");
+  if (!token) {
+    throw new Error("No authentication token found.");
+  }
+
   useEffect(() => {
     setIsMounted(true);
     if (timetableId) {
@@ -35,7 +41,9 @@ const EditTimetable = () => {
 
   const fetchTimetableDetails = async (id) => {
     try {
-      const response = await fetch(`${API_URL}/timetable/${id}`);
+      const response = await fetch(`${API_URL}/timetable/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) throw new Error("Failed to fetch timetable details");
 
       const data = await response.json();
@@ -59,7 +67,10 @@ const EditTimetable = () => {
   const fetchRuanganDetails = async (ruanganId) => {
     try {
       const response = await fetch(
-        `${API_URL}/ruangan/timeslots/availability?ruangan_id=${ruanganId}`
+        `${API_URL}/ruangan/timeslots/availability?ruangan_id=${ruanganId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
       if (!response.ok) throw new Error("Failed to fetch room timeslots");
 
@@ -114,7 +125,10 @@ const EditTimetable = () => {
 
       const response = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           opened_class_id: selectedOpenedClass.id,
           ruangan_id: selectedRuangan.id,

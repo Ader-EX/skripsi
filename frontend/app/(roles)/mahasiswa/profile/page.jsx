@@ -52,6 +52,11 @@ const MahasiswaProfile = () => {
     pekerjaan_ibu: "",
     status_kawin: 0,
   });
+  const token = Cookies.get("access_token");
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
 
   useEffect(() => {
     fetchUserData();
@@ -69,9 +74,11 @@ const MahasiswaProfile = () => {
         throw new Error("Invalid token payload");
       }
 
-      const encodedEmail = encodeURIComponent(payload.sub);
-      const response = await fetch(`${BASE_URL}/mahasiswa/${payload.role_id}`);
-
+      const response = await fetch(`${BASE_URL}/mahasiswa/${payload.role_id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       if (!response.ok) {
         throw new Error("Failed to fetch user details");
       }
