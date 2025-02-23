@@ -18,7 +18,8 @@ const AdminDashboardStats = () => {
         // Get token from cookies
         const token = Cookies.get("access_token");
         if (!token) {
-          throw new Error("No authentication token found.");
+          window.location.href = "/";
+          return;
         }
 
         // Decode JWT token

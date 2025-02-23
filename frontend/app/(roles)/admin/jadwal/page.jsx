@@ -35,7 +35,7 @@ const AdminJadwal = () => {
   const [showConflictDialog, setShowConflictDialog] = useState(false);
   const router = useRouter();
   const token = Cookies.get("access_token");
-  if (!token) throw new Error("No authentication token found.");
+  if (!token) window.location.href = "/";
 
   const [isAlgorithmDialogOpen, setIsAlgorithmDialogOpen] = useState(false);
 

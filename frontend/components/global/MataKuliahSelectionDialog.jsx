@@ -41,11 +41,15 @@ const MatakuliahSelectionDialog = ({
 
   useEffect(() => {
     if (isOpen) fetchMatakuliah();
-  }, [isOpen, page, searchTerm]);
+  }, [isOpen, page]);
+
+  const handleSearch = () => {
+    setPage(1);
+    fetchMatakuliah();
+  };
 
   const fetchMatakuliah = async () => {
     setLoading(true);
-    console.log(MATKUL_API_URL);
     try {
       const params = new URLSearchParams({ page, limit: 10 });
       if (searchTerm) params.append("search", searchTerm);
@@ -56,7 +60,6 @@ const MatakuliahSelectionDialog = ({
       if (!response.ok) throw new Error("Failed to fetch Matakuliah");
 
       const data = await response.json();
-
       setMatakuliahList(data.data || []);
       setTotalPages(Math.ceil(data.total / 10));
     } catch (error) {
@@ -74,7 +77,6 @@ const MatakuliahSelectionDialog = ({
     };
     return mapping[tipe] || "Unknown";
   };
-  console.log(matakuliahList);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -90,7 +92,7 @@ const MatakuliahSelectionDialog = ({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <Button onClick={() => setPage(1)} className="bg-primary">
+          <Button onClick={handleSearch} className="bg-primary">
             <Search className="mr-2 h-4 w-4" />
             Cari
           </Button>

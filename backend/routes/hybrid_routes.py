@@ -203,25 +203,32 @@ def mutate(solution, opened_classes, rooms, timeslots, opened_class_cache, reces
 def initialize_population(opened_classes, rooms, timeslots, population_size, opened_class_cache, recess_times):
     population = []
     timeslots_list = sorted(timeslots, key=lambda x: (x.day_index, x.start_time))
+    
     for _ in range(population_size):
         solution = []
-        room_schedule = {}
-        lecturer_schedule = {}
+        room_schedule = {}      # Tracks which room slots are taken
+        lecturer_schedule = {}  # Tracks which lecturer slots are taken
+        
+        # Sort classes by effective SKS in descending order
         sorted_classes = sorted(
             opened_classes, key=lambda oc: get_effective_sks(opened_class_cache[oc.id]), reverse=True
         )
+        
         for oc in sorted_classes:
             class_info = opened_class_cache[oc.id]
             effective_sks = get_effective_sks(class_info)
             tipe_mk = class_info["mata_kuliah"].tipe_mk
             compatible_rooms = [r for r in rooms if r.tipe_ruangan == tipe_mk]
             if not compatible_rooms:
-                logger.warning(f"No available room for {oc.id} ({tipe_mk})")
+                logger.warning(f"No available room for class {oc.id} ({tipe_mk})")
                 continue
+            
             assigned = False
             random.shuffle(compatible_rooms)
             possible_start_idxs = list(range(len(timeslots_list) - effective_sks + 1))
             random.shuffle(possible_start_idxs)
+            
+            # First, try to find a conflict-free assignment.
             for room in compatible_rooms:
                 if assigned:
                     break
@@ -234,6 +241,8 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
                         for i in range(1, effective_sks)
                     ):
                         continue
+                    
+                    # Check if these slots are available for both room and lecturers.
                     slot_available = True
                     for slot in slots:
                         if (room.id, slot.id) in room_schedule:
@@ -245,6 +254,7 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
                                 break
                         if not slot_available:
                             break
+                    
                     if slot_available:
                         for slot in slots:
                             room_schedule[(room.id, slot.id)] = oc.id
@@ -253,8 +263,45 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
                         solution.append((oc.id, room.id, slots[0].id))
                         assigned = True
                         break
+            
+            # Fallback: If no conflict-free assignment was found, choose the option with the fewest conflicts.
             if not assigned:
-                logger.warning(f"Could not assign class {oc.id} in initial population")
+                logger.warning(f"Conflict-free assignment not found for class {oc.id}; applying fallback.")
+                best_conflict = float('inf')
+                best_assignment = None
+                best_slots = None
+                best_room = None
+                for room in compatible_rooms:
+                    for start_idx in possible_start_idxs:
+                        slots = timeslots_list[start_idx : start_idx + effective_sks]
+                        if not all(
+                            slots[i].day_index == slots[0].day_index and 
+                            slots[i].id == slots[i-1].id + 1 and
+                            slots[i].id not in recess_times
+                            for i in range(1, effective_sks)
+                        ):
+                            continue
+                        conflict_cost = 0
+                        for slot in slots:
+                            if (room.id, slot.id) in room_schedule:
+                                conflict_cost += 1
+                            for dosen_id in class_info["dosen_ids"]:
+                                if (dosen_id, slot.id) in lecturer_schedule:
+                                    conflict_cost += 1
+                        if conflict_cost < best_conflict:
+                            best_conflict = conflict_cost
+                            best_assignment = (oc.id, room.id, slots[0].id)
+                            best_slots = slots
+                            best_room = room
+                if best_assignment:
+                    for slot in best_slots:
+                        room_schedule[(best_room.id, slot.id)] = oc.id
+                        for dosen_id in class_info["dosen_ids"]:
+                            lecturer_schedule[(dosen_id, slot.id)] = oc.id
+                    solution.append(best_assignment)
+                    logger.info(f"Fallback: Assigned class {oc.id} with conflict cost {best_conflict}")
+                else:
+                    logger.warning(f"Could not assign class {oc.id} even with fallback.")
         population.append(solution)
     return population
 

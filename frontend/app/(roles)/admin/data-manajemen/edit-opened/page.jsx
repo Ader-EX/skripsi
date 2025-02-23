@@ -19,6 +19,7 @@ import toast from "react-hot-toast";
 
 import DosenSelectionDialog from "@/components/global/DosenSelectionDialog";
 import MatakuliahSelectionDialog from "@/components/global/MatakuliahSelectionDialog";
+import Cookies from "js-cookie";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -37,7 +38,7 @@ const EditOpenedClass = () => {
 
   const token = Cookies.get("access_token");
   if (!token) {
-    throw new Error("No authentication token found.");
+    window.location.href = "/";
   }
 
   useEffect(() => {
@@ -64,7 +65,6 @@ const EditOpenedClass = () => {
       setKelas(data.kelas);
       setKapasitas(data.kapasitas);
 
-      // Ensure isDosenBesar and usedPreference are properly set
       setSelectedDosen(
         data.dosens.map((dosen) => ({
           id: dosen.pegawai_id,
@@ -180,7 +180,7 @@ const EditOpenedClass = () => {
   }
 
   // Options for class selection (A-L)
-  const classOptions = "ABCDEFGHIJKL".split("");
+  const classOptions = "ABCDEFGHIJKLMNOPQ".split("");
 
   return (
     <div className="p-8 flex flex-col w-full gap-6">

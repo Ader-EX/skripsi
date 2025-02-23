@@ -36,13 +36,18 @@ const DosenSelectionDialog = ({ isOpen, onClose, onSelect }) => {
 
   useEffect(() => {
     if (isOpen) fetchDosen();
-  }, [isOpen, page, searchTerm]);
+  }, [isOpen, page]);
+
+  const handleSearch = () => {
+    setPage(1);
+    fetchDosen();
+  };
 
   const fetchDosen = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page, limit: 10 });
-      if (searchTerm) params.append("search", searchTerm);
+      if (searchTerm) params.append("filter", searchTerm);
 
       const response = await fetch(`${DOSEN_API_URL}?${params.toString()}`, {
         headers: {
@@ -76,7 +81,7 @@ const DosenSelectionDialog = ({ isOpen, onClose, onSelect }) => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <Button onClick={() => setPage(1)} className="bg-primary">
+          <Button onClick={handleSearch} className="bg-primary">
             <Search className="mr-2 h-4 w-4" />
             Cari
           </Button>

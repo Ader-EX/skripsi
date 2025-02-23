@@ -29,7 +29,7 @@ const EditTimetable = () => {
 
   const token = Cookies.get("access_token");
   if (!token) {
-    throw new Error("No authentication token found.");
+    window.location.href = "/";
   }
 
   useEffect(() => {

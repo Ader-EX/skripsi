@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import delete, exists, func, or_, update
 from sqlalchemy.orm import Session, joinedload
@@ -42,11 +43,12 @@ router = APIRouter()
 
 @router.post("/", response_model=OpenedClassResponse)
 async def create_opened_class(data: OpenedClassCreate, db: Session = Depends(get_db)):
+    # 1. Validate Mata Kuliah exists.
     mata_kuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == data.mata_kuliah_kodemk).first()
     if not mata_kuliah:
         raise HTTPException(status_code=404, detail="Mata Kuliah not found")
 
-    # Check if an opened class with the same mata_kuliah and kelas already exists
+    # 2. Check if an opened class with the same course and class already exists.
     existing_class = db.query(OpenedClass).filter(
         OpenedClass.mata_kuliah_kodemk == data.mata_kuliah_kodemk,
         OpenedClass.kelas == data.kelas
@@ -54,24 +56,38 @@ async def create_opened_class(data: OpenedClassCreate, db: Session = Depends(get
     if existing_class:
         raise HTTPException(status_code=400, detail="Opened class with this Mata Kuliah and Kelas already exists")
 
+    # 3. Validate that at least one dosen is assigned.
+    if not data.dosens:
+        raise HTTPException(status_code=400, detail="At least one dosen must be assigned")
+
+    # 4. For Teori classes, ensure at least one dosen is marked as dosen besar.
+    if mata_kuliah.tipe_mk == "T":
+        if not any(dosen.is_dosen_besar for dosen in data.dosens):
+            raise HTTPException(
+                status_code=400,
+                detail="Untuk kelas teori (dengan tipe MK T), salah satu dosen harus menjadi dosen besar."
+            )
+
+    # 5. Create new opened class but do not commit yet.
     new_class = OpenedClass(
         mata_kuliah_kodemk=data.mata_kuliah_kodemk,
         kelas=data.kelas,
         kapasitas=data.kapasitas
     )
     db.add(new_class)
-    db.commit()
-    db.refresh(new_class)
+    db.flush()  # Assigns an ID without finalizing the transaction
 
-    dosens_dict = {dosen.id: dosen.is_dosen_besar for dosen in data.dosens}
-    dosens = db.query(Dosen).filter(Dosen.pegawai_id.in_(dosens_dict.keys())).all()
-
+    # 6. Retrieve dosens from the DB.
+    dosen_ids = [dosen.id for dosen in data.dosens]
+    dosens = db.query(Dosen).filter(Dosen.pegawai_id.in_(dosen_ids)).all()
     if not dosens:
         raise HTTPException(status_code=404, detail="No valid Dosen found")
 
-    # Determine dosen_besar using frontend choice if available, or auto-detect
+    # 7. Determine dosen_besar_id using frontend selection if provided.
     dosen_besar_id = next((dosen.id for dosen in data.dosens if dosen.is_dosen_besar), None)
+    # If none is provided, use fallback logic.
     if not dosen_besar_id and mata_kuliah.tipe_mk == "T":
+        from sqlalchemy import func
         dosen_appearance_counts = (
             db.query(openedclass_dosen.c.dosen_id, func.count(openedclass_dosen.c.opened_class_id).label("count"))
             .join(OpenedClass, OpenedClass.id == openedclass_dosen.c.opened_class_id)
@@ -80,30 +96,35 @@ async def create_opened_class(data: OpenedClassCreate, db: Session = Depends(get
             .all()
         )
         dosen_appearance_dict = {d.dosen_id: d.count for d in dosen_appearance_counts}
-        max_appearance = max(dosen_appearance_dict.values(), default=0)
-        top_dosens = [dosen_id for dosen_id, count in dosen_appearance_dict.items() if count == max_appearance]
-        dosen_besar_id = top_dosens[0] if top_dosens else None
-
-    # If the course is theoretical, ensure there is a dosen besar
+        if dosen_appearance_dict:
+            max_appearance = max(dosen_appearance_dict.values())
+            top_dosens = [dosen_id for dosen_id, count in dosen_appearance_dict.items() if count == max_appearance]
+            dosen_besar_id = top_dosens[0]
+    # Final check: if course is Teori and still no dosen besar, then reject.
     if mata_kuliah.tipe_mk == "T" and not dosen_besar_id:
         raise HTTPException(
             status_code=400,
             detail="Untuk kelas teori (dengan tipe MK T), salah satu dosen harus menjadi dosen besar."
         )
 
-    # Determine used_preference for each dosen
-    sorted_dosens = sorted(dosens, key=lambda d: d.tanggal_lahir)
+    # 8. Determine used_preference for each dosen.
+    # If there are exactly two lecturers (one dosen besar and one dosen kecil), mark the dosen kecil as used_preference.
+    from datetime import datetime
+    sorted_dosens = sorted(dosens, key=lambda d: d.tanggal_lahir or datetime.max)
     dosen_entries = []
     for dosen in sorted_dosens:
-        is_dosen_besar = dosen.pegawai_id == dosen_besar_id
-        used_preference = False
-        if len(sorted_dosens) == 1:
-            used_preference = True
-        elif is_dosen_besar:
-            used_preference = False
-        elif dosen.pegawai_id == sorted_dosens[0].pegawai_id:
-            used_preference = True
-
+        is_dosen_besar = (dosen.pegawai_id == dosen_besar_id)
+        if len(sorted_dosens) == 2:
+            used_preference = not is_dosen_besar
+        else:
+            if len(sorted_dosens) == 1:
+                used_preference = True
+            elif is_dosen_besar:
+                used_preference = False
+            elif dosen.pegawai_id == sorted_dosens[0].pegawai_id:
+                used_preference = True
+            else:
+                used_preference = False
         dosen_entries.append({
             "opened_class_id": new_class.id,
             "dosen_id": dosen.pegawai_id,
@@ -111,8 +132,10 @@ async def create_opened_class(data: OpenedClassCreate, db: Session = Depends(get
             "is_dosen_besar": is_dosen_besar
         })
 
+    # 9. Insert dosen assignments.
     db.execute(openedclass_dosen.insert(), dosen_entries)
     db.commit()
+    db.refresh(new_class)
 
     return {
         "id": new_class.id,
@@ -120,11 +143,10 @@ async def create_opened_class(data: OpenedClassCreate, db: Session = Depends(get
         "kelas": new_class.kelas,
         "kapasitas": new_class.kapasitas,
         "dosens": [
-            {"id": dosen.pegawai_id, "is_dosen_besar": dosen.pegawai_id == dosen_besar_id}
+            {"id": dosen.pegawai_id, "is_dosen_besar": (dosen.pegawai_id == dosen_besar_id)}
             for dosen in dosens
         ],
     }
-
 
 
 @router.get("/get-matakuliah/names", response_model=PaginatedMatakuliahResponse)
@@ -239,37 +261,39 @@ async def get_opened_classes(
 
 @router.put("/{opened_class_id}", response_model=OpenedClassResponse)
 async def update_opened_class(opened_class_id: int, data: OpenedClassCreate, db: Session = Depends(get_db)):
-    # ✅ Step 1: Check if the OpenedClass exists
+    # Step 1: Check if the OpenedClass exists.
     opened_class = db.query(OpenedClass).filter(OpenedClass.id == opened_class_id).first()
     if not opened_class:
         raise HTTPException(status_code=404, detail="Opened class not found")
 
-    # ✅ Step 2: Check if MataKuliah exists
+    # Step 2: Check if MataKuliah exists.
     mata_kuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == data.mata_kuliah_kodemk).first()
     if not mata_kuliah:
         raise HTTPException(status_code=404, detail="Mata Kuliah not found")
 
-    # ✅ Step 3: Update OpenedClass details
+    # Step 3: Update OpenedClass details.
     opened_class.mata_kuliah_kodemk = data.mata_kuliah_kodemk
     opened_class.kelas = data.kelas
     opened_class.kapasitas = data.kapasitas
     db.commit()
     db.refresh(opened_class)
 
-    # ✅ Step 4: Remove Old `openedclass_dosen` Data
+    # Step 4: Remove old `openedclass_dosen` data.
+    from sqlalchemy import delete
     db.execute(delete(openedclass_dosen).where(openedclass_dosen.c.opened_class_id == opened_class_id))
 
-    # ✅ Step 5: Insert New `openedclass_dosen` Entries
+    # Step 5: Insert new `openedclass_dosen` entries.
     dosens_dict = {dosen.id: dosen.is_dosen_besar for dosen in data.dosens}
     dosens = db.query(Dosen).filter(Dosen.pegawai_id.in_(dosens_dict.keys())).all()
 
     if not dosens:
         raise HTTPException(status_code=404, detail="No valid Dosen found")
 
-    # ✅ Respect frontend choice for `is_dosen_besar`, but apply logic if missing
+    # Check dosen_besar selection
     dosen_besar_id = next((dosen.id for dosen in data.dosens if dosen.is_dosen_besar), None)
-
     if not dosen_besar_id and mata_kuliah.tipe_mk == "T":
+        # Fallback logic
+        from sqlalchemy import func
         dosen_appearance_counts = (
             db.query(openedclass_dosen.c.dosen_id, func.count(openedclass_dosen.c.opened_class_id).label("count"))
             .join(OpenedClass, OpenedClass.id == openedclass_dosen.c.opened_class_id)
@@ -278,24 +302,33 @@ async def update_opened_class(opened_class_id: int, data: OpenedClassCreate, db:
             .all()
         )
         dosen_appearance_dict = {d.dosen_id: d.count for d in dosen_appearance_counts}
-        max_appearance = max(dosen_appearance_dict.values(), default=0)
-        top_dosens = [dosen_id for dosen_id, count in dosen_appearance_dict.items() if count == max_appearance]
-        dosen_besar_id = top_dosens[0] if top_dosens else None
+        if dosen_appearance_dict:
+            max_appearance = max(dosen_appearance_dict.values())
+            top_dosens = [dosen_id for dosen_id, count in dosen_appearance_dict.items() if count == max_appearance]
+            dosen_besar_id = top_dosens[0]
+    if mata_kuliah.tipe_mk == "T" and not dosen_besar_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Untuk kelas teori (dengan tipe MK T), salah satu dosen harus menjadi dosen besar."
+        )
+        
 
-    sorted_dosens = sorted(dosens, key=lambda d: d.tanggal_lahir)
+    # Determine used_preference for each dosen.
+    sorted_dosens = sorted(dosens, key=lambda d: d.tanggal_lahir or datetime.max)
     dosen_entries = []
-
     for dosen in sorted_dosens:
-        is_dosen_besar = dosen.pegawai_id == dosen_besar_id
-        used_preference = False
-
-        if len(sorted_dosens) == 1:
-            used_preference = True
-        elif is_dosen_besar:
-            used_preference = False
-        elif dosen.pegawai_id == sorted_dosens[0].pegawai_id:
-            used_preference = True
-
+        is_dosen_besar = (dosen.pegawai_id == dosen_besar_id)
+        if len(sorted_dosens) == 2:
+            used_preference = not is_dosen_besar
+        else:
+            if len(sorted_dosens) == 1:
+                used_preference = True
+            elif is_dosen_besar:
+                used_preference = False
+            elif dosen.pegawai_id == sorted_dosens[0].pegawai_id:
+                used_preference = True
+            else:
+                used_preference = False
         dosen_entries.append({
             "opened_class_id": opened_class.id,
             "dosen_id": dosen.pegawai_id,
@@ -313,7 +346,6 @@ async def update_opened_class(opened_class_id: int, data: OpenedClassCreate, db:
         "kapasitas": opened_class.kapasitas,
         "dosens": [{"id": dosen.pegawai_id, "is_dosen_besar": dosen.pegawai_id == dosen_besar_id} for dosen in dosens],
     }
-
 
 @router.get("/{class_id}", response_model=Dict[str, Any])
 async def get_opened_class(class_id: int, db: Session = Depends(get_db)):

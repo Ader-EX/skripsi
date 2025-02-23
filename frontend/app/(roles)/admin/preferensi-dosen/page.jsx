@@ -49,7 +49,7 @@ const AdminPreferences = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDosenSelectOpen, setIsDosenSelectOpen] = useState(false);
   const token = Cookies.get("access_token");
-  if (!token) throw new Error("No authentication token found.");
+  if (!token) window.location.href = "/";
 
   const reasonOptions = [
     "Jadwal bentrok",
