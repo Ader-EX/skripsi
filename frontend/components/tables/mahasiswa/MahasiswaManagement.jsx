@@ -30,10 +30,7 @@ const PROGRAM_STUDI_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/program-studi`
 
 const MahasiswaManagement = () => {
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
+
   const [mahasiswaList, setMahasiswaList] = useState([]);
   const [programStudiList, setProgramStudiList] = useState([]);
   const [loading, setLoading] = useState(true);

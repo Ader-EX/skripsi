@@ -51,10 +51,7 @@ const DosenPreferensi = () => {
   const [userId, setUserId] = useState(null);
 
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
+
   useEffect(() => {
     const token = Cookies.get("access_token");
     if (token) {
@@ -132,7 +129,6 @@ const DosenPreferensi = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
 
       const data = await response.json();
-      console.log(data);
 
       setPreferences(Array.isArray(data) ? data : []);
 

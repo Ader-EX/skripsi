@@ -35,6 +35,7 @@ export const OpenedClassTable = ({ classList, onDelete, loading }) => {
           <tr className="bg-primary/5">
             <th className="p-2 text-left">Kode</th>
             <th className="p-2 text-left">Mata Kuliah</th>
+            <th className="p-2 text-left">Program Studi</th>
             <th className="p-2 text-left">Tipe</th>
             <th className="p-2 text-left">Kelas</th>
             <th className="p-2 text-left">Dosen</th>
@@ -48,6 +49,7 @@ export const OpenedClassTable = ({ classList, onDelete, loading }) => {
             <tr key={classItem.id} className="border-b">
               <td className="p-2">{classItem.mata_kuliah.kode}</td>
               <td className="p-2">{classItem.mata_kuliah.nama}</td>
+              <td className="p-2">{classItem.mata_kuliah.program_studi}</td>
               <td className="p-2">
                 {getTipeMKLabel(classItem.mata_kuliah.tipe_mk)}
               </td>

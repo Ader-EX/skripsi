@@ -27,10 +27,6 @@ const EditTimetable = () => {
   const [openedClassList, setOpenedClassList] = useState([]);
   const [ruanganList, setRuanganList] = useState([]);
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
 
   const defaultFormData = {
     opened_class_id: "",
@@ -52,8 +48,6 @@ const EditTimetable = () => {
       })
         .then((res) => res.json())
         .then((data) => {
-          console.log("📥 Fetched Timetable Data:", data);
-
           if (
             !data ||
             !data.opened_class_id ||

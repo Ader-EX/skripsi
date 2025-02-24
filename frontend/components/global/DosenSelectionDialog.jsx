@@ -29,10 +29,6 @@ const DosenSelectionDialog = ({ isOpen, onClose, onSelect }) => {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
 
   useEffect(() => {
     if (isOpen) fetchDosen();
@@ -135,9 +131,7 @@ const DosenSelectionDialog = ({ isOpen, onClose, onSelect }) => {
             <ChevronLeft className="h-4 w-4 mr-1" />
             Sebelumnya
           </Button>
-          <span className="text-sm">
-            Halaman {page} dari {totalPages}
-          </span>
+          <span className="text-sm">Halaman {page}</span>
           <Button
             disabled={page >= totalPages}
             onClick={() => setPage((prev) => prev + 1)}

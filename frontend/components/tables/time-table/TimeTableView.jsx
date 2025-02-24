@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import Cookies from "js-cookie";
 
 const API_CHECK_CONFLICTS = `${process.env.NEXT_PUBLIC_API_URL}/algorithm/check-conflicts`;
 const API_RESOLVER_CONFLICTS = `${process.env.NEXT_PUBLIC_API_URL}/timetable/resolve-conflicts`;
@@ -44,6 +45,7 @@ const TimeTableView = ({ scheduleList, loading }) => {
   const [showAutoResolveConfirm, setShowAutoResolveConfirm] = useState(false);
   const [showConflictDialog, setShowConflictDialog] = useState(false);
   const router = useRouter();
+  const token = Cookies.get("access_token");
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
@@ -65,7 +67,11 @@ const TimeTableView = ({ scheduleList, loading }) => {
 
   const fetchConflicts = async () => {
     try {
-      const response = await fetch(API_CHECK_CONFLICTS);
+      const response = await fetch(API_CHECK_CONFLICTS, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       if (!response.ok) throw new Error("Gagal mengecek bentrok.");
       const data = await response.json();
       if (data.total_conflicts > 0) {

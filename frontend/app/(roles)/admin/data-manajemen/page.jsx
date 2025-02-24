@@ -12,7 +12,6 @@ import {
   Calendar1,
 } from "lucide-react";
 
-import ProgramStudiManagement from "@/components/tables/program-studi/ProgramStudiManagement";
 import MahasiswaManagement from "@/components/tables/mahasiswa/MahasiswaManagement";
 import AcademicPeriodManagement from "@/components/tables/academic-period/AcademicPeriodManagement";
 import RuanganManagement from "@/components/pages/RuanganManagement";

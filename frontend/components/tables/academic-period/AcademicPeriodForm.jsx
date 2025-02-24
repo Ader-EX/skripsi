@@ -26,10 +26,6 @@ const AcademicPeriodForm = ({ isOpen, onClose, onSubmit, initialData }) => {
   );
 
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
 
   useEffect(() => {
     if (initialData) {

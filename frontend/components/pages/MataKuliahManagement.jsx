@@ -27,10 +27,6 @@ const MataKuliahManagement = () => {
   const [isEdit, setIsEdit] = useState(false);
   const [currentMataKuliah, setCurrentMataKuliah] = useState(null);
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
 
   useEffect(() => {
     fetchMataKuliah();

@@ -30,10 +30,6 @@ const AdminJadwal = () => {
   const [searchQuery, setSearchQuery] = useState("");
 
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
 
   const fetchTimetableData = async (search = "") => {
     try {

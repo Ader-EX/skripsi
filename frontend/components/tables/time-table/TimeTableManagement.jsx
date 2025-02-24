@@ -38,10 +38,6 @@ const TimeTableManagement = () => {
   });
   const [searchInput, setSearchInput] = useState("");
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
 
   const fetchSchedules = async () => {
     setLoading(true);

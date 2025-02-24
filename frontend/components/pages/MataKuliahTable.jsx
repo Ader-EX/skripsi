@@ -61,6 +61,7 @@ const MataKuliahTable = ({
             <TableRow className="bg-primary/5">
               <TableHead>Kode</TableHead>
               <TableHead>Nama</TableHead>
+              <TableHead>Program Studi</TableHead>
               <TableHead>SKS</TableHead>
               <TableHead>Semester</TableHead>
               <TableHead>Tipe</TableHead>
@@ -75,6 +76,7 @@ const MataKuliahTable = ({
                   <TableCell>{mk.kodemk}</TableCell>
                   <TableCell>{mk.namamk}</TableCell>
                   <TableCell>{mk.sks}</TableCell>
+                  <TableCell>{mk.program_studi_name}</TableCell>
                   <TableCell>{mk.smt}</TableCell>
                   <TableCell>
                     <span

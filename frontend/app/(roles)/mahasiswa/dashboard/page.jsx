@@ -50,10 +50,6 @@ const MahasiswaDashboard = () => {
   const [weekStart, setWeekStart] = useState("");
   const [weekEnd, setWeekEnd] = useState("");
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
 
   const fetchAcademicPeriod = async () => {
     try {
@@ -310,7 +306,6 @@ const MahasiswaDashboard = () => {
       setIsSubmitting(true);
       const token = Cookies.get("access_token");
 
-      // ✅ Fetch the active academic period before making the request
       const periodResponse = await fetch(`${BASE_URL}/academic-period/active`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -321,10 +316,6 @@ const MahasiswaDashboard = () => {
 
       const periodData = await periodResponse.json();
       const academicPeriodId = periodData.id;
-
-      console.log("📌 Active Academic Period:", academicPeriodId);
-
-      // ✅ Send the request with `academic_period_id`
       const response = await fetch(`${BASE_URL}/mahasiswa-timetable/`, {
         method: "POST",
         headers: {

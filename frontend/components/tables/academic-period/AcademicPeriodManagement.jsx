@@ -27,10 +27,6 @@ const AcademicPeriodManagement = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
 
   useEffect(() => {
     fetchAcademicPeriods();

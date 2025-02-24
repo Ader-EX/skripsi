@@ -23,10 +23,6 @@ const TimeTableForm = ({ isOpen, onClose, initialData, onSubmit }) => {
   const [isMatkulDialogOpen, setIsMatkulDialogOpen] = useState(false);
   const [isDosenDialogOpen, setIsDosenDialogOpen] = useState(false);
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
 
   // Default form data
   const defaultFormData = {

@@ -1,4 +1,3 @@
-import Navbar from "@/components/global/Navbar";
 import React from "react";
 import AdminDashboardStats from "./AdminDashboardStats";
 

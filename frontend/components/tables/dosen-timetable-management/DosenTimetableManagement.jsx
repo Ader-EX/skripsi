@@ -32,10 +32,6 @@ const DosenTimeTableManagement = () => {
   const [error, setError] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
 
   // When a dosen is selected, fetch its timetable
   useEffect(() => {

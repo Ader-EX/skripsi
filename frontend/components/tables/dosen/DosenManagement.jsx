@@ -40,10 +40,6 @@ const DosenManagement = () => {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
 
   useEffect(() => {
     fetchDosen();
@@ -117,25 +113,46 @@ const DosenManagement = () => {
 
   const handleFormSubmit = async (formData) => {
     try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      });
+      let response;
+
+      if (editData && editData.pegawai_id) {
+        response = await fetch(`${API_URL}/${editData.pegawai_id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(formData),
+        });
+      } else {
+        response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(formData),
+        });
+      }
 
       if (!response.ok) {
         const errorData = await response.json();
-        toast.error(`Gagal menambahkan dosen: ${errorData.detail}`);
+        if (editData) {
+          toast.error(`Gagal mengupdate dosen: ${errorData.detail}`);
+        } else {
+          toast.error(`Gagal menambahkan dosen: ${errorData.detail}`);
+        }
         return;
       }
 
       const responseData = await response.json();
-      toast.success(
-        `Dosen berhasil ditambahkan dengan ID: ${responseData.dosen_id}`
-      );
+      if (editData) {
+        toast.success("Dosen berhasil diupdate");
+      } else {
+        toast.success(
+          `Dosen berhasil ditambahkan dengan ID: ${responseData.dosen_id}`
+        );
+      }
       fetchDosen();
       setFormOpen(false);
     } catch (error) {

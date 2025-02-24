@@ -34,10 +34,6 @@ const MatakuliahSelectionDialog = ({
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
 
   useEffect(() => {
     if (isOpen) fetchMatakuliah();

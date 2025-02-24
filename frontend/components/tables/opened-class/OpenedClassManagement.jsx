@@ -30,10 +30,6 @@ const OpenedClassManagement = () => {
   const [deleteId, setDeleteId] = useState(null);
   const limit = 5;
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
 
   useEffect(() => {
     fetchClasses();

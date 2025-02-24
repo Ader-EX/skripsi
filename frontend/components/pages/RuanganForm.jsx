@@ -32,10 +32,6 @@ const RuanganForm = ({ isOpen, onClose, isEdit, ruangan, fetchRuangan }) => {
     alamat: "",
   });
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
 
   useEffect(() => {
     if (isEdit && ruangan) {

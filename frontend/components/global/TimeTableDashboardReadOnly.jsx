@@ -32,10 +32,6 @@ const TimeTableDashboardReadOnly = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
 
   const fetchSchedules = async () => {
     setLoading(true);

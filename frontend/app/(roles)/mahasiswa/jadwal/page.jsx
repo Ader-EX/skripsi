@@ -33,10 +33,6 @@ const MahasiswaJadwal = () => {
   const [showConflictDialog, setShowConflictDialog] = useState(false);
 
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
 
   const fetchTimetableData = async (search = "") => {
     try {

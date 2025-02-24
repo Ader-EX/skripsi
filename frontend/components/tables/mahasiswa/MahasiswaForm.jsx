@@ -16,10 +16,7 @@ const PROGRAM_STUDI_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/program-studi`
 
 const MahasiswaForm = ({ isOpen, onClose, initialData, onSubmit }) => {
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
+
   const [programStudiList, setProgramStudiList] = useState([]);
   const [formData, setFormData] = useState(
     initialData || {

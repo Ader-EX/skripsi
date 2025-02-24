@@ -47,7 +47,6 @@ const AppSidebar = () => {
     const getUserInfo = () => {
       const token = Cookies.get("access_token");
       if (!token) {
-        console.log("No token found, redirecting to login...");
         router.push("/");
         return;
       }
@@ -57,7 +56,6 @@ const AppSidebar = () => {
 
         const currentTime = Date.now() / 1000;
         if (decoded.exp && currentTime > decoded.exp) {
-          console.log("Token expired, redirecting...");
           Cookies.remove("access_token");
           router.push("/");
           return;
@@ -65,7 +63,6 @@ const AppSidebar = () => {
         setEmail(decoded.name || "admin");
         setRole(decoded.role);
       } catch (error) {
-        console.log(error);
         router.push("/");
       }
     };

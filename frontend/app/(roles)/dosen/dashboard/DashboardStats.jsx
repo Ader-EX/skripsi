@@ -17,10 +17,6 @@ const DashboardStats = () => {
       try {
         // Get token from cookies
         const token = Cookies.get("access_token");
-        if (!token) {
-          window.location.href = "/";
-          return;
-        }
 
         // Decode JWT token
         const payload = decodeToken(token);

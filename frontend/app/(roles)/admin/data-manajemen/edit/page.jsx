@@ -16,7 +16,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const EditTimetable = () => {
   const router = useRouter();
-  const searchParams = typeof window !== "undefined" ? useSearchParams() : null;
+  const searchParams = window !== "undefined" ? useSearchParams() : null;
   const timetableId = searchParams ? searchParams.get("id") : null;
 
   const [selectedOpenedClass, setSelectedOpenedClass] = useState(null);
@@ -28,9 +28,6 @@ const EditTimetable = () => {
   const [isMounted, setIsMounted] = useState(false);
 
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-  }
 
   useEffect(() => {
     setIsMounted(true);
@@ -49,12 +46,13 @@ const EditTimetable = () => {
       const data = await response.json();
       setSelectedOpenedClass({
         id: data.opened_class_id,
-        nama_mk: data.mata_kuliah_nama, // Ensure this data exists in the API
+        nama_mk: data.mata_kuliah_nama,
         kelas: data.kelas,
+        sks: data.sks,
       });
       setSelectedRuangan({
         id: data.ruangan_id,
-        nama_ruang: data.ruangan_nama, // Ensure this data exists in the API
+        nama_ruang: data.ruangan_nama,
       });
       setSelectedTimeslots(data.timeslot_ids);
 
@@ -86,6 +84,7 @@ const EditTimetable = () => {
       id: openedClass.id,
       nama_mk: openedClass.mata_kuliah.nama,
       kelas: openedClass.kelas,
+      sks: openedClass.sks,
     });
   };
 
@@ -112,7 +111,7 @@ const EditTimetable = () => {
       selectedTimeslots.length === 0
     ) {
       toast.error(
-        "Please select an Opened Class, Room, and at least one Timeslot."
+        "Pilih kelas yang tersedia, ruangan, dan minimal satu waktu."
       );
       return;
     }
@@ -137,11 +136,11 @@ const EditTimetable = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json(); // ✅ Read the error response
+        const errorData = await response.json();
         throw new Error(errorData.detail || "Failed to save timetable");
       }
 
-      toast.success("Timetable saved successfully!");
+      toast.success("Timetable berhasil disimpan!");
       router.push("/admin/data-manajemen");
     } catch (error) {
       toast.error(error.message || "Error saving timetable");
@@ -169,14 +168,13 @@ const EditTimetable = () => {
                   ? `${selectedOpenedClass.id} - ${selectedOpenedClass.nama_mk} - ${selectedOpenedClass.kelas}`
                   : ""
               }
-              placeholder="Select Opened Class"
+              placeholder="Pilih kelas yang dibuka"
               readOnly
               onClick={() => setIsOpenedClassDialogOpen(true)}
               className="w-full cursor-pointer"
             />
           </div>
 
-          {/* Room Input */}
           <div className="mb-4">
             <Label>Ruangan</Label>
             <Input
@@ -185,7 +183,7 @@ const EditTimetable = () => {
                   ? `${selectedRuangan.id} - ${selectedRuangan.nama_ruang}`
                   : ""
               }
-              placeholder="Select Room"
+              placeholder="Pilih ruangan"
               readOnly
               onClick={() => setIsRuanganDialogOpen(true)}
               className="w-full cursor-pointer"
@@ -193,13 +191,22 @@ const EditTimetable = () => {
           </div>
         </CardContent>
       </Card>
+
       {availableTimeslots.length > 0 && (
         <Card className="p-6">
+          <div className="mb-4 text-xl">
+            <Label>
+              Total SKS{" "}
+              <span className="font-bold">
+                {selectedOpenedClass ? selectedOpenedClass.sks : 0}
+              </span>
+            </Label>
+          </div>
           <TimeslotSelectionTable
             availableTimeslots={availableTimeslots}
             selectedTimeslots={selectedTimeslots}
             onTimeslotToggle={handleTimeslotToggle}
-            timetableTimeslots={selectedTimeslots} // Pass previously selected timeslots
+            timetableTimeslots={selectedTimeslots}
           />
         </Card>
       )}
@@ -212,6 +219,7 @@ const EditTimetable = () => {
         isOpen={isOpenedClassDialogOpen}
         onClose={() => setIsOpenedClassDialogOpen(false)}
         onSelect={handleOpenedClassSelect}
+        timetableFilter={true}
       />
 
       <RuanganSelectionDialog

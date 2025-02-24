@@ -25,22 +25,12 @@ const MahasiswaProfile = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
-  const jobOptions = [
-    "PNS",
-    "Wiraswasta",
-    "Petani",
-    "Buruh",
-    "Pegawai Swasta",
-    "Guru/Dosen",
-    "Dokter",
-    "Polisi/TNI",
-    "Lainnya",
-  ];
+
   const [formData, setFormData] = useState({
     nama: "",
     tgl_lahir: "",
     kota_lahir: "",
-    jenis_kelamin: "Laki-laki",
+    jenis_kelamin: "L", // Underlying value "L" by default
     alamat: "",
     kode_pos: "",
     hp: "",
@@ -53,10 +43,6 @@ const MahasiswaProfile = () => {
     status_kawin: 0,
   });
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
 
   useEffect(() => {
     fetchUserData();
@@ -88,10 +74,10 @@ const MahasiswaProfile = () => {
       setFormData((prev) => ({
         ...prev,
         ...data,
-
         tgl_lahir: data.tgl_lahir || "",
         kota_lahir: data.kota_lahir || "",
-        jenis_kelamin: data.jenis_kelamin || "Laki-laki",
+        // Set jenis_kelamin to underlying value; default to "L" if not provided.
+        jenis_kelamin: data.jenis_kelamin || "L",
         kode_pos: data.kode_pos || "",
         nama_ayah: data.nama_ayah || "",
         nama_ibu: data.nama_ibu || "",
@@ -99,7 +85,6 @@ const MahasiswaProfile = () => {
         pekerjaan_ibu: data.pekerjaan_ibu || "",
         status_kawin: data.status_kawin || 0,
       }));
-      console.log(formData);
     } catch (err) {
       setError(err.message);
       console.error("Error fetching user data:", err);
@@ -117,18 +102,24 @@ const MahasiswaProfile = () => {
   };
 
   const handleSelectChange = (value, field) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-      [field]: value === "Belum Kawin" ? 0 : 1,
-    }));
+    if (field === "status_kawin") {
+      setFormData((prev) => ({
+        ...prev,
+        [field]: value === "Belum Kawin" ? 0 : 1,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setSuccessMessage("");
-    console.log(formData);
+
     try {
       if (!userId) {
         throw new Error("User ID not found");
@@ -242,8 +233,8 @@ const MahasiswaProfile = () => {
                       <SelectValue placeholder="Pilih jenis kelamin" />
                     </SelectTrigger>
                     <SelectContent className="bg-white">
-                      <SelectItem value="Laki-laki">Laki-laki</SelectItem>
-                      <SelectItem value="Perempuan">Perempuan</SelectItem>
+                      <SelectItem value="L">Laki-laki</SelectItem>
+                      <SelectItem value="P">Perempuan</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -346,7 +337,6 @@ const MahasiswaProfile = () => {
                     onChange={handleChange}
                     placeholder="Masukkan email"
                     type="email"
-                    disabled
                     className="w-full bg-gray-50"
                   />
                 </div>

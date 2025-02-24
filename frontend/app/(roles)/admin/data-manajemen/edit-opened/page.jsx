@@ -25,7 +25,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const EditOpenedClass = () => {
   const router = useRouter();
-  const searchParams = typeof window !== "undefined" ? useSearchParams() : null;
+  const searchParams = window !== "undefined" ? useSearchParams() : null;
   const classId = searchParams ? searchParams.get("id") : null; // Check if it's PUT mode
 
   const [selectedMataKuliah, setSelectedMataKuliah] = useState(null);
@@ -37,9 +37,6 @@ const EditOpenedClass = () => {
   const [isMounted, setIsMounted] = useState(false);
 
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-  }
 
   useEffect(() => {
     setIsMounted(true);
@@ -234,7 +231,6 @@ const EditOpenedClass = () => {
             <Button
               className="mb-2 bg-primary"
               onClick={() => {
-                console.log("Opening Dosen Selection Dialog...");
                 setIsDosenDialogOpen(true);
               }}
             >
@@ -249,8 +245,8 @@ const EditOpenedClass = () => {
                 {selectedMataKuliah?.tipe_mk === "T" && (
                   <TableHead>Dosen Besar</TableHead>
                 )}
-                <TableHead>Used Preference</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>Gunakan Preferensi?</TableHead>
+                <TableHead>Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

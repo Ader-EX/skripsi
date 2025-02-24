@@ -25,10 +25,7 @@ const RuanganManagement = () => {
   const [isEdit, setIsEdit] = useState(false);
   const [currentRuangan, setCurrentRuangan] = useState(null);
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
+
   useEffect(() => {
     fetchRuangan();
   }, [filters, page, pageSize]);

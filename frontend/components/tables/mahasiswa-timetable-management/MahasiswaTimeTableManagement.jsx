@@ -28,10 +28,6 @@ const MahasiswaTimeTableManagement = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
 
   useEffect(() => {
     if (selectedMahasiswa?.id) {

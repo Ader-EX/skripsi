@@ -31,10 +31,7 @@ const MataKuliahForm = ({
   programStudi,
 }) => {
   const token = Cookies.get("access_token");
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
+
   const [formData, setFormData] = useState({
     kodemk: "",
     namamk: "",

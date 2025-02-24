@@ -5,7 +5,6 @@ const useAuthStore = create((set) => ({
   tokenType: null,
   role: null,
   setAuth: (token, tokenType, role) => {
-    console.log("Updating state:", token, tokenType, role);
     set({ token, tokenType, role });
   },
   logout: () => set({ token: null, tokenType: null }),

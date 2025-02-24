@@ -480,7 +480,7 @@ def get_timetable_by_day_and_room(
 
 
 
-# 🔵 READ a single timetable by ID
+
 @router.get("/{id}")
 def get_timetable(id: int, db: Session = Depends(get_db)):
     timetable = (
@@ -491,6 +491,7 @@ def get_timetable(id: int, db: Session = Depends(get_db)):
         .join(Ruangan, TimeTable.ruangan_id == Ruangan.id)
         .add_columns(
             MataKuliah.namamk.label("mata_kuliah_nama"),
+            MataKuliah.sks.label("sks"),
             Ruangan.nama_ruang.label("ruangan_nama")
         )
         .first()
@@ -512,11 +513,11 @@ def get_timetable(id: int, db: Session = Depends(get_db)):
         "kuota": timetable.TimeTable.kuota,
         "placeholder": timetable.TimeTable.placeholder,
         "mata_kuliah_nama": timetable.mata_kuliah_nama,
+        "sks": timetable.sks,
         "ruangan_nama": timetable.ruangan_nama
     }
 
     return timetable_data
-
 
 @router.put("/{id}", response_model=TimeTableResponse)
 def update_timetable(id: int, updated_timetable: TimeTableUpdate, db: Session = Depends(get_db)):
