@@ -163,7 +163,7 @@ const DosenPreferensi = () => {
       );
 
       if (prefData.delete) {
-        await fetch(
+        const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/preference/${existingPref.id}`,
           { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
         );
@@ -221,7 +221,6 @@ const DosenPreferensi = () => {
           }
         );
 
-        // Parse error response if not OK
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.detail || "Failed to create preference");

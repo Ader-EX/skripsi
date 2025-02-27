@@ -293,7 +293,7 @@ async def update_dosen(dosen_id: int, dosen: DosenUpdate, db: Session = Depends(
         db_dosen.nomor_ktp = dosen.nomor_ktp
     if dosen.tanggal_lahir:
         
-        db_dosen.tanggal_lahir = datetime.strptime(dosen.tanggal_lahir, "%Y-%m-%d")
+        db_dosen.tanggal_lahir = datetime.strptime(dosen.tanggal_lahir, "%d/%m/%Y")
     if dosen.progdi_id is not None:
         db_dosen.progdi_id = dosen.progdi_id
     if dosen.status_dosen is not None:
@@ -311,23 +311,23 @@ async def update_dosen(dosen_id: int, dosen: DosenUpdate, db: Session = Depends(
 
     return {"message": "Dosen berhasil diperbarui", "dosen_id": db_dosen.pegawai_id}
     
-@router.delete("/{dosen_id}", response_model=dict)
-async def delete_dosen(dosen_id: int, db: Session = Depends(get_db)):
-    db_dosen = db.query(Dosen).filter(Dosen.pegawai_id == dosen_id).first()
-    if not db_dosen:
-        raise HTTPException(status_code=404, detail="Dosen not found")
+# @router.delete("/{dosen_id}", response_model=dict)
+# async def delete_dosen(dosen_id: int, db: Session = Depends(get_db)):
+#     db_dosen = db.query(Dosen).filter(Dosen.pegawai_id == dosen_id).first()
+#     if not db_dosen:
+#         raise HTTPException(status_code=404, detail="Dosen not found")
 
-    db_user = db.query(User).filter(User.id == db_dosen.user_id).first()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="Associated User not found")
+#     db_user = db.query(User).filter(User.id == db_dosen.user_id).first()
+#     if not db_user:
+#         raise HTTPException(status_code=404, detail="Associated User not found")
 
-    db.delete(db_dosen)
-    db.commit()
+#     db.delete(db_dosen)
+#     db.commit()
 
-    db.delete(db_user)
-    db.commit()
+#     db.delete(db_user)
+#     db.commit()
 
-    return {"message": "Dosen dan User berhasil dihapus"}
+#     return {"message": "Dosen dan User berhasil dihapus"}
 
 
 @router.get("/timetable/{dosen_id}", response_model=Dict[str, Any])

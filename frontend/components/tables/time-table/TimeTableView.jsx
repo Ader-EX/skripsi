@@ -52,7 +52,12 @@ const TimeTableView = ({ scheduleList, loading }) => {
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/timetable/${confirmDelete}`,
-        { method: "DELETE" }
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
       if (!response.ok) throw new Error("Failed to delete timetable");
       toast.success("Jadwal berhasil dihapus");
@@ -90,7 +95,10 @@ const TimeTableView = ({ scheduleList, loading }) => {
     try {
       const response = await fetch(API_RESOLVER_CONFLICTS, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       });
       if (!response.ok) throw new Error("Gagal menyelesaikan bentrok.");
       const data = await response.json();

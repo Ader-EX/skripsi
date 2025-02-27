@@ -18,11 +18,7 @@ const DashboardStats = () => {
         // Get token from cookies
         const token = Cookies.get("access_token");
 
-        // Decode JWT token
         const payload = decodeToken(token);
-        if (!payload || !payload.sub) {
-          throw new Error("Invalid token format.");
-        }
 
         // Fetch dashboard stats
         const statsResponse = await fetch(

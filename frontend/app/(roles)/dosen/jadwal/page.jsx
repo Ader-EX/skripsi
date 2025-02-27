@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import TimeTableView from "../../admin/jadwal/TimeTableView";
+import Cookies from "js-cookie";
 
 const AdminJadwal = () => {
   const [timetableData, setTimetableData] = useState(null);

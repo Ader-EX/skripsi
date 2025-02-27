@@ -18,11 +18,7 @@ const AdminDashboardStats = () => {
         // Get token from cookies
         const token = Cookies.get("access_token");
 
-        // Decode JWT token
         const payload = decodeToken(token);
-        if (!payload || !payload.sub) {
-          throw new Error("Invalid token format.");
-        }
 
         const API_URL = process.env.NEXT_PUBLIC_API_URL;
 

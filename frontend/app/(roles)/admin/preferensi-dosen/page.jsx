@@ -35,6 +35,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import toast from "react-hot-toast";
+import Cookies from "js-cookie";
 
 const AdminPreferences = () => {
   const [timeSlots, setTimeSlots] = useState([]);

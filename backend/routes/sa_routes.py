@@ -80,9 +80,9 @@ def check_room_type_compatibility(solution, opened_class_cache, room_cache):
         room = room_cache[room_id]
 
         if mata_kuliah.tipe_mk == 'P' and room.tipe_ruangan != 'P':
-            penalty += 20  
+            penalty += 30  # kelas lab ya di lab
         elif mata_kuliah.tipe_mk == 'T' and room.tipe_ruangan != 'T':
-            penalty += 20 
+            penalty += 30  # kelas teori ya di lab
 
     return penalty
 
@@ -96,7 +96,7 @@ def check_special_needs_compliance(solution, opened_class_cache, room_cache, pre
             dosen_key = (opened_class_id, dosen_id)
             if dosen_key in preferences_cache and preferences_cache[dosen_key].get('is_special_needs', False):
                 if room.group_code not in ['KHD2', 'DS2']:
-                    penalty += 30  # Previously 1000
+                    penalty += 100 # biar gak asal taruh dosen kebutuhan khusus
     return penalty
 
 
@@ -149,11 +149,11 @@ def check_preference_compliance(solution, opened_class_cache, timeslot_cache, pr
                 if pref_info.get('is_high_priority', False):
                    
                     if timeslot_id in pref_info['preferences']:
-                        penalty += 20 
+                        penalty += 50 
                 elif pref_info.get('used_preference', False):
                     
                     if timeslot_id not in pref_info['preferences']:
-                        penalty += 5   
+                        penalty += 10  
     return penalty
 
 
@@ -414,7 +414,7 @@ def check_jabatan_constraint(solution, opened_class_cache, timeslot_cache, dosen
                 dosen = dosen_cache.get(dosen_id)
                 if dosen and dosen.jabatan is not None:
                     # Hard constraint violation: dosen with a jabatan should not be scheduled on Senin.
-                    penalty += 10000
+                    penalty += 500
     return penalty
 
 

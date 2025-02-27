@@ -31,6 +31,8 @@ const RuanganForm = ({ isOpen, onClose, isEdit, ruangan, fetchRuangan }) => {
     group_code: "",
     alamat: "",
   });
+
+  const [errors, setErrors] = useState({});
   const token = Cookies.get("access_token");
 
   useEffect(() => {
@@ -41,7 +43,7 @@ const RuanganForm = ({ isOpen, onClose, isEdit, ruangan, fetchRuangan }) => {
         kode_ruangan: "",
         nama_ruang: "",
         tipe_ruangan: "T",
-        kapasitas: 0,
+        kapasitas: "",
         gedung: "",
         group_code: "",
         alamat: "",
@@ -64,7 +66,27 @@ const RuanganForm = ({ isOpen, onClose, isEdit, ruangan, fetchRuangan }) => {
     }));
   };
 
+  const validateForm = () => {
+    let newErrors = {};
+
+    if (!formData.kode_ruangan.trim()) newErrors.kode_ruangan = "Wajib diisi";
+    if (!formData.nama_ruang.trim()) newErrors.nama_ruang = "Wajib diisi";
+    if (!formData.kapasitas || formData.kapasitas <= 0)
+      newErrors.kapasitas = "Wajib diisi dan harus lebih dari 0";
+    if (!formData.gedung.trim()) newErrors.gedung = "Wajib diisi";
+    if (!formData.group_code.trim()) newErrors.group_code = "Wajib diisi";
+    if (!formData.alamat.trim()) newErrors.alamat = "Wajib diisi";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async () => {
+    if (!validateForm()) {
+      toast.error("Harap isi semua bidang yang wajib diisi.");
+      return;
+    }
+
     try {
       const method = isEdit ? "PUT" : "POST";
       const url = isEdit
@@ -79,16 +101,16 @@ const RuanganForm = ({ isOpen, onClose, isEdit, ruangan, fetchRuangan }) => {
         },
         body: JSON.stringify(formData),
       });
-      if (!response.ok) throw new Error("Failed to save Ruangan");
+      if (!response.ok) throw new Error("Gagal menyimpan ruangan");
 
       toast.success(
-        isEdit ? "Ruangan updated successfully" : "Ruangan created successfully"
+        isEdit ? "Ruangan berhasil diperbarui" : "Ruangan berhasil ditambahkan"
       );
       fetchRuangan();
       onClose();
     } catch (error) {
       console.error("Error:", error);
-      toast.error("Error saving Ruangan");
+      toast.error("Terjadi kesalahan saat menyimpan ruangan");
     }
   };
 
@@ -101,14 +123,14 @@ const RuanganForm = ({ isOpen, onClose, isEdit, ruangan, fetchRuangan }) => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) throw new Error("Failed to delete Ruangan");
+      if (!response.ok) throw new Error("Gagal menghapus ruangan");
 
-      toast.success("Ruangan deleted successfully");
+      toast.success("Ruangan berhasil dihapus");
       fetchRuangan();
       onClose();
     } catch (error) {
       console.error("Error:", error);
-      toast.error("Error deleting Ruangan");
+      toast.error("Terjadi kesalahan saat menghapus ruangan");
     }
   };
 
@@ -127,11 +149,15 @@ const RuanganForm = ({ isOpen, onClose, isEdit, ruangan, fetchRuangan }) => {
             <Input
               id="kode_ruangan"
               name="kode_ruangan"
-              value={formData.kode_ruangan}
+              value={formData.kode_ruangan || ""}
               onChange={handleChange}
               placeholder="Kode Ruangan"
               disabled={isEdit}
+              required
             />
+            {errors.kode_ruangan && (
+              <p className="text-red-500 text-sm">{errors.kode_ruangan}</p>
+            )}
           </div>
 
           <div>
@@ -142,7 +168,11 @@ const RuanganForm = ({ isOpen, onClose, isEdit, ruangan, fetchRuangan }) => {
               value={formData.nama_ruang}
               onChange={handleChange}
               placeholder="Nama Ruangan"
+              required
             />
+            {errors.nama_ruang && (
+              <p className="text-red-500 text-sm">{errors.nama_ruang}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -153,6 +183,7 @@ const RuanganForm = ({ isOpen, onClose, isEdit, ruangan, fetchRuangan }) => {
                 onValueChange={(value) =>
                   handleSelectChange(value, "tipe_ruangan")
                 }
+                required
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih tipe ruangan" />
@@ -174,38 +205,25 @@ const RuanganForm = ({ isOpen, onClose, isEdit, ruangan, fetchRuangan }) => {
                 value={formData.kapasitas}
                 onChange={handleChange}
                 placeholder="Kapasitas"
+                required
               />
+              {errors.kapasitas && (
+                <p className="text-red-500 text-sm">{errors.kapasitas}</p>
+              )}
             </div>
           </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="gedung">Gedung</Label>
-              <Select
-                value={formData.gedung}
-                onValueChange={(value) => handleSelectChange(value, "gedung")}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih gedung" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="KHD">KHD</SelectItem>
-                  <SelectItem value="DS">DS</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="group_code">Kode Grup</Label>
+              <Label htmlFor="gedung">Grup Gedung</Label>
               <Select
                 value={formData.group_code}
                 onValueChange={(value) =>
                   handleSelectChange(value, "group_code")
                 }
+                required
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Pilih grup" />
+                  <SelectValue placeholder="Pilih gedung" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="KHD2">KHD2</SelectItem>
@@ -214,6 +232,27 @@ const RuanganForm = ({ isOpen, onClose, isEdit, ruangan, fetchRuangan }) => {
                   <SelectItem value="DS2">DS2</SelectItem>
                   <SelectItem value="DS3">DS3</SelectItem>
                   <SelectItem value="DS4">DS4</SelectItem>
+
+                  <SelectItem value="OTH">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.gedung && (
+                <p className="text-red-500 text-sm">{errors.gedung}</p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="gedung">Gedung</Label>
+              <Select
+                value={formData.gedung}
+                onValueChange={(value) => handleSelectChange(value, "gedung")}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih gedung" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="KHD">KHD</SelectItem>
+                  <SelectItem value="DS">DS</SelectItem>
                   <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
@@ -228,7 +267,11 @@ const RuanganForm = ({ isOpen, onClose, isEdit, ruangan, fetchRuangan }) => {
               value={formData.alamat}
               onChange={handleChange}
               placeholder="Alamat"
+              required
             />
+            {errors.alamat && (
+              <p className="text-red-500 text-sm">{errors.alamat}</p>
+            )}
           </div>
         </div>
 

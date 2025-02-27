@@ -32,6 +32,11 @@ const convertToInputDateFormat = (dateStr) => {
 };
 
 const DosenForm = ({ isOpen, onClose, initialData, onSubmit }) => {
+  const convertDateFormat = (dateStr) => {
+    if (!dateStr) return "";
+    const [year, month, day] = dateStr.split("-");
+    return `${day}/${month}/${year}`;
+  };
   const [programStudiList, setProgramStudiList] = useState([]);
   const [formData, setFormData] = useState(
     initialData || {
@@ -49,7 +54,6 @@ const DosenForm = ({ isOpen, onClose, initialData, onSubmit }) => {
       jabatan: "",
       title_depan: "",
       title_belakang: "",
-      jabatan_id: "",
     }
   );
   const token = Cookies.get("access_token");
@@ -77,7 +81,6 @@ const DosenForm = ({ isOpen, onClose, initialData, onSubmit }) => {
         jabatan: initialData.jabatan || "",
         title_depan: initialData.title_depan || "",
         title_belakang: initialData.title_belakang || "",
-        jabatan_id: initialData.jabatan_id || "",
       });
     } else {
       setFormData({
@@ -95,7 +98,7 @@ const DosenForm = ({ isOpen, onClose, initialData, onSubmit }) => {
         jabatan: "",
         title_depan: "",
         title_belakang: "",
-        jabatan_id: "",
+
         is_sekdos: false,
       });
     }
@@ -140,8 +143,9 @@ const DosenForm = ({ isOpen, onClose, initialData, onSubmit }) => {
 
     const formattedData = {
       ...formData,
-
-      tanggal_lahir: formData.tanggal_lahir,
+      tanggal_lahir: formData.tanggal_lahir
+        ? convertDateFormat(formData.tanggal_lahir)
+        : "",
     };
 
     onSubmit(formattedData);
@@ -259,6 +263,7 @@ const DosenForm = ({ isOpen, onClose, initialData, onSubmit }) => {
           <div>
             <Label htmlFor="progdi_id">Program Studi</Label>
             <Select
+              required
               value={formData.progdi_id}
               onValueChange={(value) => handleSelectChange(value, "progdi_id")}
             >
@@ -325,16 +330,6 @@ const DosenForm = ({ isOpen, onClose, initialData, onSubmit }) => {
           </div>
 
           {/* Jabatan ID */}
-          <div>
-            <Label htmlFor="jabatan_id">Jabatan ID</Label>
-            <Input
-              id="jabatan_id"
-              name="jabatan_id"
-              type="number"
-              value={formData.jabatan_id}
-              onChange={handleChange}
-            />
-          </div>
 
           {/* Title Depan */}
           <div>

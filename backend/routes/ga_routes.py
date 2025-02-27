@@ -62,35 +62,36 @@ def check_conflicts(solution, opened_class_cache, room_cache, timeslot_cache):
     for assignment in solution:
         opened_class_id, room_id, timeslot_id = assignment
         class_info = opened_class_cache[opened_class_id]
-       
+
         effective_sks = get_effective_sks(class_info)
         current_timeslot = timeslot_cache[timeslot_id]
 
         for i in range(effective_sks):
             current_id = timeslot_id + i
             if current_id not in timeslot_cache:
-                conflicts += 1000
+                conflicts += 500  # biar gak ada kelas yang jadwalnya kacau diluar format
                 continue
 
             next_timeslot = timeslot_cache[current_id]
             if next_timeslot.day != current_timeslot.day:
-                conflicts += 1000
+                conflicts += 500
                 continue
 
             if current_id not in timeslot_usage:
                 timeslot_usage[current_id] = []
             for used_room, _ in timeslot_usage[current_id]:
                 if used_room == room_id:
-                    conflicts += 1
+                    conflicts += 70  #  biar gak ada bentrok ruangan
             timeslot_usage[current_id].append((room_id, opened_class_id))
 
             for dosen_id in class_info['dosen_ids']:
                 schedule_key = (dosen_id, current_id)
                 if schedule_key in lecturer_schedule:
-                    conflicts += 1
+                    conflicts += 50  # biar dosen gak ngajar di dua tempat sekaligus
                 lecturer_schedule[schedule_key] = opened_class_id
 
     return conflicts
+
 
 
 

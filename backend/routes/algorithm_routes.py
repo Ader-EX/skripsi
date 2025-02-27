@@ -48,13 +48,13 @@ def fetch_data(db: Session):
     lecturers = db.query(Dosen).all()
     rooms = db.query(Ruangan).all()
     
-    # ✅ Ensure timeslots are fetched in correct order (Senin first)
+    
     timeslots = db.query(TimeSlot).order_by(TimeSlot.day_index, TimeSlot.start_time).all()
 
     preferences = db.query(Preference).all()
     opened_classes = db.query(OpenedClass).all()
 
-    # Cache mappings for faster access
+    
     opened_class_cache = {oc.id: {
         "mata_kuliah": oc.mata_kuliah,
         "sks": oc.mata_kuliah.sks,
@@ -649,26 +649,31 @@ def check_conflicts(db: Session,
                     room_cache,
                     timeslot_cache):
     """
-    Checks timetable conflicts including timeslot, room, day crossing, and lecturer conflicts.
+    Checks timetable conflicts including timeslot validity, room, day crossing,
+    and lecturer conflicts using interval overlap checking.
+    Pendekatan: untuk tiap entri timetable, ambil daftar timeslot (dari timetable_entry.timeslot_ids),
+    hitung interval keseluruhan (start, end) dan periksa konflik berdasarkan interval tersebut.
     """
     conflict_details = []
-    # Dictionary to track room usage keyed by (room_id, timeslot_id)
+    # Struktur untuk menyimpan penggunaan ruangan:
+    # room_usage[room_code][day_str] = list of (overall_start, overall_end, timetable_entry.id)
     room_usage = {}
+    # Struktur untuk menyimpan jadwal dosen:
+    # lecturer_schedule[dosen_id][day_str] = list of (overall_start, overall_end, timetable_entry.id, opened_class_id)
     lecturer_schedule = {}
     conflicted_timetable_ids = set()
 
-    # Reset only entries without an existing conflict reason
+    # Reset flag konflik pada entri yang tidak memiliki alasan konflik sebelumnya
     db.query(TimeTable).filter(TimeTable.reason.is_(None)).update(
         {"is_conflicted": 0}, synchronize_session=False
     )
 
     for assignment in solution:
-        opened_class_id, room_id, timeslot_id = assignment
+        opened_class_id, room_id, _ = assignment
 
-        # Fetch the corresponding timetable entry
+        # Ambil entri timetable terkait
         timetable_entry = db.query(TimeTable).filter(
-            TimeTable.opened_class_id == opened_class_id,
-            TimeTable.timeslot_ids[0] == timeslot_id
+            TimeTable.opened_class_id == opened_class_id
         ).first()
         if not timetable_entry:
             continue
@@ -678,20 +683,30 @@ def check_conflicts(db: Session,
         current_mk_name = class_info["mata_kuliah"].namamk
         current_kelas = class_info["kelas"]
 
-        current_timeslot = timeslot_cache[timeslot_id]
-        current_day_str = (current_timeslot.day.value 
-                           if hasattr(current_timeslot.day, "value") 
-                           else current_timeslot.day)
+        # Ambil semua timeslot untuk entri ini (pastikan timeslot_ids berupa list yang valid)
+        ts_ids = timetable_entry.timeslot_ids
+        if not ts_ids or len(ts_ids) < sks:
+            reason = f"Jumlah timeslot kurang dari SKS (diharapkan {sks}, didapat {len(ts_ids) if ts_ids else 0})"
+            conflict_details.append({
+                "type": "Kurang timeslot",
+                "timetable_id": timetable_entry.id,
+                "opened_class": f"{current_mk_name} - {current_kelas}",
+                "reason": reason,
+                "severity": "High"
+            })
+            conflicted_timetable_ids.add(timetable_entry.id)
+            timetable_entry.is_conflicted = 1
+            timetable_entry.reason = reason
+            continue
 
-        # Loop through each timeslot the class occupies
-        for i in range(sks):
-            current_id = timeslot_id + i
-
-            # Check if the timeslot exists
-            if current_id not in timeslot_cache:
-                reason = f"Timeslot {current_id} tidak ada"
+        # Ambil objek timeslot dari cache untuk semua ID yang ada di timeslot_ids
+        timeslot_objs = []
+        valid = True
+        for ts_id in ts_ids:
+            if ts_id not in timeslot_cache:
+                reason = f"Timeslot {ts_id} tidak ada"
                 conflict_details.append({
-                    "type": "Invalid Timeslot",
+                    "type": "Timeslot Invalid",
                     "timetable_id": timetable_entry.id,
                     "opened_class": f"{current_mk_name} - {current_kelas}",
                     "reason": reason,
@@ -700,66 +715,79 @@ def check_conflicts(db: Session,
                 conflicted_timetable_ids.add(timetable_entry.id)
                 timetable_entry.is_conflicted = 1
                 timetable_entry.reason = reason
-                continue
+                valid = False
+                break
+            timeslot_objs.append(timeslot_cache[ts_id])
+        if not valid:
+            continue
 
-            next_timeslot = timeslot_cache[current_id]
-            next_day_str = (next_timeslot.day.value 
-                            if hasattr(next_timeslot.day, "value") 
-                            else next_timeslot.day)
-            start_str = next_timeslot.start_time.strftime("%H:%M")
-            end_str = next_timeslot.end_time.strftime("%H:%M")
+        # Pastikan semua timeslot berada di hari yang sama
+        day_set = { (ts.day.value if hasattr(ts.day, "value") else ts.day) for ts in timeslot_objs }
+        if len(day_set) != 1:
+            reason = f"Kelas tersebar di lebih dari satu hari: {day_set}"
+            conflict_details.append({
+                "type": "Day Crossing",
+                "timetable_id": timetable_entry.id,
+                "opened_class": f"{current_mk_name} - {current_kelas}",
+                "reason": reason,
+                "severity": "High"
+            })
+            conflicted_timetable_ids.add(timetable_entry.id)
+            timetable_entry.is_conflicted = 1
+            timetable_entry.reason = reason
+            continue
 
-            # Check for day crossing (class spanning multiple days)
-            if next_day_str != current_day_str:
-                reason = f"Kelas melintasi beberapa hari (dari {current_day_str} ke {next_day_str})"
-                conflict_details.append({
-                    "type": "Day Crossing",
-                    "timetable_id": timetable_entry.id,
-                    "opened_class": f"{current_mk_name} - {current_kelas}",
-                    "reason": reason,
-                    "severity": "High"
-                })
-                conflicted_timetable_ids.add(timetable_entry.id)
-                timetable_entry.is_conflicted = 1
-                timetable_entry.reason = reason
-                continue
+        current_day_str = day_set.pop()
+        overall_start = min(ts.start_time for ts in timeslot_objs)
+        overall_end = max(ts.end_time for ts in timeslot_objs)
+        start_str = overall_start.strftime("%H:%M")
+        end_str = overall_end.strftime("%H:%M")
 
-            # ---------------- Room Conflict Check ----------------
-            # Use a key combining the room and the current timeslot
-           # Retrieve room object from room_cache and get its kodemk (or default to room_id)
-            room_obj = room_cache.get(room_id)
-            room_code = room_obj.kode_ruangan if room_obj and hasattr(room_obj, "kode_ruangan") else room_id
+        # ---------------- Room Conflict Check ----------------
+        room_obj = room_cache.get(room_id)
+        room_code = room_obj.kode_ruangan if room_obj and hasattr(room_obj, "kode_ruangan") else room_id
 
-            # Build a key using room_code and timeslot details
-            room_key = (room_code, next_day_str, start_str, end_str)
-            if room_key in room_usage:
-                conflict_timetable_id = room_usage[room_key]
-                reason = f"Ruang {room_code} sudah digunakan pada timeslot {next_day_str} ({start_str} - {end_str})"
+        if room_code not in room_usage:
+            room_usage[room_code] = {}
+        if current_day_str not in room_usage[room_code]:
+            room_usage[room_code][current_day_str] = []
+
+        room_conflict = False
+        for used_start, used_end, used_timetable_id in room_usage[room_code][current_day_str]:
+            if overall_start < used_end and overall_end > used_start:
+                room_conflict = True
+                reason = f"Ruang {room_code} sudah digunakan pada {current_day_str} ({used_start.strftime('%H:%M')} - {used_end.strftime('%H:%M')})"
                 conflict_details.append({
                     "type": "Room Conflict",
                     "timetable_id": timetable_entry.id,
-                    "conflicting_timetable_id": conflict_timetable_id,
+                    "conflicting_timetable_id": used_timetable_id,
                     "opened_class": f"{current_mk_name} - {current_kelas}",
                     "room_code": room_code,
-                    "timeslot": f"{next_day_str} ({start_str} - {end_str})",
+                    "timeslot": f"{current_day_str} ({start_str} - {end_str})",
                     "reason": reason,
                     "severity": "High"
                 })
                 conflicted_timetable_ids.add(timetable_entry.id)
                 timetable_entry.is_conflicted = 1
                 timetable_entry.reason = reason
-            else:
-                # Record this room usage for this timeslot with the descriptive key
-                room_usage[room_key] = timetable_entry.id
+                break
+        if not room_conflict:
+            room_usage[room_code][current_day_str].append((overall_start, overall_end, timetable_entry.id))
+        # -------------------------------------------------------
 
-            # -------------------------------------------------------
+        # ---------------- Lecturer Conflict Check ----------------
+        for dosen_id in class_info["dosen_ids"]:
+            if dosen_id not in lecturer_schedule:
+                lecturer_schedule[dosen_id] = {}
+            if current_day_str not in lecturer_schedule[dosen_id]:
+                lecturer_schedule[dosen_id][current_day_str] = []
 
-            # ---------------- Lecturer Conflict Check ----------------
-            for dosen_id in class_info["dosen_ids"]:
-                schedule_key = (dosen_id, current_id)
-                if schedule_key in lecturer_schedule:
-                    conflict_class_id, conflict_timetable_id = lecturer_schedule[schedule_key]
-                    conflict_class_info = opened_class_cache[conflict_class_id]
+            lecturer_conflict = False
+            for used_start, used_end, used_timetable_id, used_opened_class_id in lecturer_schedule[dosen_id][current_day_str]:
+                # Jika interval berasal dari kelas yang berbeda, cek tumpang tindih
+                if used_opened_class_id != opened_class_id and overall_start < used_end and overall_end > used_start:
+                    lecturer_conflict = True
+                    conflict_class_info = opened_class_cache[used_opened_class_id]
                     conflict_mk_name = conflict_class_info["mata_kuliah"].namamk
                     conflict_kelas = conflict_class_info["kelas"]
 
@@ -769,27 +797,28 @@ def check_conflicts(db: Session,
                     reason = (
                         f"{dosen_name} mengajar kelas {conflict_mk_name} - {conflict_kelas} "
                         f"dan {current_mk_name} - {current_kelas} "
-                        f"pada timeslot {next_day_str} ({start_str} - {end_str})"
+                        f"pada {current_day_str} ({start_str} - {end_str})"
                     )
-
                     conflict_details.append({
-                        "type": "Lecturer Conflict",
+                        "type": "Konflik Dosen",
                         "timetable_id": timetable_entry.id,
-                        "conflicting_timetable_id": conflict_timetable_id,
+                        "conflicting_timetable_id": used_timetable_id,
                         "opened_class": f"{current_mk_name} - {current_kelas}",
                         "conflicting_opened_class": f"{conflict_mk_name} - {conflict_kelas}",
                         "dosen_id": dosen_id,
                         "dosen_name": dosen_name,
-                        "timeslot": f"{next_day_str} ({start_str} - {end_str})",
+                        "timeslot": f"{current_day_str} ({start_str} - {end_str})",
                         "reason": reason
                     })
                     conflicted_timetable_ids.add(timetable_entry.id)
                     timetable_entry.is_conflicted = 1
                     timetable_entry.reason = reason
-
-                lecturer_schedule[schedule_key] = (opened_class_id, timetable_entry.id)
-            # -----------------------------------------------------------
-    # Reset entries not flagged as conflicted
+                    lecturer_conflict = True
+                    break
+            if not lecturer_conflict:
+                lecturer_schedule[dosen_id][current_day_str].append((overall_start, overall_end, timetable_entry.id, opened_class_id))
+        # -----------------------------------------------------------
+    # Reset entry yang tidak tercatat sebagai konflik
     db.query(TimeTable).filter(
         TimeTable.id.notin_(conflicted_timetable_ids)
     ).update({"is_conflicted": 0, "reason": None}, synchronize_session=False)
@@ -806,20 +835,12 @@ async def check_timetable_conflicts(db: Session = Depends(get_db)):
     """
     API Endpoint to check timetable conflicts and update is_conflicted status.
     """
-    # Fetch required data
+    # Ambil data yang dibutuhkan
     _, _, _, _, _, _, opened_class_cache, room_cache, timeslot_cache = fetch_data(db)
-
-    # Fetch the current timetable from the database
     timetable = db.query(TimeTable).all()
-
-    # Convert timetable to solution format
+    # Solusi: gunakan semua entri di timetable, karena tiap entri sudah memiliki timeslot_ids lengkap
     solution = [(entry.opened_class_id, entry.ruangan_id, entry.timeslot_ids[0]) for entry in timetable]
-
-    
-
-    # Check conflicts
     conflict_result = check_conflicts(db, solution, opened_class_cache, room_cache, timeslot_cache)
-
     return {
         "total_conflicts": conflict_result['total_conflicts'],
         "conflict_details": conflict_result['conflict_details']
