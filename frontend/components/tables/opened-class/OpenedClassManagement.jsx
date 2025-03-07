@@ -28,7 +28,7 @@ const OpenedClassManagement = () => {
   const [currentSearch, setCurrentSearch] = useState(""); // New state for active search term
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
-  const limit = 5;
+  const limit = 10;
   const token = Cookies.get("access_token");
 
   useEffect(() => {

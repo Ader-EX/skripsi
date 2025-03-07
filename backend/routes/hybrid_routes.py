@@ -289,6 +289,24 @@ def selection(population, opened_class_cache, room_cache, timeslot_cache, prefer
         selected.append(best_candidate)
     return selected
 
+def roulette_wheel_selection(population, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache, penalties):
+    """
+    Melakukan seleksi individu menggunakan Roulette Wheel Selection.
+    Semakin rendah nilai fitness, semakin besar peluangnya untuk terpilih.
+    """
+    # Hitung fitness untuk setiap individu
+    fitness_values = [1 / (1 + fitness(sol, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache, penalties))
+                      for sol in population]
+
+    # Normalisasi fitness menjadi probabilitas
+    total_fitness = sum(fitness_values)
+    probabilities = [f / total_fitness for f in fitness_values]
+
+    # Lakukan seleksi berdasarkan probabilitas
+    selected = random.choices(population, weights=probabilities, k=len(population))
+
+    return selected
+
 def crossover(parent1, parent2):
     if len(parent1) == 0 or len(parent2) == 0:
         return parent1, parent2
@@ -297,7 +315,7 @@ def crossover(parent1, parent2):
     child2 = parent2[:point] + parent1[point:]
     return child1, child2
 
-def mutate(solution, opened_classes, rooms, timeslots, opened_class_cache, recess_times, mutation_prob=0.1):
+def mutate(solution, opened_classes, rooms, timeslots, opened_class_cache, recess_times, preferences_cache, mutation_prob=0.1):
     new_solution = solution.copy()
     if not new_solution:
         return new_solution
@@ -308,13 +326,36 @@ def mutate(solution, opened_classes, rooms, timeslots, opened_class_cache, reces
         effective_sks = get_effective_sks(class_info)
         tipe_mk = class_info["mata_kuliah"].tipe_mk
         compatible_rooms = [r for r in rooms if r.tipe_ruangan == tipe_mk]
+
         if compatible_rooms:
             new_room = random.choice(compatible_rooms)
             valid_timeslots = sorted(timeslots, key=lambda x: (x.day_index, x.start_time))
             possible_indices = list(range(len(valid_timeslots) - effective_sks + 1))
             random.shuffle(possible_indices)
+
+            # 🟢 **Pisahkan timeslot berdasarkan preferensi dosen**
+            preferred_timeslots = []
+            non_preferred_timeslots = []
+
             for start_idx in possible_indices:
                 slots = valid_timeslots[start_idx : start_idx + effective_sks]
+                slot_ids = {slot.id for slot in slots}
+
+                is_preferred = all(
+                    any(t in preferences_cache.get((opened_class_id, dosen_id), {}).get('preferences', {}) for t in slot_ids)
+                    for dosen_id in class_info["dosen_ids"]
+                )
+
+                if is_preferred:
+                    preferred_timeslots.append(start_idx)
+                else:
+                    non_preferred_timeslots.append(start_idx)
+
+            sorted_indices = preferred_timeslots + non_preferred_timeslots
+
+            for start_idx in sorted_indices:
+                slots = valid_timeslots[start_idx : start_idx + effective_sks]
+
                 if all(
                     slots[i].day_index == slots[0].day_index and
                     slots[i].id == slots[i-1].id + 1 and
@@ -326,7 +367,8 @@ def mutate(solution, opened_classes, rooms, timeslots, opened_class_cache, reces
                     break
     return new_solution
 
-def initialize_population(opened_classes, rooms, timeslots, population_size, opened_class_cache, recess_times):
+
+def initialize_population(opened_classes, rooms, timeslots, population_size, opened_class_cache, recess_times,preferences_cache):
     # Fungsi ini buat bikin populasi solusi jadwal kelas. Kita mulai dengan urutin timeslot berdasarkan hari dan jam
     # biar gampang nyesuain jadwalnya. Setiap individu di populasi bakal punya jadwal yang kita atur secara random 
     # berdasarkan kelas-kelas yang udah dibuka, ruangan yang tersedia, dan dosen yang ada. Tujuan kita adalah 
@@ -347,27 +389,48 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
         
         # Loop buat nyusun jadwal tiap kelas
         for oc in sorted_classes:
-            class_info = opened_class_cache[oc.id]  # Ambil info kelas dari cache
-            effective_sks = get_effective_sks(class_info)  # Dapetin jumlah SKS yang efektif
-            tipe_mk = class_info["mata_kuliah"].tipe_mk  # Ambil tipe mata kuliah
-            compatible_rooms = [r for r in rooms if r.tipe_ruangan == tipe_mk]  # Cari ruangan yang cocok sama tipe mata kuliah
-            if not compatible_rooms:  # Kalau nggak ada ruangan yang cocok, langsung skip kelas ini
-                logger.warning(f"Kelas {oc.id} ({tipe_mk}) nggak punya ruangan yang sesuai.")
-                continue  # Langsung lanjut ke kelas berikutnya
-            
-            assigned = False  # Tandai apakah kelas udah dapet jadwal atau belum
-            random.shuffle(compatible_rooms)  # Acak urutan ruangan supaya nggak selalu sama
+            class_info = opened_class_cache[oc.id]  
+            effective_sks = get_effective_sks(class_info)  
+            tipe_mk = class_info["mata_kuliah"].tipe_mk  
+            compatible_rooms = [r for r in rooms if r.tipe_ruangan == tipe_mk]  
+
+            if not compatible_rooms:  
+                continue  
+
+            assigned = False  
+            random.shuffle(compatible_rooms)  
             possible_start_idxs = list(range(len(timeslots_list) - effective_sks + 1))  
-            random.shuffle(possible_start_idxs)  # Acak index timeslot supaya lebih random
-            
-            # Coba cari ruangan yang cocok dan timeslot yang available
+            random.shuffle(possible_start_idxs)  
+
+            # 🟢 **Pisahkan timeslot berdasarkan preferensi dosen**
+            preferred_timeslots = []
+            non_preferred_timeslots = []
+
+            for start_idx in possible_start_idxs:
+                slots = timeslots_list[start_idx: start_idx + effective_sks]
+                slot_ids = {slot.id for slot in slots}
+
+                is_preferred = all(
+                    any(t in preferences_cache.get((oc.id, dosen_id), {}).get('preferences', {}) for t in slot_ids)
+                    for dosen_id in class_info["dosen_ids"]
+                )
+
+                if is_preferred:
+                    preferred_timeslots.append(start_idx)
+                else:
+                    non_preferred_timeslots.append(start_idx)
+
+            # 🟢 **Prioritaskan timeslot yang sesuai preferensi**
+            sorted_start_idxs = preferred_timeslots + non_preferred_timeslots
+
+            # Coba alokasi dengan sorted_start_idxs
             for room in compatible_rooms:
                 if assigned:
-                    break  # Kalau kelas udah terjadwal, nggak usah coba-coba lagi
-                for start_idx in possible_start_idxs:
-                    slots = timeslots_list[start_idx : start_idx + effective_sks]  # Ambil timeslot untuk kelas ini
-                    
-                    # Cek apakah slot valid: hari sama, urutan timeslotnya bener, dan nggak ada di waktu istirahat
+                    break
+                for start_idx in sorted_start_idxs:
+                    slots = timeslots_list[start_idx : start_idx + effective_sks]
+
+                    # Validasi timeslot
                     if not all(
                         slots[i].day_index == slots[0].day_index and 
                         slots[i].id == slots[i-1].id + 1 and
@@ -375,8 +438,8 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
                         for i in range(1, effective_sks)
                     ):
                         continue
-                    
-                    # Cek apakah slot ini udah dipakai atau belum, baik untuk ruangan dan dosen
+
+                    # Cek apakah ruangan dan dosen tersedia
                     slot_available = True
                     for slot in slots:
                         if (room.id, slot.id) in room_schedule or any(
@@ -384,16 +447,15 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
                         ):
                             slot_available = False
                             break
-                    
-                    # Kalau slot tersedia, assign jadwalnya ke ruangan dan dosen
+
                     if slot_available:
                         for slot in slots:
                             room_schedule[(room.id, slot.id)] = oc.id
                             for dosen_id in class_info["dosen_ids"]:
                                 lecturer_schedule[(dosen_id, slot.id)] = oc.id
-                        solution.append((oc.id, room.id, slots[0].id))  # Simpan hasil penugasan
-                        assigned = True  # Tandai kelas udah terjadwal
-                        break
+                        solution.append((oc.id, room.id, slots[0].id))  
+                        assigned = True  
+                        break    
             
             # Kalau sampai sini kelas masih belum terjadwal, coba fallback
             if not assigned:
@@ -493,9 +555,10 @@ def hybrid_schedule(
     recess_times = identify_recess_times(timeslot_cache)
 
     # ------------------------- GA Phase -------------------------
-    population = initialize_population(opened_classes, rooms, timeslots, population_size, opened_class_cache, recess_times)
+    population = initialize_population(opened_classes, rooms, timeslots, population_size, opened_class_cache, recess_times,preferences_cache)
     for gen in range(generations):
-        selected_pop = selection(population, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache, penalties, k=3)
+        # selected_pop = roulette_wheel_selection(population, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache, penalties, k=3)
+        selected_pop = roulette_wheel_selection(population, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache, penalties)
         new_population = []
         for i in range(0, len(selected_pop), 2):
             if i + 1 < len(selected_pop):
@@ -505,7 +568,7 @@ def hybrid_schedule(
                 new_population.append(selected_pop[i])
         mutated_population = []
         for indiv in new_population:
-            mutated_indiv = mutate(indiv, opened_classes, rooms, timeslots, opened_class_cache, recess_times, mutation_prob)
+            mutated_indiv = mutate(indiv, opened_classes, rooms, timeslots, opened_class_cache, recess_times,preferences_cache, mutation_prob)
             mutated_population.append(mutated_indiv)
         population = mutated_population
 

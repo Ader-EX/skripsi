@@ -4,6 +4,7 @@ from fastapi import FastAPI, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 import jwt
+import uvicorn
 
 # Import all routes
 from routes.user_routes import router as user_router
@@ -57,10 +58,14 @@ def verify_token_except_user(
     return payload  
 
 
+
+
 app = FastAPI(
     dependencies=[Depends(verify_token_except_user)],
     swagger_ui_parameters={"syntaxHighlight.theme": "monokai"}
 )
+
+
 
 origins = ["http://localhost:3000"]
 app.add_middleware(
@@ -70,6 +75,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -103,3 +110,6 @@ app.include_router(dosenopened_router, prefix="/dosen-opened", tags=["Dosen Open
 app.include_router(sa_router, prefix="/sa-router", tags=["Simulated Annealing"])
 app.include_router(ga_router, prefix="/ga-router", tags=["Genetic Algorithm"])
 app.include_router(hybrid_router, prefix="/hybrid-router", tags=["Hybrid Algorithm"])
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8080)

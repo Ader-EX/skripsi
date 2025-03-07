@@ -110,8 +110,8 @@ const EditOpenedClass = () => {
     setSelectedDosen((prev) =>
       prev.map((dosen) =>
         dosen.id === dosenId
-          ? { ...dosen, usedPreference: !dosen.usedPreference }
-          : dosen
+          ? { ...dosen, usedPreference: true }
+          : { ...dosen, usedPreference: false }
       )
     );
   };

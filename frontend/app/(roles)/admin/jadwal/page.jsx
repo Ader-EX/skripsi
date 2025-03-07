@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { LoadingOverlay } from "@/components/global/CustomLoadingOverlay";
 import { useLoadingOverlay } from "@/app/context/LoadingOverlayContext";
+import Link from "next/link";
 
 const AdminJadwal = () => {
   const [timetableData, setTimetableData] = useState(null);
@@ -169,7 +170,6 @@ const AdminJadwal = () => {
     }
   };
 
-  // Debounced search function
   const debouncedSearch = debounce((query) => {
     fetchTimetableData(query);
   }, 500);
@@ -214,34 +214,34 @@ const AdminJadwal = () => {
     }
   };
 
-  const handleCheckConflicts = async () => {
-    setIsCheckingConflicts(true);
-    try {
-      const response = await fetch(API_CHECK_CONFLICTS, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error("Failed to check conflicts.");
+  // const handleCheckConflicts = async () => {
+  //   setIsCheckingConflicts(true);
+  //   try {
+  //     const response = await fetch(API_CHECK_CONFLICTS, {
+  //       headers: { Authorization: `Bearer ${token}` },
+  //     });
+  //     if (!response.ok) throw new Error("Failed to check conflicts.");
 
-      const data = await response.json();
+  //     const data = await response.json();
 
-      if (data.total_conflicts > 0) {
-        setConflicts(data.conflict_details);
-        setShowConflictDialog(true);
-        toast.error(`Found ${data.total_conflicts} conflicts`);
-      } else {
-        toast.success("No conflicts found");
-        setTimeout(() => {
-          location.reload();
-        }, 2000);
-      }
-    } catch (error) {
-      toast.error("Failed to check conflicts", {
-        description: error.message,
-      });
-    } finally {
-      setIsCheckingConflicts(false);
-    }
-  };
+  //     if (data.total_conflicts > 0) {
+  //       setConflicts(data.conflict_details);
+  //       setShowConflictDialog(true);
+  //       toast.error(`Found ${data.total_conflicts} conflicts`);
+  //     } else {
+  //       toast.success("No conflicts found");
+  //       setTimeout(() => {
+  //         location.reload();
+  //       }, 2000);
+  //     }
+  //   } catch (error) {
+  //     toast.error("Failed to check conflicts", {
+  //       description: error.message,
+  //     });
+  //   } finally {
+  //     setIsCheckingConflicts(false);
+  //   }
+  // };
 
   if (loading) {
     return (
@@ -320,15 +320,17 @@ const AdminJadwal = () => {
                 {isResetting ? "Resetting..." : "Reset Timetable"}
               </Button>
 
-              <Button
-                onClick={handleCheckConflicts}
-                disabled={isCheckingConflicts}
-                variant="outline"
-                className="flex items-center gap-2 bg-yellow-400"
-              >
-                <AlertTriangle />
-                {isCheckingConflicts ? "Checking..." : "Check Conflicts"}
-              </Button>
+              <Link href={"/admin/data-manajemen"}>
+                <Button
+                  // onClick={handleCheckConflicts}
+                  // disabled={isCheckingConflicts}
+                  variant="outline"
+                  className="flex items-center gap-2 bg-yellow-400"
+                >
+                  <AlertTriangle />
+                  {isCheckingConflicts ? "Checking..." : "Check Conflicts"}
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

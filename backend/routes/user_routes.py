@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from model.dosen_model import Dosen
@@ -41,7 +41,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
+def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None):
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
@@ -254,25 +254,21 @@ async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     user_name = user.nim_nip
     prodi_id = None
 
-    match user.role:
-        case "mahasiswa":
-            mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.user_id == user.id).first()
-            role_id = mahasiswa.id if mahasiswa else None
-            user_name = mahasiswa.nama if mahasiswa else user.nim_nip
-            prodi_id = mahasiswa.program_studi_id if mahasiswa else None
-
-        case "dosen":
-            dosen = db.query(Dosen).filter(Dosen.user_id == user.id).first()
-            role_id = dosen.pegawai_id if dosen else None
-            user_name = dosen.nama if dosen else user.nim_nip
-            prodi_id = dosen.progdi_id if dosen else None
-
-        case "admin":
-            role_id = None 
-            prodi_id = None
-
-        case _:
-            raise HTTPException(status_code=400, detail="Invalid user role")
+    if user.role == "mahasiswa":
+        mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.user_id == user.id).first()
+        role_id = mahasiswa.id if mahasiswa else None
+        user_name = mahasiswa.nama if mahasiswa else user.nim_nip
+        prodi_id = mahasiswa.program_studi_id if mahasiswa else None
+    elif user.role == "dosen":
+        dosen = db.query(Dosen).filter(Dosen.user_id == user.id).first()
+        role_id = dosen.pegawai_id if dosen else None
+        user_name = dosen.nama if dosen else user.nim_nip
+        prodi_id = dosen.progdi_id if dosen else None
+    elif user.role == "admin":
+        role_id = None
+        prodi_id = None
+    else:
+        raise HTTPException(status_code=400, detail="Invalid user role")
 
     
     token_data = {
