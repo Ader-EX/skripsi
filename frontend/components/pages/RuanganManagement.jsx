@@ -7,6 +7,7 @@ import RuanganTable from "./RuanganTable";
 import RuanganForm from "./RuanganForm";
 import toast from "react-hot-toast";
 import Cookies from "js-cookie";
+import { useLoadingOverlay } from "@/app/context/LoadingOverlayContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -26,12 +27,18 @@ const RuanganManagement = () => {
   const [currentRuangan, setCurrentRuangan] = useState(null);
   const token = Cookies.get("access_token");
 
+  // Get loading overlay functions from context
+  const { setIsActive, setOverlayText } = useLoadingOverlay();
+
   useEffect(() => {
     fetchRuangan();
   }, [filters, page, pageSize]);
 
   const fetchRuangan = async () => {
     try {
+      // Show loading overlay with custom text
+      setOverlayText("Memuat data ruangan...");
+      setIsActive(true);
       let url = `${API_URL}/ruangan?page=${page}&page_size=${pageSize}`;
       const queryParams = new URLSearchParams(filters);
       url += `&${queryParams.toString()}`;
@@ -46,6 +53,9 @@ const RuanganManagement = () => {
     } catch (error) {
       console.error("Error fetching ruangan:", error);
       setLoading(false);
+    } finally {
+      // Hide the loading overlay regardless of success/failure
+      setIsActive(false);
     }
   };
 

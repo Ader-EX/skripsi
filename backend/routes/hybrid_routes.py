@@ -655,17 +655,17 @@ async def generate_schedule_hybrid(
     cooling_rate: float = 0.95,
     iterations_per_temp: int = 100,
     # PENALTI
-    room_conflict: int = Query(70, description="Penalty for room conflict"),
-    lecturer_conflict: int = Query(50, description="Penalty for lecturer conflict"),
-    cross_day: int = Query(500, description="Penalty for scheduling across multiple days"),
-    invalid_timeslot: int = Query(500, description="Penalty for invalid timeslot"),
-    wrong_room: int = Query(30, description="Penalty for wrong room assignment"),
-    special_needs: int = Query(100, description="Penalty for special needs non-compliance"),
-    daily_load: int = Query(500, description="Multiplier for daily load imbalance"),
-    high_priority_preference: int = Query(50, description="Penalty for missing high-priority preference"),
-    general_preference: int = Query(10, description="Penalty for missing general preference"),
-    jabatan: int = Query(500, description="Penalty for jabatan constraint violation"),
-    conflict_multiplier: int = Query(100, description="Multiplier for conflict penalties")
+    room_conflict: int = Query(70, description="penalti Ruangan bentrok"),
+    lecturer_conflict: int = Query(50, description="penalti dosen bentrok"),
+    cross_day: int = Query(500, description="Penalti untuk penjadwalan lintas hari"),
+    invalid_timeslot: int = Query(500, description="Penalti untuk slot waktu yang tidak valid"),
+    wrong_room: int = Query(30, description="Penalti untuk penugasan ruangan yang salah"),
+    special_needs: int = Query(100, description="Penalti untuk ketidakpatuhan terhadap kebutuhan khusus"),
+    daily_load: int = Query(500, description="Multiplier untuk ketidakseimbangan beban harian"),
+    high_priority_preference: int = Query(50, description="Penalti untuk kehilangan preferensi prioritas tinggi"),
+    general_preference: int = Query(10, description="Penalti untuk kehilangan preferensi umum"),
+    jabatan: int = Query(500, description="Penalti untuk pelanggaran batasan jabatan"),
+    conflict_multiplier: int = Query(100, description="Multiplier untuk penalti konflik")
 ):
     try:
         penalties = {

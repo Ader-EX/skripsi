@@ -7,6 +7,7 @@ import MataKuliahTable from "./MataKuliahTable";
 import MataKuliahForm from "./MataKuliahForm";
 import toast from "react-hot-toast";
 import Cookies from "js-cookie";
+import { useLoadingOverlay } from "@/app/context/LoadingOverlayContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -27,6 +28,7 @@ const MataKuliahManagement = () => {
   const [isEdit, setIsEdit] = useState(false);
   const [currentMataKuliah, setCurrentMataKuliah] = useState(null);
   const token = Cookies.get("access_token");
+  const { setIsActive, setOverlayText } = useLoadingOverlay();
 
   useEffect(() => {
     fetchMataKuliah();
@@ -35,14 +37,15 @@ const MataKuliahManagement = () => {
 
   const fetchMataKuliah = async () => {
     try {
+      setOverlayText("Memuat data mata kuliah...");
+      setIsActive(true);
       let url = `${API_URL}/matakuliah?page=${page}&page_size=${pageSize}`;
       const queryParams = new URLSearchParams();
 
-      // Only append semester if it's a valid number
+      // Only append semester if it's a valid number and not "Semua"
       if (filters.semester && filters.semester !== "Semua") {
         queryParams.append("semester", filters.semester);
       }
-
       if (filters.kurikulum) queryParams.append("kurikulum", filters.kurikulum);
       if (filters.status_mk && filters.status_mk !== "Semua")
         queryParams.append("status_mk", filters.status_mk);
@@ -62,11 +65,15 @@ const MataKuliahManagement = () => {
       setTotal(data.total);
     } catch (error) {
       console.error("Error fetching matakuliah:", error);
+    } finally {
+      setIsActive(false);
     }
   };
 
   const fetchProgramStudi = async () => {
     try {
+      setOverlayText("Memuat data...");
+      setIsActive(true);
       const response = await fetch(`${API_URL}/program-studi`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -74,6 +81,8 @@ const MataKuliahManagement = () => {
       setProgramStudi(data);
     } catch (error) {
       console.error("Error fetching program studi:", error);
+    } finally {
+      setIsActive(false);
     }
   };
 
@@ -83,7 +92,6 @@ const MataKuliahManagement = () => {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-
       if (response.ok) {
         toast.success("MataKuliah deleted successfully");
         fetchMataKuliah();
@@ -101,6 +109,7 @@ const MataKuliahManagement = () => {
     setIsEdit(!!matakuliah);
     setIsDialogOpen(true);
   };
+
   return (
     <div className="flex w-full">
       <Card className="flex flex-col w-full">
@@ -119,8 +128,9 @@ const MataKuliahManagement = () => {
             </Button>
           </CardTitle>
         </CardHeader>
-
         <CardContent>
+          {/* Replace MataKuliahTable with your table component */}
+          {/* Pass necessary props */}
           <MataKuliahTable
             matakuliah={matakuliah}
             total={total}

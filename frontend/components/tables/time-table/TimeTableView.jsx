@@ -34,6 +34,7 @@ import {
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Cookies from "js-cookie";
+import { useLoadingOverlay } from "@/app/context/LoadingOverlayContext";
 
 const API_CHECK_CONFLICTS = `${process.env.NEXT_PUBLIC_API_URL}/algorithm/check-conflicts`;
 const API_RESOLVER_CONFLICTS = `${process.env.NEXT_PUBLIC_API_URL}/timetable/resolve-conflicts`;
@@ -47,6 +48,9 @@ const TimeTableView = ({ scheduleList, loading }) => {
   const router = useRouter();
   const token = Cookies.get("access_token");
 
+  // Loading overlay controls from context
+  const { setIsActive, setOverlayText } = useLoadingOverlay();
+
   const handleDelete = async () => {
     if (!confirmDelete) return;
     try {
@@ -54,9 +58,7 @@ const TimeTableView = ({ scheduleList, loading }) => {
         `${process.env.NEXT_PUBLIC_API_URL}/timetable/${confirmDelete}`,
         {
           method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
       if (!response.ok) throw new Error("Failed to delete timetable");
@@ -72,10 +74,11 @@ const TimeTableView = ({ scheduleList, loading }) => {
 
   const fetchConflicts = async () => {
     try {
+      // Activate the overlay with a custom message before fetching
+      setOverlayText("Mengecek konflik jadwal...");
+      setIsActive(true);
       const response = await fetch(API_CHECK_CONFLICTS, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error("Gagal mengecek bentrok.");
       const data = await response.json();
@@ -88,11 +91,16 @@ const TimeTableView = ({ scheduleList, loading }) => {
       }
     } catch (error) {
       console.error("Error checking conflicts:", error);
+      toast.error("Gagal mengecek konflik");
+    } finally {
+      setIsActive(false);
     }
   };
 
   const AutomateConflict = async () => {
     try {
+      setOverlayText("Menyelesaikan konflik jadwal...");
+      setIsActive(true);
       const response = await fetch(API_RESOLVER_CONFLICTS, {
         method: "POST",
         headers: {
@@ -105,7 +113,10 @@ const TimeTableView = ({ scheduleList, loading }) => {
       toast.success("Konflik berhasil diubah");
       setTimeout(() => location.reload(), 2000);
     } catch (error) {
-      console.error("Error checking conflicts:", error);
+      console.error("Error resolving conflicts:", error);
+      toast.error("Gagal menyelesaikan konflik");
+    } finally {
+      setIsActive(false);
     }
   };
 
@@ -179,7 +190,6 @@ const TimeTableView = ({ scheduleList, loading }) => {
               <TableCell>
                 {schedule.enrolled || "0"}/{schedule.capacity}
               </TableCell>
-              {/* Conflict Status Column with Tooltip */}
               <TableCell className="text-center">
                 <Tooltip>
                   <TooltipTrigger>
@@ -217,7 +227,6 @@ const TimeTableView = ({ scheduleList, loading }) => {
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
-                  {/* Edit Button */}
                   <Button size="icon" variant="outline">
                     <Link
                       href={`/admin/data-manajemen/edit?id=${schedule.id}`}
@@ -226,7 +235,6 @@ const TimeTableView = ({ scheduleList, loading }) => {
                       <Pencil />
                     </Link>
                   </Button>
-                  {/* Delete Button with Confirmation */}
                   <Button
                     size="icon"
                     variant="outline"
@@ -241,7 +249,7 @@ const TimeTableView = ({ scheduleList, loading }) => {
         </TableBody>
       </Table>
 
-      {/* Dialog for selected schedule details */}
+      {/* Selected Schedule Details Dialog */}
       <Dialog
         open={!!selectedSchedule}
         onOpenChange={(open) => {
@@ -299,11 +307,11 @@ const TimeTableView = ({ scheduleList, loading }) => {
         </DialogContent>
       </Dialog>
 
-      {/* Conflict Dialog */}
+      {/* Conflict Resolution Dialog */}
       <Dialog open={showConflictDialog} onOpenChange={setShowConflictDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Konflik Jadwal Ditemukan</DialogTitle>
+            <DialogTitle>Konfirmasi Konflik</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {conflicts.length > 0 ? (
@@ -356,19 +364,21 @@ const TimeTableView = ({ scheduleList, loading }) => {
             <DialogTitle>Konfirmasi Hapus Jadwal</DialogTitle>
           </DialogHeader>
           <p>
-            Apakah Anda yakin ingin menghapus jadwal ini? Data mahasiswa terkait
-            juga akan dihapus.
+            Are you sure you want to delete this timetable entry? This action
+            cannot be undone.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmDelete(null)}>
-              Batal
+              Cancel
             </Button>
             <Button variant="destructive" onClick={handleDelete}>
-              Hapus
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Auto-Resolve Confirmation Dialog */}
       <Dialog
         open={showAutoResolveConfirm}
         onOpenChange={setShowAutoResolveConfirm}
@@ -378,10 +388,9 @@ const TimeTableView = ({ scheduleList, loading }) => {
             <DialogTitle>Konfirmasi Penyelesaian Otomatis</DialogTitle>
           </DialogHeader>
           <p className="mb-4 text-red-600">
-            <span className="font-bold"> Peringatan:</span> <br /> Menggunakan
+            <span className="font-bold">Peringatan:</span> Menggunakan
             penyelesaian konflik otomatis kadang-kadang dapat menyebabkan
-            masalah tambahan atau perubahan jadwal yang tidak terduga. Apakah
-            Anda yakin ingin melanjutkan?
+            masalah tambahan. Apakah Anda yakin ingin melanjutkan?
           </p>
           <DialogFooter>
             <Button

@@ -11,9 +11,22 @@ import ClientProviders from "./context/ClientProvider";
 export const metadata = {
   title: "GenPlan Scheduler",
   description: "Next Generation Scheduler",
+  icons: {
+    icon: [
+      {
+        media: "(prefers-color-scheme: light)",
+        url: "/logo.png",
+        href: "/logo.png",
+      },
+      {
+        media: "(prefers-color-scheme: dark)",
+        url: "/logo.png",
+        href: "/logo.png",
+      },
+    ],
+  },
 };
 
-// Create a wrapper component to use the global overlay state
 const LayoutWithOverlay = ({ children }) => {
   const { isActive, overlayText } = useLoadingOverlay();
   return (
@@ -26,6 +39,9 @@ const LayoutWithOverlay = ({ children }) => {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" href="/logo.png" type="image/png" />
+      </head>
       <body>
         <ClientProviders>{children}</ClientProviders>
       </body>

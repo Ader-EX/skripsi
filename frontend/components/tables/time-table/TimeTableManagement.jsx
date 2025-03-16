@@ -11,13 +11,13 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
 import TimeTableView from "./TimeTableView";
 import toast from "react-hot-toast";
-
 import TimeTableForm from "./TimeTableForm"; // Import the form component
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
+// Import loading overlay hook
+import { useLoadingOverlay } from "@/app/context/LoadingOverlayContext";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/algorithm/formatted-timetable/`;
 
@@ -39,9 +39,16 @@ const TimeTableManagement = () => {
   const [searchInput, setSearchInput] = useState("");
   const token = Cookies.get("access_token");
 
+  // Get overlay controls from context
+  const { setIsActive, setOverlayText } = useLoadingOverlay();
+
   const fetchSchedules = async () => {
     setLoading(true);
     try {
+      // Activate the loading overlay with a custom message
+      setOverlayText("Memuat jadwal kuliah...");
+      setIsActive(true);
+
       const params = new URLSearchParams();
       params.append("page", pageNumber);
       params.append("limit", searchParams.limit);
@@ -62,6 +69,7 @@ const TimeTableManagement = () => {
       console.error("Error fetching schedules:", error);
     } finally {
       setLoading(false);
+      setIsActive(false);
     }
   };
 
@@ -129,17 +137,6 @@ const TimeTableManagement = () => {
               </Button>
             </div>
           </div>
-          {/* 
-          <div className="flex items-center gap-2">
-            <Label>Filter Konflik</Label>
-            <Switch
-              checked={showConflicts}
-              onCheckedChange={setShowConflicts}
-            />
-            {showConflicts && (
-              <AlertTriangle className="text-red-500 h-5 w-5" />
-            )}
-          </div> */}
         </div>
 
         <TimeTableView

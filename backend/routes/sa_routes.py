@@ -429,11 +429,11 @@ def identify_recess_times(timeslot_cache):
         current_slot = sorted_timeslots[i]
         next_slot = sorted_timeslots[i + 1]
 
-        # Convert time to datetime (use a fixed date)
+        # Convert waktu jadi datetime
         current_end = datetime.combine(datetime.today(), current_slot.end_time)
         next_start = datetime.combine(datetime.today(), next_slot.start_time)
 
-        # If there is a gap of more than 40 minit, its a recess
+        # ada gap waktu > 40 minit, tag sebagai kelas istirahat
         if (next_start - current_end).total_seconds() > 2400:  
             recess_times.add(next_slot.id)  
     

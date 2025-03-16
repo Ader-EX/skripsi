@@ -22,16 +22,36 @@ sqliteDB = os.getenv("DATABASE_OFFICE_URL")
 print(sqliteDB)
 
 if ENV == "home":
-    DATABASE_URL = f"mysql+pymysql://{user}@{host}:{port}/{database}"
+    DATABASE_URL = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
     connect_args = {}
 else:
     DATABASE_URL = sqliteDB
     connect_args = {"check_same_thread": False}
 
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
-
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,        # Helps prevent stale connections
+    pool_recycle=3600,         # Recycles connections after 1 hour (optional)
+    connect_args={
+        "connect_timeout": 10,     # Timeout for establishing connection (seconds)
+        "read_timeout": 60,        # Timeout for reading query results (seconds)
+        "write_timeout": 60        # Timeout for sending queries (seconds)
+    }
+)
 # Create session and base
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        connect_args={
+            "connect_timeout": 10,
+            "read_timeout": 60,
+            "write_timeout": 60
+        }
+    )
+)
 Base = declarative_base()
 
 # Dependency to get the database session
@@ -41,14 +61,11 @@ def get_db():
         yield db
     finally:
         db.close()
-
-
+        
 def create_tables():
     from model.dosen_model import Dosen
-
     from model.mahasiswa_model import Mahasiswa
     from model.matakuliah_model import MataKuliah
-
     from model.preference_model import Preference
     from model.ruangan_model import Ruangan
     from model.timeslot_model import TimeSlot

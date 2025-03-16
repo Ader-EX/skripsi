@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Trash2 } from "lucide-react";
 import DosenTimetableManagementTable from "./DosenTimetableManagementTable";
 import Cookies from "js-cookie";
+import { useLoadingOverlay } from "@/app/context/LoadingOverlayContext";
 
 const DosenTimeTableManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,6 +34,9 @@ const DosenTimeTableManagement = () => {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const token = Cookies.get("access_token");
 
+  // Loading overlay controls from context
+  const { setIsActive, setOverlayText } = useLoadingOverlay();
+
   // When a dosen is selected, fetch its timetable
   useEffect(() => {
     if (selectedDosen?.id) {
@@ -44,6 +48,9 @@ const DosenTimeTableManagement = () => {
     try {
       setIsLoading(true);
       setError(null);
+      // Show overlay while fetching dosen data
+      setOverlayText("Memuat data dosen...");
+      setIsActive(true);
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/dosen/get-dosen/names?page=1&limit=10&filter=${searchTerm}`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -59,6 +66,7 @@ const DosenTimeTableManagement = () => {
       setDosenList([]);
     } finally {
       setIsLoading(false);
+      setIsActive(false);
     }
   };
 
@@ -67,6 +75,9 @@ const DosenTimeTableManagement = () => {
     try {
       setIsLoading(true);
       setError(null);
+      // Show overlay while fetching timetable data
+      setOverlayText("Memuat jadwal dosen...");
+      setIsActive(true);
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/dosen/timetable/${selectedDosen.id}?page=1&page_size=10`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -85,6 +96,7 @@ const DosenTimeTableManagement = () => {
       setTimetableList([]);
     } finally {
       setIsLoading(false);
+      setIsActive(false);
     }
   };
 
@@ -110,7 +122,6 @@ const DosenTimeTableManagement = () => {
         }
       );
       if (!response.ok) throw new Error("Failed to delete timetable");
-
       // Remove the deleted entry from the timetable list
       setTimetableList((prev) =>
         prev.filter((item) => item.timetable_id !== confirmDelete)
@@ -119,6 +130,10 @@ const DosenTimeTableManagement = () => {
     } catch (error) {
       console.error("Error deleting timetable:", error);
     }
+  };
+
+  const formatTimeRange = (startTime, endTime) => {
+    return `${startTime} - ${endTime}`;
   };
 
   return (
@@ -156,7 +171,6 @@ const DosenTimeTableManagement = () => {
                 <Button type="submit">Search</Button>
               </div>
             </form>
-
             {isLoading && <div className="text-center py-4">Loading...</div>}
             {error && <div className="text-red-500 text-sm">{error}</div>}
             {!isLoading && dosenList.length === 0 && !error && (
@@ -179,7 +193,10 @@ const DosenTimeTableManagement = () => {
                       <TableCell>{dosen.id}</TableCell>
                       <TableCell>{dosen.nama}</TableCell>
                       <TableCell>
-                        <Button onClick={() => handleSelectDosen(dosen)}>
+                        <Button
+                          className="border bg-white text-blue-500 border-blue-500"
+                          onClick={() => handleSelectDosen(dosen)}
+                        >
                           Select
                         </Button>
                       </TableCell>

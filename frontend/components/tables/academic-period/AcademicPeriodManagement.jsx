@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import AcademicPeriodTable from "./AcademicPeriodTable";
 import AcademicPeriodForm from "./AcademicPeriodForm";
 import {
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import toast from "react-hot-toast";
 import Cookies from "js-cookie";
+import { useLoadingOverlay } from "@/app/context/LoadingOverlayContext";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/academic-period`;
 
@@ -28,6 +29,9 @@ const AcademicPeriodManagement = () => {
   const [deleteId, setDeleteId] = useState(null);
   const token = Cookies.get("access_token");
 
+  // Get loading overlay controls from context
+  const { setIsActive, setOverlayText } = useLoadingOverlay();
+
   useEffect(() => {
     fetchAcademicPeriods();
     fetchActiveAcademicPeriod();
@@ -36,6 +40,8 @@ const AcademicPeriodManagement = () => {
   const fetchAcademicPeriods = async () => {
     setLoading(true);
     try {
+      setOverlayText("Memuat data periode akademik...");
+      setIsActive(true);
       const response = await fetch(API_URL, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -45,11 +51,14 @@ const AcademicPeriodManagement = () => {
       console.error("Error fetching academic periods:", error);
     } finally {
       setLoading(false);
+      setIsActive(false);
     }
   };
 
   const fetchActiveAcademicPeriod = async () => {
     try {
+      setOverlayText("Memuat periode akademik aktif...");
+      setIsActive(true);
       const response = await fetch(`${API_URL}/active`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -61,6 +70,8 @@ const AcademicPeriodManagement = () => {
       }
     } catch (error) {
       console.error("Error fetching active academic period:", error);
+    } finally {
+      setIsActive(false);
     }
   };
 
@@ -94,11 +105,11 @@ const AcademicPeriodManagement = () => {
       });
       fetchAcademicPeriods();
       fetchActiveAcademicPeriod();
+      toast.success("Periode akademik berhasil dihapus.");
     } catch (error) {
       toast.error("Gagal menghapus periode akademik.");
       console.error("Error deleting academic period:", error);
     } finally {
-      toast.success("Periode akademik berhasil dihapus.");
       setDeleteModalOpen(false);
       setDeleteId(null);
     }
@@ -153,7 +164,7 @@ const AcademicPeriodManagement = () => {
         <AcademicPeriodTable
           academicPeriods={academicPeriods}
           onEdit={handleEdit}
-          onDelete={handleDeleteClick} // ✅ Use new delete function
+          onDelete={handleDeleteClick}
           onActivate={handleActivate}
         />
         <AcademicPeriodForm
@@ -167,7 +178,6 @@ const AcademicPeriodManagement = () => {
         />
       </CardContent>
 
-      {/* ✅ Delete Confirmation Modal */}
       <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
         <DialogContent>
           <DialogHeader>

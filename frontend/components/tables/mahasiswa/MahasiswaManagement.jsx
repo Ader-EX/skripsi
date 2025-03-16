@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Trash2, Search } from "lucide-react";
 import MahasiswaTable from "./MahasiswaTable";
 import MahasiswaForm from "./MahasiswaForm";
 import {
@@ -24,49 +24,57 @@ import {
 import { Label } from "@/components/ui/label";
 import toast from "react-hot-toast";
 import Cookies from "js-cookie";
+import { useLoadingOverlay } from "@/app/context/LoadingOverlayContext";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/mahasiswa`;
 const PROGRAM_STUDI_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/program-studi`;
 
 const MahasiswaManagement = () => {
   const token = Cookies.get("access_token");
+  const { setIsActive, setOverlayText } = useLoadingOverlay();
 
   const [mahasiswaList, setMahasiswaList] = useState([]);
   const [programStudiList, setProgramStudiList] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [formOpen, setFormOpen] = useState(false);
-  const [editData, setEditData] = useState(null);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState(null);
+  const [total, setTotal] = useState(0);
   const [filters, setFilters] = useState({
-    semester: "all", // ✅ Set default to "all"
-    program_studi_id: "all", // ✅ Set default to "all"
+    semester: "all", // default to "all"
+    program_studi_id: "all", // default to "all"
     search: "",
   });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [loading, setLoading] = useState(true);
+  const [formOpen, setFormOpen] = useState(false);
+  const [isEdit, setIsEdit] = useState(false);
+  const [currentMataKuliah, setCurrentMataKuliah] = useState(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
 
   useEffect(() => {
     fetchMahasiswa();
     fetchProgramStudi();
-  }, [filters]);
+  }, [filters, page, pageSize]);
 
-  /** ✅ Fetch Mahasiswa Data */
+  /** Fetch Mahasiswa Data with Loading Overlay */
   const fetchMahasiswa = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-
+      setOverlayText("Memuat data mahasiswa...");
+      setIsActive(true);
+      let url = `${API_URL}/get-all?`;
+      const queryParams = new URLSearchParams();
       if (filters.semester !== "all")
-        params.append("semester", filters.semester);
+        queryParams.append("semester", filters.semester);
       if (filters.program_studi_id !== "all")
-        params.append("program_studi_id", filters.program_studi_id);
-      if (filters.search) params.append("search", filters.search);
+        queryParams.append("program_studi_id", filters.program_studi_id);
+      if (filters.search) queryParams.append("search", filters.search);
+      url += queryParams.toString();
 
-      const response = await fetch(`${API_URL}/get-all?${params.toString()}`, {
+      const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok)
         throw new Error(`Error fetching data: ${response.status}`);
-
       const data = await response.json();
       setMahasiswaList(data);
     } catch (error) {
@@ -74,45 +82,48 @@ const MahasiswaManagement = () => {
       console.error("Error fetching mahasiswa:", error);
     } finally {
       setLoading(false);
+      setIsActive(false);
     }
   };
 
-  /** ✅ Fetch Program Studi Data */
+  /** Fetch Program Studi Data with Loading Overlay */
   const fetchProgramStudi = async () => {
     try {
+      setOverlayText("Memuat data program studi...");
+      setIsActive(true);
       const response = await fetch(PROGRAM_STUDI_API_URL, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
       if (!response.ok) throw new Error("Failed to fetch program studi");
-
       const data = await response.json();
       setProgramStudiList(data);
     } catch (error) {
       toast.error("Gagal mengambil data program studi.");
       console.error("Error fetching program studi:", error);
+    } finally {
+      setIsActive(false);
     }
   };
 
-  /** ✅ Open Form for Adding Mahasiswa */
+  /** Open Form for Adding Mahasiswa */
   const handleAdd = () => {
     setEditData(null);
     setFormOpen(true);
   };
 
-  /** ✅ Open Form for Editing Mahasiswa */
+  /** Open Form for Editing Mahasiswa */
   const handleEdit = (data) => {
     setEditData(data);
     setFormOpen(true);
   };
 
-  /** ✅ Open Delete Confirmation Modal */
+  /** Open Delete Confirmation Modal */
   const handleDeleteClick = (id) => {
     setDeleteId(id);
     setDeleteModalOpen(true);
   };
 
-  /** ✅ Confirm Deleting Mahasiswa & Associated User */
+  /** Confirm Deleting Mahasiswa & Associated User */
   const handleConfirmDelete = async () => {
     if (!deleteId) return;
     try {
@@ -121,7 +132,6 @@ const MahasiswaManagement = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error("Failed to delete mahasiswa");
-
       toast.success("Mahasiswa berhasil dihapus");
       fetchMahasiswa();
     } catch (error) {
@@ -148,7 +158,7 @@ const MahasiswaManagement = () => {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {/* ✅ Filters */}
+        {/* Filters */}
         <div className="grid grid-cols-3 gap-4 mb-4">
           <div>
             <Label>Semester</Label>
@@ -162,8 +172,7 @@ const MahasiswaManagement = () => {
                 <SelectValue placeholder="Pilih Semester" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Semua</SelectItem>{" "}
-                {/* ✅ Set a valid non-empty value */}
+                <SelectItem value="all">Semua</SelectItem>
                 {["1", "2", "3", "4", "5", "6", "7", "8"].map((sem) => (
                   <SelectItem key={sem} value={sem}>
                     Semester {sem}
@@ -184,8 +193,7 @@ const MahasiswaManagement = () => {
                 <SelectValue placeholder="Pilih Program Studi" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Semua</SelectItem>{" "}
-                {/* ✅ Set a valid non-empty value */}
+                <SelectItem value="all">Semua</SelectItem>
                 {programStudiList.map((program) => (
                   <SelectItem key={program.id} value={program.id.toString()}>
                     {program.name}
@@ -207,14 +215,14 @@ const MahasiswaManagement = () => {
           </div>
         </div>
 
-        {/* ✅ Mahasiswa Table */}
+        {/* Mahasiswa Table */}
         <MahasiswaTable
           mahasiswaList={mahasiswaList}
           onEdit={handleEdit}
           onDelete={handleDeleteClick}
         />
 
-        {/* ✅ Form Dialog for Add/Edit */}
+        {/* Form Dialog for Add/Edit */}
         <MahasiswaForm
           isOpen={formOpen}
           onClose={() => setFormOpen(false)}
@@ -223,7 +231,7 @@ const MahasiswaManagement = () => {
         />
       </CardContent>
 
-      {/* ✅ Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal */}
       <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
         <DialogContent>
           <DialogHeader>

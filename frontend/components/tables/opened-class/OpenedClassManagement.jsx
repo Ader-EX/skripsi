@@ -16,6 +16,7 @@ import { OpenedClassTable } from "./OpenedClassTable";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import Cookies from "js-cookie";
+import { useLoadingOverlay } from "@/app/context/LoadingOverlayContext";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/opened-class`;
 
@@ -25,23 +26,30 @@ const OpenedClassManagement = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [pageNumber, setPageNumber] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentSearch, setCurrentSearch] = useState(""); // New state for active search term
+  const [currentSearch, setCurrentSearch] = useState(""); // Active search term
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const limit = 10;
   const token = Cookies.get("access_token");
 
+  // Get overlay controls from context
+  const { setIsActive, setOverlayText } = useLoadingOverlay();
+
   useEffect(() => {
     fetchClasses();
-  }, [pageNumber, currentSearch]); // Changed to depend on currentSearch instead of searchTerm
+  }, [pageNumber, currentSearch]);
 
   const fetchClasses = async () => {
     setLoading(true);
     try {
+      // Activate the loading overlay with a custom message
+      setOverlayText("Memuat data kelas...");
+      setIsActive(true);
+
       const params = new URLSearchParams({
         page: pageNumber,
         limit,
-        search: currentSearch, // Use currentSearch instead of searchTerm
+        search: currentSearch,
       });
 
       const response = await fetch(`${API_URL}/get-all?${params.toString()}`, {
@@ -56,13 +64,14 @@ const OpenedClassManagement = () => {
       console.error("Error fetching classes:", error);
     } finally {
       setLoading(false);
+      setIsActive(false); // Hide the overlay
     }
   };
 
   const handleSearch = (e) => {
     e.preventDefault();
     setPageNumber(1);
-    setCurrentSearch(searchTerm); // Update currentSearch with searchTerm when button is clicked
+    setCurrentSearch(searchTerm);
   };
 
   const handleDeleteClick = (id) => {
@@ -94,7 +103,7 @@ const OpenedClassManagement = () => {
       <CardHeader className="bg-primary/5">
         <CardTitle className="flex items-center justify-between">
           <span>Manajemen Kelas</span>
-          <Button className="bg-primary hover:bg-primary/90 ">
+          <Button className="bg-primary hover:bg-primary/90">
             <Link href="/admin/data-manajemen/edit-opened" className="flex">
               <Plus className="mr-2 h-4 w-4" />
               Tambah Kelas

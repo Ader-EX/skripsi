@@ -61,8 +61,8 @@ const MataKuliahTable = ({
             <TableRow className="bg-primary/5">
               <TableHead>Kode</TableHead>
               <TableHead>Nama</TableHead>
-              <TableHead>Program Studi</TableHead>
               <TableHead>SKS</TableHead>
+              <TableHead>Program Studi</TableHead>
               <TableHead>Semester</TableHead>
               <TableHead>Tipe</TableHead>
               <TableHead>Kelas Besar</TableHead>

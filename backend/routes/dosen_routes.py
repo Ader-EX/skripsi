@@ -14,6 +14,11 @@ from model.openedclass_model import OpenedClass
 from model.ruangan_model import Ruangan
 from model.user_model import User
 
+from passlib.context import CryptContext
+
+# This should already exist somewhere in your codebase
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 # Updated models to match your schema
 class UserRead(BaseModel):
     id: int
@@ -279,8 +284,11 @@ async def update_dosen(dosen_id: int, dosen: DosenUpdate, db: Session = Depends(
     # Update the user record
     if dosen.nim_nip is not None:
         db_user.nim_nip = dosen.nim_nip
+        
     if dosen.password:
-        db_user.password = dosen.password
+        # ✅ HASH THE PASSWORD BEFORE SAVING!
+        hashed_password = pwd_context.hash(dosen.password)
+        db_user.password = hashed_password
 
     # Update the dosen record
     if dosen.nama is not None:
@@ -292,8 +300,7 @@ async def update_dosen(dosen_id: int, dosen: DosenUpdate, db: Session = Depends(
     if dosen.nomor_ktp is not None:
         db_dosen.nomor_ktp = dosen.nomor_ktp
     if dosen.tanggal_lahir:
-        
-        db_dosen.tanggal_lahir = datetime.strptime(dosen.tanggal_lahir, "%d/%m/%Y")
+        db_dosen.tanggal_lahir = datetime.strptime(dosen.tanggal_lahir, "%Y-%m-%d")
     if dosen.progdi_id is not None:
         db_dosen.progdi_id = dosen.progdi_id
     if dosen.status_dosen is not None:
@@ -309,8 +316,7 @@ async def update_dosen(dosen_id: int, dosen: DosenUpdate, db: Session = Depends(
     db.refresh(db_dosen)
     db.refresh(db_user)
 
-    return {"message": "Dosen berhasil diperbarui", "dosen_id": db_dosen.pegawai_id}
-    
+    return {"message": "Dosen berhasil diperbarui", "dosen_id": db_dosen.pegawai_id} 
 # @router.delete("/{dosen_id}", response_model=dict)
 # async def delete_dosen(dosen_id: int, db: Session = Depends(get_db)):
 #     db_dosen = db.query(Dosen).filter(Dosen.pegawai_id == dosen_id).first()

@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Cookies from "js-cookie";
+import { useLoadingOverlay } from "@/app/context/LoadingOverlayContext";
 
 const MahasiswaTimeTableManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,6 +30,9 @@ const MahasiswaTimeTableManagement = () => {
   const [error, setError] = useState(null);
   const token = Cookies.get("access_token");
 
+  // Get overlay functions from context
+  const { setIsActive, setOverlayText } = useLoadingOverlay();
+
   useEffect(() => {
     if (selectedMahasiswa?.id) {
       fetchTimetables();
@@ -38,7 +42,8 @@ const MahasiswaTimeTableManagement = () => {
   const fetchMahasiswa = async () => {
     try {
       setIsLoading(true);
-      setError(null);
+      setOverlayText("Memuat data mahasiswa...");
+      setIsActive(true);
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/mahasiswa/get-mahasiswa?page=1&limit=10&search=${searchTerm}`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -56,16 +61,16 @@ const MahasiswaTimeTableManagement = () => {
       setMahasiswaList([]);
     } finally {
       setIsLoading(false);
+      setIsActive(false);
     }
   };
 
   const fetchTimetables = async () => {
     if (!selectedMahasiswa?.id) return;
-
     try {
       setIsLoading(true);
-      setError(null);
-
+      setOverlayText("Memuat jadwal mahasiswa...");
+      setIsActive(true);
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/mahasiswa-timetable/timetable/${selectedMahasiswa.id}`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -88,6 +93,7 @@ const MahasiswaTimeTableManagement = () => {
       setTimetableList([]);
     } finally {
       setIsLoading(false);
+      setIsActive(false);
     }
   };
 

@@ -40,10 +40,7 @@ def clear_timetable(db: Session):
 
 
 def fetch_data(db: Session):
-    """
-    Fetch all required data for scheduling.
-    Ensures timeslots are correctly sorted, including "Senin".
-    """
+   
     courses = db.query(MataKuliah).all()
     lecturers = db.query(Dosen).all()
     rooms = db.query(Ruangan).all()
@@ -94,10 +91,176 @@ router = APIRouter()
 from sqlalchemy import func
 from typing import List, Dict
 
-from sqlalchemy import func
-
-from sqlalchemy import func
 from sqlalchemy.orm import joinedload
+
+
+@router.get("/timetable-view/")
+async def get_timetable_view(
+    db: Session = Depends(get_db),
+    day_index: Optional[int] = Query(None, description="Filter timetables by day index (e.g., 1=Senin, 2=Selasa, etc.)"),
+    search: Optional[str] = Query(None, description="Search by course name or code"),
+    show_conflicts: bool = Query(False, description="Include conflict reasons in response"),
+    
+):
+    # Fetch only ONE active academic period (e.g., the latest one)
+    active_academic_period = (
+        db.query(AcademicPeriods)
+        .filter(AcademicPeriods.is_active == True)
+        .order_by(AcademicPeriods.start_date.desc())
+        .first()
+    )
+
+    if not active_academic_period:
+        raise HTTPException(status_code=404, detail="No active academic period found")
+
+    # Start query for timetables
+    timetables_query = (
+        db.query(TimeTable)
+        .join(TimeTable.opened_class)
+        .join(OpenedClass.mata_kuliah)
+        .join(TimeTable.ruangan)
+        .join(OpenedClass.dosens)
+        .join(Dosen.user)
+        .filter(TimeTable.academic_period_id == active_academic_period.id)
+    )
+
+    # ✅ Filter by search if provided
+    if search:
+        search_term = f"%{search}%"
+        timetables_query = timetables_query.filter(
+            or_(
+                MataKuliah.namamk.ilike(search_term),
+                MataKuliah.kodemk.ilike(search_term)
+            )
+        )
+
+
+    if day_index is not None:
+        timeslot_ids = (
+            db.query(TimeSlot.id)
+            .filter(TimeSlot.day_index == day_index)
+            .all()
+        )
+        timeslot_ids = [id for (id,) in timeslot_ids]  
+        if timeslot_ids:
+            filters = [
+                func.JSON_CONTAINS(TimeTable.timeslot_ids, f'{ts_id}')
+                for ts_id in timeslot_ids
+            ]
+
+            timetables_query = timetables_query.filter(or_(*filters))
+        else:
+            # If no timeslots match, return an empty result
+            return {
+                "metadata": {},
+                "time_slots": [],
+                "rooms": [],
+                "schedules": [],
+                "filters": {}
+            }
+
+
+    # ✅ Filter by show_conflicts if true
+    if show_conflicts:
+        timetables_query = timetables_query.filter(TimeTable.is_conflicted == True)
+
+    # Run the query
+    timetables = timetables_query.all()
+
+    # Query time slots & rooms data (unchanged)
+    time_slots = db.query(TimeSlot).all()
+    rooms = db.query(Ruangan).all()
+
+    # Metadata info
+    metadata = {
+        "semester": f"{active_academic_period.tahun_ajaran} - Semester {active_academic_period.semester}",
+        "week_start": f"{active_academic_period.start_date}",
+        "week_end": f"{active_academic_period.end_date}"
+    }
+
+    # Time slots list
+    time_slots_data = [
+        {
+            "id": ts.id,
+            "day": ts.day.value,
+            "day_index": ts.day_index,
+            "start_time": ts.start_time.strftime("%H:%M"),
+            "end_time": ts.end_time.strftime("%H:%M")
+        }
+        for ts in time_slots
+    ]
+
+    # Rooms list
+    rooms_data = [
+        {
+            "id": room.kode_ruangan,
+            "name": room.nama_ruang,
+            "building": room.gedung,
+            "floor": room.group_code,
+            "capacity": room.kapasitas,
+        }
+        for room in rooms
+    ]
+
+    # Schedules result list
+    schedules_data = [
+        {
+            "id": f"SCH{timetable.id}",
+            "subject": {
+                "code": timetable.opened_class.mata_kuliah.kodemk,
+                "name": timetable.opened_class.mata_kuliah.namamk,
+                "kelas": timetable.opened_class.kelas,
+            },
+            "room_id": timetable.ruangan.kode_ruangan,
+            "lecturers": [
+                {
+                    "id": str(dosen.pegawai_id),
+                    "name": dosen.nama,
+                    "title_depan": dosen.title_depan,
+                    "title_belakang": dosen.title_belakang
+                }
+                for dosen in timetable.opened_class.dosens
+            ],
+            "time_slots": [
+                {
+                    "id": ts.id,
+                    "day": ts.day,
+                    "day_index": ts.day_index,
+                    "start_time": ts.start_time.strftime("%H:%M"),
+                    "end_time": ts.end_time.strftime("%H:%M")
+                }
+                for ts in timetable.timeslots
+            ],
+            "student_count": timetable.kuota,
+            "max_capacity": timetable.opened_class.kapasitas,
+            "academic_year": active_academic_period.tahun_ajaran,
+            "semester_period": active_academic_period.semester,
+            "is_conflicted": timetable.is_conflicted,
+            "reason": timetable.reason if show_conflicts and timetable.is_conflicted else None
+        }
+        for timetable in timetables
+    ]
+
+    # Available filters to frontend
+    filters = {
+        "available_days": ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"],
+        "available_times": {
+            "start": "07:10",
+            "end": "18:00",
+            "interval": 50
+        },
+        "buildings": ["KHD", "DS", "OTH"],
+        "class_types": ["T", "P", "S"]
+    }
+
+    # Final API response
+    return {
+        "metadata": metadata,
+        "time_slots": time_slots_data,
+        "rooms": rooms_data,
+        "schedules": schedules_data,
+        "filters": filters
+    }
 
 
 def format_timetable(timetable: TimeTable) -> dict:
@@ -180,6 +343,11 @@ from fastapi import HTTPException, Query, Depends
 from sqlalchemy.orm import Session
 from typing import Optional
 
+
+from typing import Optional
+from fastapi import HTTPException, Depends, Query
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
 
 
 @router.get("/formatted-timetable")
@@ -401,135 +569,6 @@ def check_for_conflicts(db: Session, timetable: TimeTable) -> bool:
     
     return False
 
-
-from typing import Optional
-from fastapi import HTTPException, Depends, Query
-from sqlalchemy import or_
-from sqlalchemy.orm import Session
-
-@router.get("/timetable-view/")
-async def get_timetable_view(
-    db: Session = Depends(get_db),
-    search: Optional[str] = Query(None, description="Search by course name or code"),
-    show_conflicts: bool = Query(False, description="Include conflict reasons in response")
-):
-    # Fetch only ONE active academic period (e.g., the latest one)
-    active_academic_period = (
-        db.query(AcademicPeriods)
-        .filter(AcademicPeriods.is_active == True)
-        .order_by(AcademicPeriods.start_date.desc())  # Ensure it's the most recent one
-        .first()
-    )
-
-    if not active_academic_period:
-        raise HTTPException(status_code=404, detail="No active academic period found")
-
-    timetables_query = (
-        db.query(TimeTable)
-        .join(TimeTable.opened_class)
-        .join(OpenedClass.mata_kuliah)
-        .join(TimeTable.ruangan)
-        .join(OpenedClass.dosens)
-        .join(Dosen.user)
-        .filter(TimeTable.academic_period_id == active_academic_period.id)
-    )
-
-    if search:
-        search_term = f"%{search}%"
-        timetables_query = timetables_query.filter(
-            or_(
-                MataKuliah.namamk.ilike(search_term),
-                MataKuliah.kodemk.ilike(search_term)
-            )
-        )
-
-    timetables = timetables_query.all()
-    time_slots = db.query(TimeSlot).all()
-    rooms = db.query(Ruangan).all()
-
-    metadata = {
-        "semester": f"{active_academic_period.tahun_ajaran} - Semester {active_academic_period.semester}",
-        "week_start": f"{active_academic_period.start_date}",
-        "week_end": f"{active_academic_period.end_date}"
-    }
-
-    time_slots_data = [
-        {
-            "id": ts.id,
-            "day": ts.day.value,
-            "start_time": ts.start_time.strftime("%H:%M"),
-            "end_time": ts.end_time.strftime("%H:%M")
-        }
-        for ts in time_slots
-    ]
-
-    rooms_data = [
-        {
-            "id": room.kode_ruangan,
-            "name": room.nama_ruang,
-            "building": room.gedung,
-            "floor": room.group_code,
-            "capacity": room.kapasitas,
-        }
-        for room in rooms
-    ]
-
-    schedules_data = [
-        {
-            "id": f"SCH{timetable.id}",
-            "subject": {
-                "code": timetable.opened_class.mata_kuliah.kodemk,
-                "name": timetable.opened_class.mata_kuliah.namamk,
-                "kelas": timetable.opened_class.kelas,
-            },
-            "room_id": timetable.ruangan.kode_ruangan,
-            "lecturers": [
-                {
-                    "id": str(dosen.pegawai_id),
-                    "name": dosen.nama,
-                    "title_depan": dosen.title_depan,
-                    "title_belakang": dosen.title_belakang
-                }
-                for dosen in timetable.opened_class.dosens
-            ],
-            "time_slots": [
-                {
-                    "id" : ts.id,
-                    "day": ts.day,
-                    "day_index": ts.day_index,
-                    "start_time": ts.start_time.strftime("%H:%M"),
-                    "end_time": ts.end_time.strftime("%H:%M")
-                }
-                for ts in timetable.timeslots
-            ],
-            "student_count": timetable.kuota,
-            "max_capacity": timetable.opened_class.kapasitas,
-            "academic_year": active_academic_period.tahun_ajaran,
-            "semester_period": active_academic_period.semester,
-            "is_conflicted": timetable.is_conflicted,
-            "reason": timetable.reason if timetable.is_conflicted else None
-        }
-        for timetable in timetables
-    ]
-
-    filters = {
-        "available_days": ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"],
-        "available_times": {
-            "start": "07:10",
-            "end": "18:00",
-            "interval": 50
-        },
-        "buildings": ["KHD", "DS", "OTH"],
-        "class_types": ["T", "P", "S"]
-    }
-
-    return {
-        "metadata": metadata,
-        "time_slots": time_slots_data,
-        "rooms": rooms_data,
-        "schedules": schedules_data,
-        "filters": filters
-    }
 
 
 

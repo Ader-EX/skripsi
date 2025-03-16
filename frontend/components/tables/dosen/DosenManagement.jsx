@@ -23,9 +23,11 @@ import {
 import DosenForm from "./DosenForm";
 import toast from "react-hot-toast";
 import Cookies from "js-cookie";
+import { useLoadingOverlay } from "@/app/context/LoadingOverlayContext";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/dosen`;
 const USER_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/user/users/`;
+
 const DosenManagement = () => {
   const [dosenList, setDosenList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +43,9 @@ const DosenManagement = () => {
   const [search, setSearch] = useState("");
   const token = Cookies.get("access_token");
 
+  // Get overlay controls from context
+  const { setIsActive, setOverlayText } = useLoadingOverlay();
+
   useEffect(() => {
     fetchDosen();
   }, [page, limit, search]);
@@ -48,6 +53,10 @@ const DosenManagement = () => {
   const fetchDosen = async () => {
     setLoading(true);
     try {
+      // Activate overlay with custom message before fetch
+      setOverlayText("Memuat data dosen...");
+      setIsActive(true);
+
       const params = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
@@ -68,6 +77,7 @@ const DosenManagement = () => {
       console.error("Error fetching dosen:", error);
     } finally {
       setLoading(false);
+      setIsActive(false); // Hide overlay after fetch completes
     }
   };
 

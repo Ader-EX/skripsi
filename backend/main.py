@@ -67,7 +67,11 @@ app = FastAPI(
 
 
 
-origins = ["http://localhost:3000"]
+# origins = ["http://localhost:3000"]
+origins = [
+    "http://localhost:3000",
+    "https://skripsi-penjadwalan-upn.vercel.app"
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,

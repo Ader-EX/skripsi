@@ -153,6 +153,12 @@ const EditTimetable = () => {
     <div className="p-8 flex flex-col w-full gap-y-6">
       <Card>
         <CardHeader>
+          <div
+            onClick={() => router.back()}
+            className="mb-4 text-blue-500 text-sm cursor-pointer"
+          >
+            &larr; Kembali ke halaman sebelumnya
+          </div>
           <CardTitle className="flex gap-x-2 text-blue-500 items-center ">
             <Pencil className="w-4 " />
             Timetable Editor

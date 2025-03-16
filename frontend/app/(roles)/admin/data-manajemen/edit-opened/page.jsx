@@ -183,9 +183,17 @@ const EditOpenedClass = () => {
     <div className="p-8 flex flex-col w-full gap-6">
       <Card>
         <CardHeader>
+          <div
+            onClick={() => router.back()}
+            className="mb-4 text-blue-500 text-sm cursor-pointer"
+          >
+            &larr; Kembali ke halaman sebelumnya
+          </div>
           <CardTitle className="flex gap-x-2 text-blue-500 items-center">
-            <Pencil className="w-4" />
-            Opened Class Editor
+            <div className="flex gap-x-2 ">
+              <Pencil className="w-4 " />
+              <h1 className="self-center">Opened Class Editor</h1>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
