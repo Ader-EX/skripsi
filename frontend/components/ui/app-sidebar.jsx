@@ -147,7 +147,7 @@ const AppSidebar = () => {
                     asChild
                     className={`flex items-center gap-x-3 px-4 py-2 rounded-lg ${
                       pathname.startsWith(item.url)
-                        ? "bg-primary text-primary-foreground font-medium"
+                        ? "bg-green-700 text-primary-foreground font-medium"
                         : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition"
                     }`}
                   >

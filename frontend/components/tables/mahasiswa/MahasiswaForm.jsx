@@ -12,7 +12,7 @@ import toast from "react-hot-toast";
 import Cookies from "js-cookie";
 
 const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/mahasiswa`;
-const PROGRAM_STUDI_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/program-studi`;
+const PROGRAM_STUDI_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/program-studi/`;
 
 const MahasiswaForm = ({ isOpen, onClose, initialData, onSubmit }) => {
   const token = Cookies.get("access_token");

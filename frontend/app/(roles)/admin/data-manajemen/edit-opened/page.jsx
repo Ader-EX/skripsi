@@ -135,7 +135,7 @@ const EditOpenedClass = () => {
       const method = classId ? "PUT" : "POST";
       const url = classId
         ? `${API_URL}/opened-class/${classId}`
-        : `${API_URL}/opened-class`;
+        : `${API_URL}/opened-class/`;
 
       const response = await fetch(url, {
         method,
@@ -145,7 +145,7 @@ const EditOpenedClass = () => {
         },
         body: JSON.stringify({
           mata_kuliah_kodemk: selectedMataKuliah.kodemk,
-          kelas, // now one of A-L
+          kelas,
           kapasitas: parseInt(kapasitas, 10),
           dosens: selectedDosen.map((d) => ({
             id: d.id,

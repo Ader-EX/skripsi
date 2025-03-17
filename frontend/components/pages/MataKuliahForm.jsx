@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Label } from "@/components/ui/label"; // ✅ Import Label
+import { Label } from "@/components/ui/label";
 import toast from "react-hot-toast";
 import Cookies from "js-cookie";
 
@@ -42,6 +42,7 @@ const MataKuliahForm = ({
     tipe_mk: "",
     have_kelas_besar: false,
     program_studi_id: "",
+    program_studi_name: "", // add program_studi_name field
   });
 
   useEffect(() => {
@@ -56,6 +57,7 @@ const MataKuliahForm = ({
         tipe_mk: matakuliah.tipe_mk,
         have_kelas_besar: matakuliah.have_kelas_besar,
         program_studi_id: matakuliah.program_studi_id,
+        program_studi_name: matakuliah.program_studi_name || "",
       });
     } else {
       setFormData({
@@ -68,6 +70,7 @@ const MataKuliahForm = ({
         tipe_mk: "",
         have_kelas_besar: false,
         program_studi_id: "",
+        program_studi_name: "",
       });
     }
   }, [isEdit, matakuliah]);
@@ -222,16 +225,26 @@ const MataKuliahForm = ({
             <Select
               name="program_studi_id"
               value={formData.program_studi_id}
-              onValueChange={(value) =>
-                setFormData((prev) => ({ ...prev, program_studi_id: value }))
-              }
+              onValueChange={(value) => {
+                // Find the selected program studi from the provided list
+                const selectedProgram = programStudi.find(
+                  (ps) => ps.id.toString() === value
+                );
+                setFormData((prev) => ({
+                  ...prev,
+                  program_studi_id: value,
+                  program_studi_name: selectedProgram
+                    ? selectedProgram.name
+                    : "",
+                }));
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Pilih Program Studi" />
               </SelectTrigger>
               <SelectContent>
                 {programStudi.map((ps) => (
-                  <SelectItem key={ps.id} value={ps.id}>
+                  <SelectItem key={ps.id} value={ps.id.toString()}>
                     {ps.name}
                   </SelectItem>
                 ))}

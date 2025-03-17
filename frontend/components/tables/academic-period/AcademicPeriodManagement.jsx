@@ -117,7 +117,7 @@ const AcademicPeriodManagement = () => {
 
   const handleActivate = async (id) => {
     try {
-      const response = await fetch(`${API_URL}/${id}/activate`, {
+      const response = await fetch(`${API_URL}${id}/activate`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
       });
