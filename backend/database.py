@@ -76,6 +76,7 @@ def create_tables():
     from model.programstudi_model import ProgramStudi
     from model.academicperiod_model import AcademicPeriods
     from model.dosenopened_model import openedclass_dosen
+    from model.temporary_timetable_model import TemporaryTimeTable
 
     Base.metadata.create_all(bind=engine)
     print("Tables created successfully.")

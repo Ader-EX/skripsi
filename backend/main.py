@@ -5,6 +5,11 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 import jwt
 import uvicorn
+from apscheduler.schedulers.background import BackgroundScheduler
+from sqlalchemy.orm import Session
+from database import SessionLocal
+from model.temporary_timetable_model import TemporaryTimeTable
+from datetime import datetime
 
 # Import all routes
 from routes.user_routes import router as user_router
@@ -25,6 +30,7 @@ from routes.dosenopened_routes import router as dosenopened_router
 from routes.sa_routes import router as sa_router
 from routes.ga_routes import router as ga_router
 from routes.hybrid_routes import router as hybrid_router
+from routes.temporary_timetable_routes import router as temporary_timetable_router
 load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY", "default_secret_key")
@@ -58,6 +64,29 @@ def verify_token_except_user(
     return payload  
 
 
+scheduler = BackgroundScheduler()
+
+def cleanup_expired_temporary_timetables():
+    db: Session = SessionLocal()
+    try:
+        now = datetime.now()
+        expired_entries = db.query(TemporaryTimeTable).filter(TemporaryTimeTable.end_date < now).all()
+
+        if expired_entries:
+            print(f"[{datetime.now()}] Deleting {len(expired_entries)} expired temporary timetables...")
+
+        for entry in expired_entries:
+            db.delete(entry)
+
+        db.commit()
+
+    except Exception as e:
+        db.rollback()
+        print(f"[{datetime.now()}] Cleanup failed:", str(e))
+    finally:
+        db.close()
+
+scheduler.add_job(cleanup_expired_temporary_timetables, 'interval', minutes=1440)
 
 
 app = FastAPI(
@@ -81,11 +110,14 @@ app.add_middleware(
 )
 
 
-
 @app.on_event("startup")
 async def startup_event():
     from database import create_tables
     create_tables()
+
+    # Start APScheduler di startup
+    scheduler.start()
+    print("Scheduler started ✅")
 
 @app.get("/public", dependencies=[])
 async def public_endpoint():
@@ -94,6 +126,13 @@ async def public_endpoint():
 @app.get("/")
 async def test_hello():
     return {"message": "Test"}
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    scheduler.shutdown()
+    print("Scheduler shutdown ✅")
+
 
 
 app.include_router(user_router, prefix="/user", tags=["User"])
@@ -114,6 +153,6 @@ app.include_router(dosenopened_router, prefix="/dosen-opened", tags=["Dosen Open
 app.include_router(sa_router, prefix="/sa-router", tags=["Simulated Annealing"])
 app.include_router(ga_router, prefix="/ga-router", tags=["Genetic Algorithm"])
 app.include_router(hybrid_router, prefix="/hybrid-router", tags=["Hybrid Algorithm"])
-
+app.include_router(temporary_timetable_router, prefix="/temporary-timetable", tags=["Temporary Timetable"])
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
