@@ -86,7 +86,7 @@ def cleanup_expired_temporary_timetables():
     finally:
         db.close()
 
-scheduler.add_job(cleanup_expired_temporary_timetables, 'interval', minutes=1440)
+scheduler.add_job(cleanup_expired_temporary_timetables, 'interval', minutes=20)
 
 
 app = FastAPI(

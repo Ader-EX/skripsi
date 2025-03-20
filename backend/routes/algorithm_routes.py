@@ -4,6 +4,7 @@ from numpy import number
 from sqlalchemy import String, and_, case, or_, text
 from sqlalchemy.orm import Session
 # from model.matakuliah_programstudi import MataKuliahProgramStudi
+from model.temporary_timetable_model import TemporaryTimeTable
 from model.academicperiod_model import AcademicPeriods
 from model.user_model import User
 from model.matakuliah_model import MataKuliah
@@ -31,12 +32,12 @@ logger = logging.getLogger(__name__)
 
 
 
-def clear_timetable(db: Session):
-    """Deletes all entries in the timetable table."""
-    logger.debug("Clearing all entries in the timetable table...")
-    db.query(TimeTable).delete()
-    db.commit()
-    logger.debug("Timetable cleared successfully.")
+# def clear_timetable(db: Session):
+#     """Deletes all entries in the timetable table."""
+#     logger.debug("Clearing all entries in the timetable table...")
+#     db.query(TimeTable).delete()
+#     db.commit()
+#     logger.debug("Timetable cleared successfully.")
 
 
 def fetch_data(db: Session):
@@ -71,14 +72,11 @@ def fetch_data(db: Session):
 
 
 
-
-
-
-
 def clear_timetable(db: Session):
     """Deletes all entries in the timetable table."""
     db.execute(text("DELETE FROM mahasiswa_timetable"))
     db.execute(text("DELETE FROM timetable"))
+    db.execute(text("DELETE FROM temporary_timetable"))
     db.commit()
 
 
@@ -100,9 +98,8 @@ async def get_timetable_view(
     day_index: Optional[int] = Query(None, description="Filter timetables by day index (e.g., 1=Senin, 2=Selasa, etc.)"),
     search: Optional[str] = Query(None, description="Search by course name or code"),
     show_conflicts: bool = Query(False, description="Include conflict reasons in response"),
-    
 ):
-    # Fetch only ONE active academic period (e.g., the latest one)
+    # Fetch active academic period
     active_academic_period = (
         db.query(AcademicPeriods)
         .filter(AcademicPeriods.is_active == True)
@@ -113,7 +110,7 @@ async def get_timetable_view(
     if not active_academic_period:
         raise HTTPException(status_code=404, detail="No active academic period found")
 
-    # Start query for timetables
+    ### ✅ 1. QUERY PERMANENT TIMETABLES
     timetables_query = (
         db.query(TimeTable)
         .join(TimeTable.opened_class)
@@ -124,7 +121,7 @@ async def get_timetable_view(
         .filter(TimeTable.academic_period_id == active_academic_period.id)
     )
 
-    # ✅ Filter by search if provided
+    # Search filter
     if search:
         search_term = f"%{search}%"
         timetables_query = timetables_query.filter(
@@ -134,7 +131,7 @@ async def get_timetable_view(
             )
         )
 
-
+    # Day index filter
     if day_index is not None:
         timeslot_ids = (
             db.query(TimeSlot.id)
@@ -147,10 +144,8 @@ async def get_timetable_view(
                 func.JSON_CONTAINS(TimeTable.timeslot_ids, f'{ts_id}')
                 for ts_id in timeslot_ids
             ]
-
             timetables_query = timetables_query.filter(or_(*filters))
         else:
-            # If no timeslots match, return an empty result
             return {
                 "metadata": {},
                 "time_slots": [],
@@ -159,26 +154,58 @@ async def get_timetable_view(
                 "filters": {}
             }
 
-
-    # ✅ Filter by show_conflicts if true
+    
     if show_conflicts:
         timetables_query = timetables_query.filter(TimeTable.is_conflicted == True)
 
-    # Run the query
     timetables = timetables_query.all()
 
-    # Query time slots & rooms data (unchanged)
+
+    today = datetime.now().date()
+
+    temp_timetables_query = (
+        db.query(TemporaryTimeTable)
+        .join(TimeTable, TemporaryTimeTable.timetable_id == TimeTable.id)
+        .join(TimeTable.opened_class)
+        .join(OpenedClass.mata_kuliah)
+        .join(TimeTable.ruangan)
+        .join(OpenedClass.dosens)
+        .join(Dosen.user)
+        .filter(
+            TemporaryTimeTable.start_date <= today,
+            TemporaryTimeTable.end_date >= today
+        )
+    )
+
+    # Apply day_index filter (by timeslot)
+    if day_index is not None:
+        timeslot_ids = (
+            db.query(TimeSlot.id)
+            .filter(TimeSlot.day_index == day_index)
+            .all()
+        )
+        timeslot_ids = [id for (id,) in timeslot_ids]  
+        if timeslot_ids:
+            filters = [
+                func.JSON_CONTAINS(TemporaryTimeTable.new_timeslot_ids, f'{ts_id}')
+                for ts_id in timeslot_ids
+            ]
+            temp_timetables_query = temp_timetables_query.filter(or_(*filters))
+        else:
+            pass
+
+    temp_timetables = temp_timetables_query.all()
+
+    ### ✅ 3. TIME SLOTS & ROOMS
     time_slots = db.query(TimeSlot).all()
     rooms = db.query(Ruangan).all()
 
-    # Metadata info
     metadata = {
         "semester": f"{active_academic_period.tahun_ajaran} - Semester {active_academic_period.semester}",
         "week_start": f"{active_academic_period.start_date}",
         "week_end": f"{active_academic_period.end_date}"
     }
 
-    # Time slots list
     time_slots_data = [
         {
             "id": ts.id,
@@ -190,7 +217,6 @@ async def get_timetable_view(
         for ts in time_slots
     ]
 
-    # Rooms list
     rooms_data = [
         {
             "id": room.kode_ruangan,
@@ -202,8 +228,8 @@ async def get_timetable_view(
         for room in rooms
     ]
 
-    # Schedules result list
-    schedules_data = [
+    ### ✅ 4. PERMANENT SCHEDULES DATA (TYPE: 0)
+    schedules_permanent = [
         {
             "id": f"SCH{timetable.id}",
             "subject": {
@@ -236,24 +262,63 @@ async def get_timetable_view(
             "academic_year": active_academic_period.tahun_ajaran,
             "semester_period": active_academic_period.semester,
             "is_conflicted": timetable.is_conflicted,
-            "reason": timetable.reason if show_conflicts and timetable.is_conflicted else None
+            "reason": timetable.reason if show_conflicts and timetable.is_conflicted else None,
+            "type": 0  # ✅ Permanent
         }
         for timetable in timetables
     ]
 
-    # Available filters to frontend
+    ### ✅ 5. TEMPORARY SCHEDULES DATA (TYPE: 1)
+    schedules_temporary = [
+        {
+            "id": f"TEMP{temp.id}",
+            "subject": {
+                "code": temp.timetable.opened_class.mata_kuliah.kodemk,
+                "name": temp.timetable.opened_class.mata_kuliah.namamk,
+                "kelas": temp.timetable.opened_class.kelas,
+            },
+            "room_id": temp.new_ruangan.kode_ruangan if temp.new_ruangan else "-",
+            "lecturers": [
+                {
+                    "id": str(dosen.pegawai_id),
+                    "name": dosen.nama,
+                    "title_depan": dosen.title_depan,
+                    "title_belakang": dosen.title_belakang
+                }
+                for dosen in temp.timetable.opened_class.dosens
+            ],
+            "time_slots": [
+                {
+                    "id": ts.id,
+                    "day": ts.day,
+                    "day_index": ts.day_index,
+                    "start_time": ts.start_time.strftime("%H:%M"),
+                    "end_time": ts.end_time.strftime("%H:%M")
+                }
+                for ts in db.query(TimeSlot).filter(TimeSlot.id.in_(temp.new_timeslot_ids)).all()
+            ] if temp.new_timeslot_ids else [],
+            "student_count": temp.timetable.kuota,
+            "max_capacity": temp.timetable.opened_class.kapasitas,
+            "academic_year": active_academic_period.tahun_ajaran,
+            "semester_period": active_academic_period.semester,
+            "is_conflicted": temp.timetable.is_conflicted,
+            "reason": temp.change_reason if show_conflicts else None,
+            "start_date": temp.start_date.strftime("%Y-%m-%d"),
+            "end_date": temp.end_date.strftime("%Y-%m-%d"),
+            "type": 1  # ✅ Temporary
+        }
+        for temp in temp_timetables
+    ]
+
+    ### ✅ 6. COMBINE BOTH PERMANENT + TEMPORARY
+    schedules_data = schedules_permanent + schedules_temporary
+
     filters = {
         "available_days": ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"],
-        "available_times": {
-            "start": "07:10",
-            "end": "18:00",
-            "interval": 50
-        },
         "buildings": ["KHD", "DS", "OTH"],
         "class_types": ["T", "P", "S"]
     }
 
-    # Final API response
     return {
         "metadata": metadata,
         "time_slots": time_slots_data,
@@ -304,7 +369,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
-from datetime import time
+from datetime import datetime, time
 from pydantic import BaseModel
 from typing import List
 
@@ -364,25 +429,25 @@ async def get_timetable(
         if not active_period:
             raise HTTPException(status_code=404, detail="Periode akademik aktif tidak ditemukan.")
 
-        # Base query with joinedload for efficient relationship loading
+        # =========================
+        # PERMANENT TIMETABLE QUERY
+        # =========================
         query = db.query(TimeTable).options(
             joinedload(TimeTable.opened_class).joinedload(OpenedClass.mata_kuliah),
             joinedload(TimeTable.ruangan),
             joinedload(TimeTable.opened_class).joinedload(OpenedClass.dosens),
         ).filter(TimeTable.academic_period_id == active_period.id)
 
-        # Filter by conflict status if provided
+        # Filter logic...
         if is_conflicted is not None:
             query = query.filter(TimeTable.is_conflicted == is_conflicted)
 
-        # If filtering by program_studi_id or filterText, join necessary tables
         if program_studi_id is not None or filterText:
             query = query.join(OpenedClass).join(MataKuliah)
 
         if program_studi_id is not None:
             query = query.filter(MataKuliah.program_studi_id == program_studi_id)
 
-        # Apply search filter if provided
         if filterText:
             search_term = f"%{filterText}%"
             query = query.join(OpenedClass.dosens).filter(
@@ -393,35 +458,40 @@ async def get_timetable(
                 )
             ).distinct()
 
-        # Custom ordering:
-        # 1. Entries with is_conflicted True and reason not null
-        # 2. Entries with is_conflicted True and reason null
-        # 3. Other entries
-        conflict_order = case(
-            (and_(TimeTable.is_conflicted == True, TimeTable.reason.isnot(None)), 1),
-            (and_(TimeTable.is_conflicted == True, TimeTable.reason.is_(None)), 2),
-            else_=3
-        )
         query = query.order_by(
             desc(TimeTable.is_conflicted),
             TimeTable.reason.is_(None),
             TimeTable.id
         )
 
-        # Get total record count before pagination
-        total_records = query.count()
+        permanent_records = query.all()
 
-        # Apply pagination
-        timetables = query.offset((page - 1) * limit).limit(limit).all()
+        # ==========================
+        # TEMPORARY TIMETABLE QUERY
+        # ==========================
+        temp_query = db.query(TemporaryTimeTable).join(TimeTable).options(
+            joinedload(TemporaryTimeTable.timetable).joinedload(TimeTable.opened_class).joinedload(OpenedClass.mata_kuliah),
+            joinedload(TemporaryTimeTable.timetable).joinedload(TimeTable.opened_class).joinedload(OpenedClass.dosens),
+            joinedload(TemporaryTimeTable.timetable).joinedload(TimeTable.ruangan),
+        ).filter(
+            TemporaryTimeTable.start_date <= active_period.end_date,
+            TemporaryTimeTable.end_date >= active_period.start_date
+        )
 
+        temporary_records = temp_query.all()
+
+        # ===================
+        # FORMAT DATA SECTION
+        # ===================
         formatted_data = []
-        for timetable in timetables:
+
+        # 1. PERMANENT RECORDS
+        for timetable in permanent_records:
             opened_class = timetable.opened_class
             mata_kuliah = opened_class.mata_kuliah
             dosens = opened_class.dosens
             room = timetable.ruangan
 
-            # Get timeslots
             timeslot_ids = timetable.timeslot_ids
             timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
 
@@ -460,8 +530,68 @@ async def get_timetable(
                 "is_conflicted": timetable.is_conflicted,
                 "reason": timetable.reason,
                 "is_active": active_period.is_active,
-                "placeholder": timetable.placeholder
+                "placeholder": timetable.placeholder,
+                "source": 0 # PERMANENT RECORD
             })
+
+        # 2. TEMPORARY RECORDS
+        for temp in temporary_records:
+            timetable = temp.timetable
+            opened_class = timetable.opened_class
+            mata_kuliah = opened_class.mata_kuliah
+            dosens = opened_class.dosens
+
+            # Ambil room dan timeslot dari TemporaryTimeTable, fallback ke TimeTable
+            room = db.query(Ruangan).filter(Ruangan.id == temp.new_ruangan_id).first() or timetable.ruangan
+
+            timeslot_ids = temp.new_timeslot_ids or timetable.timeslot_ids
+            timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
+
+            formatted_data.append({
+                "id": temp.id,
+                "subject": {
+                    "code": mata_kuliah.kodemk,
+                    "name": mata_kuliah.namamk,
+                    "sks": mata_kuliah.sks,
+                    "semester": mata_kuliah.smt,
+                    "program_studi_id": mata_kuliah.program_studi_id,
+                    "program_studi_name": mata_kuliah.program_studi.name  
+                },
+                "class": opened_class.kelas,
+                "lecturers": [
+                    {
+                        "id": d.pegawai_id,
+                        "name": f"{d.title_depan or ''} {d.nama} {d.title_belakang or ''}".strip()
+                    } for d in dosens
+                ],
+                "timeslots": [
+                    {
+                        "id": t.id,
+                        "day": t.day,
+                        "startTime": str(t.start_time),
+                        "endTime": str(t.end_time)
+                    } for t in timeslots
+                ],
+                "room": {
+                    "id": room.id,
+                    "code": room.kode_ruangan,
+                    "capacity": room.kapasitas
+                },
+                "capacity": timetable.kapasitas,
+                "enrolled": timetable.kuota,
+                "is_conflicted": timetable.is_conflicted,
+                "reason": temp.change_reason,
+                "is_active": active_period.is_active,
+                "placeholder": timetable.placeholder,
+                "start_date": temp.start_date.strftime("%Y-%m-%d"),
+                "end_date": temp.end_date.strftime("%Y-%m-%d"),
+                "source": 1 # TEMPORARY RECORDS
+            })
+
+        # PAGINATION on merged data
+        total_records = len(formatted_data)
+        total_pages = (total_records + limit - 1) // limit
+        paginated_data = formatted_data[(page - 1) * limit : page * limit]
 
         metadata = {
             "semester": f"{active_period.tahun_ajaran} - Semester {active_period.semester}",
@@ -472,8 +602,8 @@ async def get_timetable(
 
         return {
             "metadata": metadata,
-            "data": formatted_data,
-            "total_pages": (total_records + limit - 1) // limit,
+            "data": paginated_data,
+            "total_pages": total_pages,
             "current_page": page,
             "total_records": total_records
         }
@@ -702,9 +832,9 @@ def check_conflicts(db: Session,
     lecturer_schedule = {}
     conflicted_timetable_ids = set()
 
-    # Reset flag konflik pada entri yang tidak memiliki alasan konflik sebelumnya
+   
     db.query(TimeTable).filter(TimeTable.reason.is_(None)).update(
-        {"is_conflicted": 0}, synchronize_session=False
+    {"is_conflicted": 0}, synchronize_session="fetch"
     )
 
     for assignment in solution:
@@ -863,7 +993,7 @@ def check_conflicts(db: Session,
     ).update({"is_conflicted": 0, "reason": None}, synchronize_session=False)
 
     db.commit()
-
+    db.expire_all()
     return {
         "total_conflicts": len(conflicted_timetable_ids),
         "conflict_details": conflict_details

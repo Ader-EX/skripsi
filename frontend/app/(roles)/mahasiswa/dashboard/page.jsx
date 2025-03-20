@@ -386,8 +386,7 @@ const MahasiswaDashboard = () => {
       <Card className="bg-surface border-border">
         <CardHeader className="bg-primary text-primary-foreground">
           <h2 className="text-lg font-semibold">
-            Periode Pengisian KRS {currentAcademicYear}/
-            {Number(currentAcademicYear) + 1}{" "}
+            Periode Pengisian KRS {currentAcademicYear}
             {currentSemester === 1 ? "Ganjil" : "Genap"}
           </h2>
           <p className="text-sm opacity-90">

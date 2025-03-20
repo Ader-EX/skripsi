@@ -41,6 +41,12 @@ class Ruangan(Base):
 
     # Relationships
     timetables: Mapped[list["TimeTable"]] = relationship("TimeTable", back_populates="ruangan")
-   
+
+    timetables: Mapped[list["TimeTable"]] = relationship(
+    "TimeTable",
+    back_populates="ruangan",
+    cascade="all, delete-orphan"
+    )
+
     def __repr__(self):
         return f"<Ruangan({self.kode_ruangan}, {self.nama_ruang}, kapasitas={self.kapasitas})>"

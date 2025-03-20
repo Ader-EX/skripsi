@@ -1,5 +1,7 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from model.temporary_timetable_model import TemporaryTimeTable
 from model.timeslot_model import TimeSlot
 from model.timetable_model import TimeTable
 from database import get_db
@@ -114,55 +116,61 @@ async def get_all_ruangan(
     }
 
 
-
 @router.get("/timeslots/availability")
 def get_timeslot_availability(
     ruangan_id: int,
-    day_index: Optional[int] = None,  # Optional filter by day
+    day_index: Optional[int] = None,
     db: Session = Depends(get_db)
 ) -> List[Dict]:
-    """
-    Fetches the availability of timeslots for a specific ruangan (room).
-    - `ruangan_id`: The ID of the room
-    - `day_index` (optional): If provided, filters timeslots for a specific day.
-    """
-
-    # Validate if the room exists
     ruangan = db.query(Ruangan).filter(Ruangan.id == ruangan_id).first()
     if not ruangan:
         raise HTTPException(status_code=404, detail="Ruangan not found")
 
-    # Fetch all timeslots, optionally filter by `day_index`
     timeslot_query = db.query(TimeSlot)
     if day_index is not None:
         timeslot_query = timeslot_query.filter(TimeSlot.day_index == day_index)
     timeslots = timeslot_query.all()
 
-    # Fetch all timetables for this `ruangan_id`
     busy_timetables = (
         db.query(TimeTable)
         .filter(TimeTable.ruangan_id == ruangan_id)
         .all()
     )
 
-    # Get a set of busy timeslot IDs
+    now = datetime.now()
+
+    busy_temp_timetables = (
+        db.query(TemporaryTimeTable)
+        .filter(
+            TemporaryTimeTable.new_ruangan_id == ruangan_id,
+            TemporaryTimeTable.start_date <= now,
+            TemporaryTimeTable.end_date >= now
+        )
+        .all()
+    )
+
     busy_timeslot_ids = set()
+
     for timetable in busy_timetables:
         busy_timeslot_ids.update(timetable.timeslot_ids)
 
-    # Format the response
+    for temp in busy_temp_timetables:
+        if temp.new_timeslot_ids:
+            busy_timeslot_ids.update(temp.new_timeslot_ids)
+
     result = []
     for timeslot in timeslots:
         status = "Busy" if timeslot.id in busy_timeslot_ids else "Free"
         result.append({
             "timeslot_id": timeslot.id,
-            "day": timeslot.day.value,  # Convert Enum to string
+            "day": timeslot.day.value,
             "start_time": str(timeslot.start_time),
             "end_time": str(timeslot.end_time),
             "status": status
         })
 
     return result
+
 
 
 @router.get("/{ruangan_id}", response_model=RuanganRead)
@@ -193,6 +201,8 @@ async def delete_ruangan(ruangan_id: int, db: Session = Depends(get_db)):
 
     db.delete(ruangan)
     db.commit()
-    return {"message": "Ruangan deleted successfully"}
+
+    return {"message": "Ruangan and related timetables deleted successfully"}
+
 
 
