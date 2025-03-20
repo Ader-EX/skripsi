@@ -40,7 +40,7 @@ class MataKuliahCreate(BaseModel):
     tipe_mk: Optional[str] = "T"
     have_kelas_besar: bool
     program_studi_id: int
-    program_studi_name: Optional[str]
+    # program_studi_name: Optional[str]
 
 class MataKuliahRead(BaseModel):
     kodemk: str

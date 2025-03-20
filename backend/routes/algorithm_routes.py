@@ -69,9 +69,6 @@ def fetch_data(db: Session):
 
 
 
-
-
-
 def clear_timetable(db: Session):
     """Deletes all entries in the timetable table."""
     db.execute(text("DELETE FROM temporary_timetable"))

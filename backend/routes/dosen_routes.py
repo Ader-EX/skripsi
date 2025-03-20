@@ -202,7 +202,7 @@ async def create_dosen(dosen: DosenCreate = Body(...), db: Session = Depends(get
         email=dosen.email,
         nidn=dosen.nidn,
         nomor_ktp=dosen.nomor_ktp,
-        tanggal_lahir=datetime.strptime(dosen.tanggal_lahir, "%d/%m/%Y"),
+        tanggal_lahir=datetime.strptime(dosen.tanggal_lahir, "%Y-%m-%d"),
         progdi_id=dosen.progdi_id,
         status_dosen=dosen.status_dosen,
         jabatan=dosen.jabatan,
