@@ -422,176 +422,181 @@ async def get_timetable(
     program_studi_id: Optional[str] = Query(None, description="Filter by program studi id"),
     page: int = Query(1, description="Page number"),
     limit: int = Query(10, description="Number of items per page"),
-    filterText: Optional[str] = Query(None, description="Filter by subject or lecturer")
+    filterText: Optional[str] = Query(None, description="Filter by subject or lecturer"),
+    source: Optional[int] = Query(2, description="0=Permanent, 1=Temporary, 2=Both")
 ):
     try:
         active_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
         if not active_period:
             raise HTTPException(status_code=404, detail="Periode akademik aktif tidak ditemukan.")
 
+        formatted_data = []
+
         # =========================
         # PERMANENT TIMETABLE QUERY
         # =========================
-        query = db.query(TimeTable).options(
-            joinedload(TimeTable.opened_class).joinedload(OpenedClass.mata_kuliah),
-            joinedload(TimeTable.ruangan),
-            joinedload(TimeTable.opened_class).joinedload(OpenedClass.dosens),
-        ).filter(TimeTable.academic_period_id == active_period.id)
+        permanent_records = []
+        if source in [0, 2]:
+            query = db.query(TimeTable).options(
+                joinedload(TimeTable.opened_class).joinedload(OpenedClass.mata_kuliah),
+                joinedload(TimeTable.ruangan),
+                joinedload(TimeTable.opened_class).joinedload(OpenedClass.dosens),
+            ).filter(TimeTable.academic_period_id == active_period.id)
 
-        # Filter logic...
-        if is_conflicted is not None:
-            query = query.filter(TimeTable.is_conflicted == is_conflicted)
+            if is_conflicted is not None:
+                query = query.filter(TimeTable.is_conflicted == is_conflicted)
 
-        if program_studi_id is not None or filterText:
-            query = query.join(OpenedClass).join(MataKuliah)
+            if program_studi_id is not None or filterText:
+                query = query.join(OpenedClass).join(MataKuliah)
 
-        if program_studi_id is not None:
-            query = query.filter(MataKuliah.program_studi_id == program_studi_id)
+            if program_studi_id is not None:
+                query = query.filter(MataKuliah.program_studi_id == program_studi_id)
 
-        if filterText:
-            search_term = f"%{filterText}%"
-            query = query.join(OpenedClass.dosens).filter(
-                or_(
-                    MataKuliah.namamk.ilike(search_term),
-                    MataKuliah.kodemk.ilike(search_term),
-                    Dosen.nama.ilike(search_term)
-                )
-            ).distinct()
+            if filterText:
+                search_term = f"%{filterText}%"
+                query = query.join(OpenedClass.dosens).filter(
+                    or_(
+                        MataKuliah.namamk.ilike(search_term),
+                        MataKuliah.kodemk.ilike(search_term),
+                        Dosen.nama.ilike(search_term)
+                    )
+                ).distinct()
 
-        query = query.order_by(
-            desc(TimeTable.is_conflicted),
-            TimeTable.reason.is_(None),
-            TimeTable.id
-        )
+            query = query.order_by(
+                desc(TimeTable.is_conflicted),
+                TimeTable.reason.is_(None),
+                TimeTable.id
+            )
 
-        permanent_records = query.all()
+            permanent_records = query.all()
+
+            # Format permanent records
+            for timetable in permanent_records:
+                opened_class = timetable.opened_class
+                mata_kuliah = opened_class.mata_kuliah
+                dosens = opened_class.dosens
+                room = timetable.ruangan
+
+                timeslot_ids = timetable.timeslot_ids
+                timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
+
+                formatted_data.append({
+                    "id": timetable.id,
+                    "subject": {
+                        "code": mata_kuliah.kodemk,
+                        "name": mata_kuliah.namamk,
+                        "sks": mata_kuliah.sks,
+                        "semester": mata_kuliah.smt,
+                        "program_studi_id": mata_kuliah.program_studi_id,
+                        "program_studi_name": mata_kuliah.program_studi.name  
+                    },
+                    "class": opened_class.kelas,
+                    "lecturers": [
+                        {
+                            "id": d.pegawai_id,
+                            "name": f"{d.title_depan or ''} {d.nama} {d.title_belakang or ''}".strip()
+                        } for d in dosens
+                    ],
+                    "timeslots": [
+                        {
+                            "id": t.id,
+                            "day": t.day,
+                            "startTime": str(t.start_time),
+                            "endTime": str(t.end_time)
+                        } for t in timeslots
+                    ],
+                    "room": {
+                        "id": room.id,
+                        "code": room.kode_ruangan,
+                        "capacity": room.kapasitas
+                    },
+                    "capacity": timetable.kapasitas,
+                    "enrolled": timetable.kuota,
+                    "is_conflicted": timetable.is_conflicted,
+                    "reason": timetable.reason,
+                    "is_active": active_period.is_active,
+                    "placeholder": timetable.placeholder,
+                    "source": 0  # PERMANENT RECORD
+                })
 
         # ==========================
         # TEMPORARY TIMETABLE QUERY
         # ==========================
-        temp_query = db.query(TemporaryTimeTable).join(TimeTable).options(
-            joinedload(TemporaryTimeTable.timetable).joinedload(TimeTable.opened_class).joinedload(OpenedClass.mata_kuliah),
-            joinedload(TemporaryTimeTable.timetable).joinedload(TimeTable.opened_class).joinedload(OpenedClass.dosens),
-            joinedload(TemporaryTimeTable.timetable).joinedload(TimeTable.ruangan),
-        ).filter(
-            TemporaryTimeTable.start_date <= active_period.end_date,
-            TemporaryTimeTable.end_date >= active_period.start_date
-        )
+        temporary_records = []
+        if source in [1, 2]:
+            temp_query = db.query(TemporaryTimeTable).join(TimeTable).options(
+                joinedload(TemporaryTimeTable.timetable).joinedload(TimeTable.opened_class).joinedload(OpenedClass.mata_kuliah),
+                joinedload(TemporaryTimeTable.timetable).joinedload(TimeTable.opened_class).joinedload(OpenedClass.dosens),
+                joinedload(TemporaryTimeTable.timetable).joinedload(TimeTable.ruangan),
+            ).filter(
+                TemporaryTimeTable.start_date <= active_period.end_date,
+                TemporaryTimeTable.end_date >= active_period.start_date
+            )
 
-        temporary_records = temp_query.all()
+            temporary_records = temp_query.all()
 
-        # ===================
-        # FORMAT DATA SECTION
-        # ===================
-        formatted_data = []
+            # Format temporary records
+            for temp in temporary_records:
+                timetable = temp.timetable
+                opened_class = timetable.opened_class
+                mata_kuliah = opened_class.mata_kuliah
+                dosens = opened_class.dosens
 
-        # 1. PERMANENT RECORDS
-        for timetable in permanent_records:
-            opened_class = timetable.opened_class
-            mata_kuliah = opened_class.mata_kuliah
-            dosens = opened_class.dosens
-            room = timetable.ruangan
+                room = db.query(Ruangan).filter(Ruangan.id == temp.new_ruangan_id).first() or timetable.ruangan
 
-            timeslot_ids = timetable.timeslot_ids
-            timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
+                timeslot_ids = temp.new_timeslot_ids or timetable.timeslot_ids
+                timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
 
-            formatted_data.append({
-                "id": timetable.id,
-                "subject": {
-                    "code": mata_kuliah.kodemk,
-                    "name": mata_kuliah.namamk,
-                    "sks": mata_kuliah.sks,
-                    "semester": mata_kuliah.smt,
-                    "program_studi_id": mata_kuliah.program_studi_id,
-                    "program_studi_name": mata_kuliah.program_studi.name  
-                },
-                "class": opened_class.kelas,
-                "lecturers": [
-                    {
-                        "id": d.pegawai_id,
-                        "name": f"{d.title_depan or ''} {d.nama} {d.title_belakang or ''}".strip()
-                    } for d in dosens
-                ],
-                "timeslots": [
-                    {
-                        "id": t.id,
-                        "day": t.day,
-                        "startTime": str(t.start_time),
-                        "endTime": str(t.end_time)
-                    } for t in timeslots
-                ],
-                "room": {
-                    "id": room.id,
-                    "code": room.kode_ruangan,
-                    "capacity": room.kapasitas
-                },
-                "capacity": timetable.kapasitas,
-                "enrolled": timetable.kuota,
-                "is_conflicted": timetable.is_conflicted,
-                "reason": timetable.reason,
-                "is_active": active_period.is_active,
-                "placeholder": timetable.placeholder,
-                "source": 0 # PERMANENT RECORD
-            })
+                formatted_data.append({
+                    "id": temp.id,
+                    "subject": {
+                        "code": mata_kuliah.kodemk,
+                        "name": mata_kuliah.namamk,
+                        "sks": mata_kuliah.sks,
+                        "semester": mata_kuliah.smt,
+                        "program_studi_id": mata_kuliah.program_studi_id,
+                        "program_studi_name": mata_kuliah.program_studi.name  
+                    },
+                    "class": opened_class.kelas,
+                    "lecturers": [
+                        {
+                            "id": d.pegawai_id,
+                            "name": f"{d.title_depan or ''} {d.nama} {d.title_belakang or ''}".strip()
+                        } for d in dosens
+                    ],
+                    "timeslots": [
+                        {
+                            "id": t.id,
+                            "day": t.day,
+                            "startTime": str(t.start_time),
+                            "endTime": str(t.end_time)
+                        } for t in timeslots
+                    ],
+                    "room": {
+                        "id": room.id,
+                        "code": room.kode_ruangan,
+                        "capacity": room.kapasitas
+                    },
+                    "capacity": timetable.kapasitas,
+                    "enrolled": timetable.kuota,
+                    "is_conflicted": timetable.is_conflicted,
+                    "reason": temp.change_reason,
+                    "is_active": active_period.is_active,
+                    "placeholder": timetable.placeholder,
+                    "start_date": temp.start_date.strftime("%Y-%m-%d"),
+                    "end_date": temp.end_date.strftime("%Y-%m-%d"),
+                    "source": 1  # TEMPORARY RECORD
+                })
+        
+        if is_conflicted is not None:
+            formatted_data = [record for record in formatted_data if record["is_conflicted"] == is_conflicted]
 
-        # 2. TEMPORARY RECORDS
-        for temp in temporary_records:
-            timetable = temp.timetable
-            opened_class = timetable.opened_class
-            mata_kuliah = opened_class.mata_kuliah
-            dosens = opened_class.dosens
-
-            # Ambil room dan timeslot dari TemporaryTimeTable, fallback ke TimeTable
-            room = db.query(Ruangan).filter(Ruangan.id == temp.new_ruangan_id).first() or timetable.ruangan
-
-            timeslot_ids = temp.new_timeslot_ids or timetable.timeslot_ids
-            timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
-
-            formatted_data.append({
-                "id": temp.id,
-                "subject": {
-                    "code": mata_kuliah.kodemk,
-                    "name": mata_kuliah.namamk,
-                    "sks": mata_kuliah.sks,
-                    "semester": mata_kuliah.smt,
-                    "program_studi_id": mata_kuliah.program_studi_id,
-                    "program_studi_name": mata_kuliah.program_studi.name  
-                },
-                "class": opened_class.kelas,
-                "lecturers": [
-                    {
-                        "id": d.pegawai_id,
-                        "name": f"{d.title_depan or ''} {d.nama} {d.title_belakang or ''}".strip()
-                    } for d in dosens
-                ],
-                "timeslots": [
-                    {
-                        "id": t.id,
-                        "day": t.day,
-                        "startTime": str(t.start_time),
-                        "endTime": str(t.end_time)
-                    } for t in timeslots
-                ],
-                "room": {
-                    "id": room.id,
-                    "code": room.kode_ruangan,
-                    "capacity": room.kapasitas
-                },
-                "capacity": timetable.kapasitas,
-                "enrolled": timetable.kuota,
-                "is_conflicted": timetable.is_conflicted,
-                "reason": temp.change_reason,
-                "is_active": active_period.is_active,
-                "placeholder": timetable.placeholder,
-                "start_date": temp.start_date.strftime("%Y-%m-%d"),
-                "end_date": temp.end_date.strftime("%Y-%m-%d"),
-                "source": 1 # TEMPORARY RECORDS
-            })
-
-        # PAGINATION on merged data
+        # ==========================
+        # PAGINATION on merged/filtered data
+        # ==========================
         total_records = len(formatted_data)
         total_pages = (total_records + limit - 1) // limit
-        paginated_data = formatted_data[(page - 1) * limit : page * limit]
+        paginated_data = formatted_data[(page - 1) * limit: page * limit]
 
         metadata = {
             "semester": f"{active_period.tahun_ajaran} - Semester {active_period.semester}",

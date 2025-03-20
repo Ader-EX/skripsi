@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Body
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, joinedload
 from typing import Any, Dict, Optional, List
 from datetime import date, datetime
 from pydantic import BaseModel, EmailStr, validator
 
+from model.academicperiod_model import AcademicPeriods
 from model.timeslot_model import TimeSlot
 from model.timetable_model import TimeTable
 from database import get_db
@@ -345,15 +346,15 @@ async def get_timetable_by_dosen(
     page_size: int = Query(10, ge=1, le=100),
 ):
     """
-    Retrieves the list of classes taught by a specific lecturer (Dosen).
+    Retrieves the list of classes taught by a specific lecturer (Dosen),
+    filtered by active academic period.
     """
-    # Find the dosen by id (for error handling)
     dosen = db.query(Dosen).filter(Dosen.pegawai_id == dosen_id).first()
     if not dosen:
         raise HTTPException(status_code=404, detail="Dosen not found")
 
     try:
-        # Fetch timetable data with Mata Kuliah details.
+        # Fetch timetable data with Mata Kuliah details, filtered by active academic period
         query = db.query(
             TimeTable.id,
             TimeTable.opened_class_id,
@@ -379,7 +380,13 @@ async def get_timetable_by_dosen(
          .join(Dosen, OpenedClass.dosens) \
          .join(User, Dosen.user_id == User.id) \
          .join(Ruangan, TimeTable.ruangan_id == Ruangan.id) \
-         .filter(OpenedClass.dosens.any(Dosen.pegawai_id == dosen_id)) \
+         .join(AcademicPeriods, TimeTable.academic_period_id == AcademicPeriods.id) \
+         .filter(
+             and_(
+                 OpenedClass.dosens.any(Dosen.pegawai_id == dosen_id),
+                 AcademicPeriods.is_active == True  # Filter by active academic period!
+             )
+         ) \
          .group_by(
              TimeTable.id,
              OpenedClass.id,
@@ -423,7 +430,6 @@ async def get_timetable_by_dosen(
                 if entry.dosen_names else "-"
             )
             
-
             # Format timeslot details
             formatted_timeslots = [
                 {
@@ -434,7 +440,8 @@ async def get_timetable_by_dosen(
                 }
                 for ts_id in entry.timeslot_ids if (ts := timeslot_map.get(ts_id))
             ]
-            # Sort timeslots by start_time so we can combine them
+
+            # Combine and sort timeslots for display
             if formatted_timeslots:
                 sorted_slots = sorted(formatted_timeslots, key=lambda x: x["start_time"])
                 day = sorted_slots[0]["day"]

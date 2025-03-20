@@ -31,6 +31,7 @@ class TemporaryTimeTable(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     created_by: Mapped[str] = mapped_column(String(50), nullable=True)
+    academic_period_id: Mapped[int] = mapped_column(ForeignKey("academic_periods.id"), nullable=False)
 
     def __repr__(self):
         return f"<TemporaryTimeTable(timetable_id={self.timetable_id}, new_ruangan_id={self.new_ruangan_id}, new_timeslot_ids={self.new_timeslot_ids}, new_day={self.new_day})>"
