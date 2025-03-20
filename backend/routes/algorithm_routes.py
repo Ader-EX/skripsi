@@ -74,9 +74,9 @@ def fetch_data(db: Session):
 
 def clear_timetable(db: Session):
     """Deletes all entries in the timetable table."""
+    db.execute(text("DELETE FROM temporary_timetable"))
     db.execute(text("DELETE FROM mahasiswa_timetable"))
     db.execute(text("DELETE FROM timetable"))
-    db.execute(text("DELETE FROM temporary_timetable"))
     db.commit()
 
 
