@@ -131,8 +131,15 @@ def get_all_temporary_timetables_endpoint(skip: int = 0, limit: int = 100, db: S
 async def get_temporary_timetable_by_mahasiswa(
     mahasiswa_id: int,
     db: Session = Depends(get_db),
-    filter: Optional[str] = Query(None, description="Filter by Mata Kuliah name or Kodemk")
+    filter: Optional[str] = Query(None, description="Filter by Mata Kuliah name or Kodemk"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
 ):
+    """
+    Retrieves the list of temporary timetable classes for a specific student (Mahasiswa),
+    filtered by active academic period.
+    """
+    
     mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.id == mahasiswa_id).first()
     if not mahasiswa:
         raise HTTPException(status_code=404, detail="Mahasiswa not found")
@@ -142,17 +149,28 @@ async def get_temporary_timetable_by_mahasiswa(
         raise HTTPException(status_code=404, detail="No active academic period found")
 
     try:
+        # JOIN TemporaryTimeTable -> TimeTable -> OpenedClass -> MataKuliah -> Ruangan
         query = db.query(
-            TemporaryTimeTable,
-            TimeTable,
-            OpenedClass,
-            MataKuliah,
-            Ruangan,
+            TemporaryTimeTable.id,
+            TemporaryTimeTable.timetable_id,
+            TemporaryTimeTable.new_ruangan_id,
+            TemporaryTimeTable.new_timeslot_ids,
+            TemporaryTimeTable.start_date,
+            TemporaryTimeTable.end_date,
+            TimeTable.kelas,
+            TemporaryTimeTable.change_reason,
+            OpenedClass.mata_kuliah_kodemk,
+            MataKuliah.kodemk,
+            MataKuliah.namamk,
+            MataKuliah.kurikulum,
+            MataKuliah.sks,
+            MataKuliah.smt,
+            Ruangan.nama_ruang.label("ruangan_name"),
             func.group_concat(
                 func.concat_ws(" ", Dosen.title_depan, Dosen.nama, Dosen.title_belakang)
                 .distinct()
-                .op('SEPARATOR')("||")
-            ).label("dosen_names")  
+                .op('SEPARATOR')('||')
+            ).label("dosen_names")
         ).join(TimeTable, TemporaryTimeTable.timetable_id == TimeTable.id) \
          .join(OpenedClass, TimeTable.opened_class_id == OpenedClass.id) \
          .join(MataKuliah, OpenedClass.mata_kuliah_kodemk == MataKuliah.kodemk) \
@@ -160,11 +178,24 @@ async def get_temporary_timetable_by_mahasiswa(
          .join(Dosen, OpenedClass.dosens) \
          .join(MahasiswaTimeTable, MahasiswaTimeTable.timetable_id == TimeTable.id) \
          .filter(
-            MahasiswaTimeTable.mahasiswa_id == mahasiswa_id,
-            TimeTable.academic_period_id == active_period.id,
-            TemporaryTimeTable.start_date <= datetime.now(),
-            TemporaryTimeTable.end_date >= datetime.now()
-         ).group_by(TemporaryTimeTable.id)
+             and_(
+                 MahasiswaTimeTable.mahasiswa_id == mahasiswa_id,
+                 TimeTable.academic_period_id == active_period.id,
+                 TemporaryTimeTable.start_date <= datetime.now(),
+                 TemporaryTimeTable.end_date >= datetime.now()
+             )
+         ) \
+         .group_by(
+             TemporaryTimeTable.id,
+             TimeTable.id,
+             OpenedClass.id,
+             MataKuliah.kodemk,
+             MataKuliah.namamk,
+             MataKuliah.kurikulum,
+             MataKuliah.sks,
+             MataKuliah.smt,
+             Ruangan.nama_ruang
+         )
 
         if filter:
             query = query.filter(
@@ -174,35 +205,68 @@ async def get_temporary_timetable_by_mahasiswa(
                 )
             )
 
-        temporary_timetables = query.all()
+        # Pagination
+        total_records = query.count()
+        total_pages = (total_records + page_size - 1) // page_size
 
-        formatted_data = []
+        temporary_data = query.offset((page - 1) * page_size).limit(page_size).all()
 
-        for temp, timetable, opened_class, mk, ruangan, dosen_names in temporary_timetables:
+        # Get all timeslot information
+        timeslot_ids = set(
+            ts_id for entry in temporary_data for ts_id in entry.new_timeslot_ids if ts_id
+        )
+        timeslot_map = {
+            ts.id: ts for ts in db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
+        }
+
+        formatted_timetable = []
+        for entry in temporary_data:
+            # Format dosen names
             formatted_dosen = (
-                "\n".join([f"{i+1}. {name.strip()}" for i, name in enumerate(dosen_names.split("||"))])
-                if dosen_names else "-"
+                "\n".join(
+                    [f"{i+1}. {name.strip()}" for i, name in enumerate(entry.dosen_names.split("||"))]
+                )
+                if entry.dosen_names else "-"
             )
 
+            # Format timeslot details
+            formatted_timeslots = [
+                {
+                    "id": ts.id,
+                    "day": ts.day,
+                    "start_time": ts.start_time.strftime("%H:%M:%S"),
+                    "end_time": ts.end_time.strftime("%H:%M:%S"),
+                }
+                for ts_id in entry.new_timeslot_ids if (ts := timeslot_map.get(ts_id))
+            ]
+
+            # Combine timeslots to a schedule string
+            if formatted_timeslots:
+                sorted_slots = sorted(formatted_timeslots, key=lambda x: x["start_time"])
+                day = sorted_slots[0]["day"]
+                schedule = f"{day}\t{sorted_slots[0]['start_time']} - {sorted_slots[-1]['end_time']}"
+            else:
+                schedule = "-"
+
             formatted_entry = {
-                "temporary_timetable_id": temp.id,
-                "timetable_id": timetable.id,
-                "kodemk": mk.kodemk,
-                "matakuliah": mk.namamk,
-                "kurikulum": mk.kurikulum,
-                "kelas": opened_class.kelas,
-                "kap_peserta": f"{timetable.kapasitas} / {timetable.kuota}",
-                "sks": mk.sks,
-                "smt": mk.smt,
+                "temporary_timetable_id": entry.id,
+                "timetable_id": entry.timetable_id,
+                "kodemk": entry.kodemk,
+                "matakuliah": entry.namamk,
+                "kurikulum": entry.kurikulum,
+                "kelas": entry.kelas,
+                "kap_peserta": "-",  # Optional: Retrieve from TimeTable if needed
+                "sks": entry.sks,
+                "smt": entry.smt,
                 "dosen": formatted_dosen,
-                "ruangan": ruangan.nama_ruang,
-                "timeslots": temp.new_timeslot_ids,
-                "start_date": temp.start_date.strftime("%Y-%m-%d"),
-                "end_date": temp.end_date.strftime("%Y-%m-%d"),
-                "change_reason": temp.change_reason,
+                "ruangan": entry.ruangan_name,
+                "schedule": schedule,
+                "start_date": entry.start_date.strftime("%Y-%m-%d"),
+                "end_date": entry.end_date.strftime("%Y-%m-%d"),
+                "change_reason": entry.change_reason or "-"
             }
 
-            formatted_data.append(formatted_entry)
+            formatted_timetable.append(formatted_entry)
 
         return {
             "mahasiswa_id": mahasiswa_id,
@@ -210,11 +274,15 @@ async def get_temporary_timetable_by_mahasiswa(
                 "id": active_period.id,
                 "tahun_ajaran": active_period.tahun_ajaran,
                 "semester": active_period.semester,
-                "week_start": active_period.start_date,
-                "week_end": active_period.end_date,
+                "start_date": active_period.start_date,
+                "end_date": active_period.end_date,
                 "is_active": active_period.is_active,
             },
-            "data": formatted_data,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+            "total_records": total_records,
+            "data": formatted_timetable,
         }
 
     except Exception as e:

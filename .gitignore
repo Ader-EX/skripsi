@@ -76,3 +76,4 @@ next-env.d.ts
 
 backend/__pycache__/main.cpython-312.pyc
 backend/__pycache__/main.cpython-312.pyc
+backend/env

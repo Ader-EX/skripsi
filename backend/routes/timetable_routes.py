@@ -11,6 +11,7 @@ from database import get_db
 from model.timetable_model import TimeTable
 from model.timeslot_model import TimeSlot
 from typing import List
+from .algorithm_routes import check_timetable_conflicts
 
 
 
@@ -231,40 +232,32 @@ async def resolve_conflicts(db: Session = Depends(get_db)):
     - Applies the first valid combination that does not create a new conflict.
     """
 
-    from .algorithm_routes import check_timetable_conflicts
+   
 
-    # Step 1: Fetch existing conflicts
     conflict_response = await check_timetable_conflicts(db)
     conflicts = conflict_response.get("conflict_details", [])
     resolved_conflicts = []
 
-    # Sort conflicts by severity (Lecturer > Room > Timeslot > DayCrossing, etc.)
     for conflict in sorted(conflicts, key=lambda x: conflict_priority(x["type"])):
         timetable_id = conflict["timetable_id"]
         conflict_type = conflict["type"]
 
-        # Fetch the conflicting timetable entry
         timetable_entry = db.query(TimeTable).filter(TimeTable.id == timetable_id).first()
         if not timetable_entry:
             continue
 
-        # Attempt to find any new (room, consecutive timeslot) combination
         new_room, new_timeslot_ids = find_new_room_and_timeslot(db, timetable_entry)
 
-        # If a valid combination is found, apply it
         if new_room and new_timeslot_ids:
-            # Double-check that assigning them won't create new conflicts
             if not causes_new_conflict(db, new_room.id, new_timeslot_ids):
-                # Apply the changes
                 old_room_id = timetable_entry.ruangan_id
                 old_timeslots = timetable_entry.timeslot_ids
 
                 timetable_entry.ruangan_id = new_room.id
                 timetable_entry.timeslot_ids = new_timeslot_ids
-                timetable_entry.is_conflicted = False
-                timetable_entry.reason = None  # conflict resolved
+                timetable_entry.is_conflicted = True
+                timetable_entry.reason = None  
 
-                # Generate placeholder
                 new_placeholder = generate_placeholder(db, new_room.id, new_timeslot_ids)
                 timetable_entry.placeholder = new_placeholder
 
