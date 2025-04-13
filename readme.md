@@ -1,4 +1,4 @@
-# FastAPI Project || PENJADWALAN OTOMATIS
+# FastAPI Project || PENJADWALAN OTOMATIS (Frontendnya di repo yang satu lagi)
 
 ## Deskripsi Proyek
 
