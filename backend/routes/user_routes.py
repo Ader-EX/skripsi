@@ -25,14 +25,13 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 router = APIRouter()
 
 
-# Enum for Role Options
+
 class RoleEnum(str, Enum):
     mahasiswa = "mahasiswa"
     dosen = "dosen"
     admin = "admin"
 
 
-# Utility functions for password hashing and JWT
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
@@ -56,7 +55,7 @@ def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None
 class UserCreate(BaseModel):
     nim_nip: str
     password: str
-    role: RoleEnum  # Use Enum for predefined options
+    role: RoleEnum 
 
 
 class UserRead(BaseModel):
@@ -116,27 +115,24 @@ class LoginRequest(BaseModel):
     nim_nip: str
     password: str
 
-# Routes
 @router.post("/users", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def create_user(user: UserCreate, db: Session = Depends(get_db)):
-    # Check if user already exists
     db_user = db.query(User).filter(User.nim_nip == user.nim_nip).first()
     if db_user:
         raise HTTPException(status_code=400, detail="NIM/NIP already registered")
 
     hashed_password = hash_password(user.password)
 
-    # Create user
     new_user = User(
         nim_nip=user.nim_nip,
         password=hashed_password,
-        role=user.role.value,  # Get the string value of the Enum
+        role=user.role.value,  
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
 
-    # ✅ Populate the correct role table
+  
     if user.role == RoleEnum.mahasiswa:
         new_mahasiswa = Mahasiswa(
             user_id=new_user.id,
@@ -171,7 +167,7 @@ async def create_user(user: UserCreate, db: Session = Depends(get_db)):
         )
         db.add(new_dosen)
 
-    # No extra table for Admin, just use User table
+  
 
     db.commit()
     return new_user
@@ -185,7 +181,6 @@ async def get_user_details(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # If user is a Mahasiswa
     if user.role == "mahasiswa":
         mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.user_id == user.id).first()
         if not mahasiswa:
@@ -208,7 +203,6 @@ async def get_user_details(
             program_studi_id=mahasiswa.program_studi_id
         )
 
-    # If user is a Dosen
     elif user.role == "dosen":
         dosen = db.query(Dosen).filter(Dosen.user_id == user.id).first()
         if not dosen:
@@ -231,7 +225,6 @@ async def get_user_details(
             
         )
 
-    # If role is unknown, return error
     raise HTTPException(status_code=400, detail="Invalid user role")
 
 @router.get("/users", response_model=List[UserRead])
@@ -309,7 +302,6 @@ async def delete_user(user_id: int, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Delete associated records in Mahasiswa or Dosen table
     if user.role == "mahasiswa":
         mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.user_id == user.id).first()
         if mahasiswa:

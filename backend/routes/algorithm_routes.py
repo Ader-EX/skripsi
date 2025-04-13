@@ -842,7 +842,7 @@ def check_conflicts(db: Session,
     for assignment in solution:
         opened_class_id, room_id, _ = assignment
 
-        # Ambil entri timetable terkait
+        
         timetable_entry = db.query(TimeTable).filter(
             TimeTable.opened_class_id == opened_class_id
         ).first()
@@ -870,7 +870,7 @@ def check_conflicts(db: Session,
             timetable_entry.reason = reason
             continue
 
-        # Ambil objek timeslot dari cache untuk semua ID yang ada di timeslot_ids
+        
         timeslot_objs = []
         valid = True
         for ts_id in ts_ids:
@@ -892,7 +892,7 @@ def check_conflicts(db: Session,
         if not valid:
             continue
 
-        # Pastikan semua timeslot berada di hari yang sama
+        
         day_set = { (ts.day.value if hasattr(ts.day, "value") else ts.day) for ts in timeslot_objs }
         if len(day_set) != 1:
             reason = f"Kelas tersebar di lebih dari satu hari: {day_set}"
@@ -1045,13 +1045,13 @@ async def get_timetable_by_id(
         dosens = opened_class.dosens
         room = timetable.ruangan
 
-        # Get timeslots
+        # ambil timeslot
         timeslot_ids = timetable.timeslot_ids
         timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
 
         formatted_data = {
             "id": timetable.id,
-            "opened_class_id": opened_class.id,  # ✅ Include Opened Class ID
+            "opened_class_id": opened_class.id, 
             "subject": {
                 "code": mata_kuliah.kodemk,
                 "name": mata_kuliah.namamk,
@@ -1092,31 +1092,29 @@ async def update_timetable(
     db: Session = Depends(get_db)
 ):
     try:
-        # Get existing timetable
+       
         existing_timetable = db.query(TimeTable).filter(TimeTable.id == timetable_id).first()
         if not existing_timetable:
             raise HTTPException(status_code=404, detail="Timetable not found")
 
-        # Update basic fields
+       
         existing_timetable.kapasitas = timetable.capacity
         existing_timetable.kuota = timetable.enrolled
         existing_timetable.ruangan_id = timetable.room_id
 
-        # Update opened class
+  
         opened_class = existing_timetable.opened_class
         opened_class.mata_kuliah_id = timetable.subject_id
         opened_class.kelas = timetable.class_name
 
-        # Update lecturers
-        opened_class.dosens = []  # Clear existing lecturers
+       
+        opened_class.dosens = []  
         new_lecturers = db.query(Dosen).filter(Dosen.id.in_(timetable.lecturer_ids)).all()
         opened_class.dosens.extend(new_lecturers)
 
-        # Update timeslots
-        # First, delete existing timeslots
         db.query(TimeSlot).filter(TimeSlot.id.in_(existing_timetable.timeslot_ids)).delete()
         
-        # Create new timeslots
+    
         new_timeslots = []
         for ts in timetable.timeslots:
             timeslot = TimeSlot(
@@ -1127,10 +1125,9 @@ async def update_timetable(
             db.add(timeslot)
             new_timeslots.append(timeslot)
         
-        db.flush()  # Get IDs for new timeslots
+        db.flush()
         existing_timetable.timeslot_ids = [t.id for t in new_timeslots]
         
-        # Check for conflicts
         existing_timetable.is_conflicted = check_for_conflicts(db, existing_timetable)
         
         db.commit()
@@ -1146,15 +1143,12 @@ async def delete_timetable(
     db: Session = Depends(get_db)
 ):
     try:
-        # Get existing timetable
         timetable = db.query(TimeTable).filter(TimeTable.id == timetable_id).first()
         if not timetable:
             raise HTTPException(status_code=404, detail="Timetable not found")
 
-        # Delete associated timeslots
         db.query(TimeSlot).filter(TimeSlot.id.in_(timetable.timeslot_ids)).delete()
         
-        # Delete the timetable
         db.delete(timetable)
         db.commit()
         

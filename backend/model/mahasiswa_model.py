@@ -6,7 +6,6 @@ class Mahasiswa(Base):
     __tablename__ = "mahasiswa"
 
     id = Column(Integer, primary_key=True, index=True)
-    # Basic Info
   
     nama = Column(String(255), nullable=False)
     tahun_masuk = Column(Integer, nullable=False)

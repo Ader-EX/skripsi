@@ -17,7 +17,7 @@ router = APIRouter()
 async def get_dashboard_stats(db : Session = Depends(get_db)):
     mata_kuliah_count = db.query(func.count(MataKuliah.kodemk)).scalar()
     opened_class_count = db.query(func.count(OpenedClass.id)).scalar()
-    # Get count of ruangan
+   
     ruangan_count = db.query(func.count(Ruangan.id)).scalar()
     dosen_count = db.query(func.count(Dosen.pegawai_id)).scalar()
 

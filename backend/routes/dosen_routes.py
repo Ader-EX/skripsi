@@ -17,7 +17,6 @@ from model.user_model import User
 
 from passlib.context import CryptContext
 
-# This should already exist somewhere in your codebase
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Updated models to match your schema
@@ -83,7 +82,7 @@ class DosenRead(BaseModel):
     jabatan: Optional[str]
     title_depan: Optional[str]
     title_belakang: Optional[str]
-    user: UserRead  # Ensure user relationship is loaded
+    user: UserRead  
 
     class Config:
         orm_mode = True
@@ -282,16 +281,13 @@ async def update_dosen(dosen_id: int, dosen: DosenUpdate, db: Session = Depends(
     if not db_user:
         raise HTTPException(status_code=404, detail="Associated User not found")
 
-    # Update the user record
     if dosen.nim_nip is not None:
         db_user.nim_nip = dosen.nim_nip
         
     if dosen.password:
-        # ✅ HASH THE PASSWORD BEFORE SAVING!
         hashed_password = pwd_context.hash(dosen.password)
         db_user.password = hashed_password
 
-    # Update the dosen record
     if dosen.nama is not None:
         db_dosen.nama = dosen.nama
     if dosen.email is not None:
@@ -354,7 +350,6 @@ async def get_timetable_by_dosen(
         raise HTTPException(status_code=404, detail="Dosen not found")
 
     try:
-        # Fetch timetable data with Mata Kuliah details, filtered by active academic period
         query = db.query(
             TimeTable.id,
             TimeTable.opened_class_id,
@@ -384,7 +379,7 @@ async def get_timetable_by_dosen(
          .filter(
              and_(
                  OpenedClass.dosens.any(Dosen.pegawai_id == dosen_id),
-                 AcademicPeriods.is_active == True  # Filter by active academic period!
+                 AcademicPeriods.is_active == True 
              )
          ) \
          .group_by(
@@ -422,7 +417,7 @@ async def get_timetable_by_dosen(
 
         formatted_timetable = []
         for entry in timetable_data:
-            # Format dosen names into a numbered list
+           
             formatted_dosen = (
                 "\n".join(
                     [f"{i+1}. {name.strip()}" for i, name in enumerate(entry.dosen_names.split("||"))]
@@ -430,7 +425,6 @@ async def get_timetable_by_dosen(
                 if entry.dosen_names else "-"
             )
             
-            # Format timeslot details
             formatted_timeslots = [
                 {
                     "id": ts.id,
@@ -441,7 +435,6 @@ async def get_timetable_by_dosen(
                 for ts_id in entry.timeslot_ids if (ts := timeslot_map.get(ts_id))
             ]
 
-            # Combine and sort timeslots for display
             if formatted_timeslots:
                 sorted_slots = sorted(formatted_timeslots, key=lambda x: x["start_time"])
                 day = sorted_slots[0]["day"]
@@ -460,7 +453,7 @@ async def get_timetable_by_dosen(
                 "smt": entry.smt,
                 "dosen": formatted_dosen,
                 "ruangan": entry.ruangan_name,
-                "schedule": schedule,  # Single combined schedule column
+                "schedule": schedule,  
             }
             formatted_timetable.append(formatted_entry)
 
