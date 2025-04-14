@@ -88,15 +88,14 @@ from typing import List, Dict
 
 from sqlalchemy.orm import joinedload
 
-
 @router.get("/timetable-view/")
 async def get_timetable_view(
     db: Session = Depends(get_db),
-    day_index: Optional[int] = Query(None, description="Filter timetables by day index (e.g., 1=Senin, 2=Selasa, etc.)"),
+    day_index: Optional[int] = Query(None, description="Filter timetables by day index (e.g., 0=Senin, 1=Selasa, etc.)"),
     search: Optional[str] = Query(None, description="Search by course name or code"),
     show_conflicts: bool = Query(False, description="Include conflict reasons in response"),
 ):
-    # Fetch active academic period
+   
     active_academic_period = (
         db.query(AcademicPeriods)
         .filter(AcademicPeriods.is_active == True)
@@ -107,7 +106,7 @@ async def get_timetable_view(
     if not active_academic_period:
         raise HTTPException(status_code=404, detail="No active academic period found")
 
-    ### ✅ 1. QUERY PERMANENT TIMETABLES
+ 
     timetables_query = (
         db.query(TimeTable)
         .join(TimeTable.opened_class)
@@ -118,7 +117,7 @@ async def get_timetable_view(
         .filter(TimeTable.academic_period_id == active_academic_period.id)
     )
 
-    # Search filter
+   
     if search:
         search_term = f"%{search}%"
         timetables_query = timetables_query.filter(
@@ -128,14 +127,14 @@ async def get_timetable_view(
             )
         )
 
-    # Day index filter
+ 
     if day_index is not None:
         timeslot_ids = (
             db.query(TimeSlot.id)
             .filter(TimeSlot.day_index == day_index)
             .all()
         )
-        timeslot_ids = [id for (id,) in timeslot_ids]  
+        timeslot_ids = [id for (id,) in timeslot_ids]
         if timeslot_ids:
             filters = [
                 func.JSON_CONTAINS(TimeTable.timeslot_ids, f'{ts_id}')
@@ -151,14 +150,13 @@ async def get_timetable_view(
                 "filters": {}
             }
 
-    
     if show_conflicts:
         timetables_query = timetables_query.filter(TimeTable.is_conflicted == True)
 
     timetables = timetables_query.all()
 
-
-    today = datetime.now().date()
+ 
+    current_dt = datetime.now()
 
     temp_timetables_query = (
         db.query(TemporaryTimeTable)
@@ -169,31 +167,29 @@ async def get_timetable_view(
         .join(OpenedClass.dosens)
         .join(Dosen.user)
         .filter(
-            TemporaryTimeTable.start_date <= today,
-            TemporaryTimeTable.end_date >= today
+            TemporaryTimeTable.start_date <= current_dt,
+            TemporaryTimeTable.end_date >= current_dt
         )
     )
 
-    # Apply day_index filter (by timeslot)
     if day_index is not None:
         timeslot_ids = (
             db.query(TimeSlot.id)
             .filter(TimeSlot.day_index == day_index)
             .all()
         )
-        timeslot_ids = [id for (id,) in timeslot_ids]  
+        timeslot_ids = [id for (id,) in timeslot_ids]
         if timeslot_ids:
             filters = [
                 func.JSON_CONTAINS(TemporaryTimeTable.new_timeslot_ids, f'{ts_id}')
                 for ts_id in timeslot_ids
             ]
             temp_timetables_query = temp_timetables_query.filter(or_(*filters))
-        else:
-            pass
+
 
     temp_timetables = temp_timetables_query.all()
 
-    ### ✅ 3. TIME SLOTS & ROOMS
+
     time_slots = db.query(TimeSlot).all()
     rooms = db.query(Ruangan).all()
 
@@ -225,7 +221,7 @@ async def get_timetable_view(
         for room in rooms
     ]
 
-    ### ✅ 4. PERMANENT SCHEDULES DATA (TYPE: 0)
+    ### 4. PERMANENT SCHEDULES DATA (TYPE: 0)
     schedules_permanent = [
         {
             "id": f"SCH{timetable.id}",
@@ -260,12 +256,12 @@ async def get_timetable_view(
             "semester_period": active_academic_period.semester,
             "is_conflicted": timetable.is_conflicted,
             "reason": timetable.reason if show_conflicts and timetable.is_conflicted else None,
-            "type": 0  # ✅ Permanent
+            "type": 0  # Permanent
         }
         for timetable in timetables
     ]
 
-    ### ✅ 5. TEMPORARY SCHEDULES DATA (TYPE: 1)
+    ### 5. TEMPORARY SCHEDULES DATA (TYPE: 1)
     schedules_temporary = [
         {
             "id": f"TEMP{temp.id}",
@@ -302,12 +298,12 @@ async def get_timetable_view(
             "reason": temp.change_reason if show_conflicts else None,
             "start_date": temp.start_date.strftime("%Y-%m-%d"),
             "end_date": temp.end_date.strftime("%Y-%m-%d"),
-            "type": 1  # ✅ Temporary
+            "type": 1  # Temporary
         }
         for temp in temp_timetables
     ]
 
-    ### ✅ 6. COMBINE BOTH PERMANENT + TEMPORARY
+ 
     schedules_data = schedules_permanent + schedules_temporary
 
     filters = {
@@ -329,10 +325,10 @@ def format_timetable(timetable: TimeTable) -> dict:
     return {
         "id": timetable.id,
         "subject": {
-            "code": timetable.opened_class.mata_kuliah.kodemk,  # ✅ Corrected reference
+            "code": timetable.opened_class.mata_kuliah.kodemk, 
             "name": timetable.opened_class.mata_kuliah.namamk
         },
-        "class": timetable.opened_class.kelas,  # ✅ Class info comes from OpenedClass
+        "class": timetable.opened_class.kelas, 
         "room": {
             "id": timetable.ruangan.id,
             "code": timetable.ruangan.kode_ruangan,
@@ -342,7 +338,7 @@ def format_timetable(timetable: TimeTable) -> dict:
         "lecturers": [
             {
                 "id": dosen.pegawai_id,
-                "name": dosen.nama  # ✅ Fetch fullname from User table
+                "name": dosen.nama  
             }
             for dosen in timetable.opened_class.dosens
         ],

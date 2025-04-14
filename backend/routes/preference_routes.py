@@ -69,6 +69,14 @@ async def read_dosen_preference( dosen_id: int, db: Session = Depends(get_db)):
     preferences = db.query(Preference).filter(Preference.dosen_id == dosen_id).all()
     return preferences
 
+# Check Dosen has Preference set or not.
+@router.get("/dosen/{user_id}/has-preference", response_model=bool)
+async def dosen_has_preference(user_id: int, db: Session = Depends(get_db)):
+    preference = db.query(Preference).filter(Preference.dosen_id == user_id).first()
+    if not preference:
+        return False
+    return True
+
 
 # Read All Preferences
 @router.get("/", response_model=List[PreferenceRead])

@@ -60,13 +60,13 @@ def check_conflicts(solution, opened_class_cache, room_cache, timeslot_cache, pe
                 timeslot_usage[current_id] = []
             for used_room, _ in timeslot_usage[current_id]:
                 if used_room == room_id:
-                    conflicts += penalties["room_conflict"]  # Penalty ruangan bentrok
+                    conflicts += penalties["room_conflict"]  # Penalti ruangan bentrok
             timeslot_usage[current_id].append((room_id, opened_class_id))
 
             for dosen_id in class_info['dosen_ids']:
                 schedule_key = (dosen_id, current_id)
                 if schedule_key in lecturer_schedule:
-                    conflicts += penalties["lecturer_conflict"]  # Penalty for dosen bentrok
+                    conflicts += penalties["lecturer_conflict"]  # Penalti  dosen bentrok
                 lecturer_schedule[schedule_key] = opened_class_id
 
     return conflicts
