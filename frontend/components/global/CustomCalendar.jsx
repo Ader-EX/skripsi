@@ -1,6 +1,5 @@
 "use client";
 import React, { useState } from "react";
-import { Select } from "@/components/ui/select";
 
 const DUMMY_DATA = [
   {

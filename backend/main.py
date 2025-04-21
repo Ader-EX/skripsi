@@ -36,14 +36,14 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY", "default_secret_key")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 
-# Create a security dependency using HTTPBearer with auto_error=False.
+
 bearer_scheme = HTTPBearer(auto_error=False)
 
 def verify_token_except_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)
 ):
-    # If the path starts with '/user', skip token verification.
+  
     if request.url.path.startswith("/user"):
         return
 
@@ -113,7 +113,7 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     from database import create_tables
-    create_tables()
+    # create_tables()
 
     # Start APScheduler di startup
     scheduler.start()

@@ -24,21 +24,16 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 router = APIRouter()
 
-
-
 class RoleEnum(str, Enum):
     mahasiswa = "mahasiswa"
     dosen = "dosen"
     admin = "admin"
 
-
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
-
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
-
 
 def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None):
     to_encode = data.copy()
@@ -57,7 +52,6 @@ class UserCreate(BaseModel):
     password: str
     role: RoleEnum 
 
-
 class UserRead(BaseModel):
     id: int
     nim_nip: str
@@ -65,7 +59,6 @@ class UserRead(BaseModel):
 
     class Config:
         orm_mode = True
-
 
 class Token(BaseModel):
     access_token: str

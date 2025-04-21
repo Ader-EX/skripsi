@@ -3,7 +3,6 @@
 import * as React from "react";
 import Link from "next/link";
 import { Menu, Search, Timer } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import useAuthStore from "@/hooks/useAuthStore";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
@@ -11,7 +10,7 @@ import { jwtDecode } from "jwt-decode";
 
 export default function Navbar() {
   const [state, setState] = React.useState(false);
-  const [role, setRole] = React.useState("guest"); // Initialize role state
+  const [role, setRole] = React.useState("admin");
   const { token, logout } = useAuthStore();
   const router = useRouter();
 
@@ -20,7 +19,7 @@ export default function Navbar() {
     if (hasil) {
       try {
         const decoded = jwtDecode(hasil);
-        setRole(decoded.role || "guest"); // Update role state
+        setRole(decoded.role || "admin"); // Update role state
       } catch (error) {
         console.error("JWT Decode Error:", error);
       }

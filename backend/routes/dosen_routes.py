@@ -10,6 +10,7 @@ from model.timeslot_model import TimeSlot
 from model.timetable_model import TimeTable
 from database import get_db
 from model.dosen_model import Dosen
+from model.programstudi_model import ProgramStudi
 from model.matakuliah_model import MataKuliah
 from model.openedclass_model import OpenedClass
 from model.ruangan_model import Ruangan
@@ -217,13 +218,10 @@ async def create_dosen(dosen: DosenCreate = Body(...), db: Session = Depends(get
 
 @router.get("/dashboard-stats/{dosen_id}", response_model=Dict[str, Any])
 async def get_dashboard_stats(dosen_id: int, db: Session = Depends(get_db)):
-    # Get count of mata kuliah
     mata_kuliah_count = db.query(func.count(MataKuliah.kodemk)).scalar()
     
-    # Get count of ruangan
     ruangan_count = db.query(func.count(Ruangan.id)).scalar()
     
-    # Get count of classes assigned to this dosen
     classes_taught = db.query(func.count(OpenedClass.id))\
         .join(OpenedClass.dosens)\
         .filter(Dosen.pegawai_id == dosen_id)\
@@ -338,12 +336,13 @@ async def get_timetable_by_dosen(
     dosen_id: int,
     db: Session = Depends(get_db),
     filter: Optional[str] = Query(None, description="Filter by Mata Kuliah name or Kodemk"),
+    prodi_id : Optional[int] = Query(None, description="Filter by Prodi ID"),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
 ):
     """
-    Retrieves the list of classes taught by a specific lecturer (Dosen),
-    filtered by active academic period.
+    Mengembalikan list kelas yg diajar oleh dosen tertentu (Dosen),
+    difilter berdasarkan periode akademik aktif.
     """
     dosen = db.query(Dosen).filter(Dosen.pegawai_id == dosen_id).first()
     if not dosen:
@@ -358,6 +357,7 @@ async def get_timetable_by_dosen(
             TimeTable.kelas,
             TimeTable.kapasitas,
             TimeTable.kuota,
+            ProgramStudi.id,
             OpenedClass.mata_kuliah_kodemk,
             MataKuliah.kodemk,
             MataKuliah.namamk,
@@ -372,6 +372,7 @@ async def get_timetable_by_dosen(
             ).label("dosen_names")
         ).join(OpenedClass, TimeTable.opened_class_id == OpenedClass.id) \
          .join(MataKuliah, OpenedClass.mata_kuliah_kodemk == MataKuliah.kodemk) \
+         .join(ProgramStudi, MataKuliah.program_studi_id == ProgramStudi.id) \
          .join(Dosen, OpenedClass.dosens) \
          .join(User, Dosen.user_id == User.id) \
          .join(Ruangan, TimeTable.ruangan_id == Ruangan.id) \
@@ -390,7 +391,8 @@ async def get_timetable_by_dosen(
              MataKuliah.kurikulum,
              MataKuliah.sks,
              MataKuliah.smt,
-             Ruangan.nama_ruang
+             Ruangan.nama_ruang,
+             ProgramStudi.id
          )
 
         if filter:
@@ -400,6 +402,9 @@ async def get_timetable_by_dosen(
                     MataKuliah.kodemk.ilike(f"%{filter}%")
                 )
             )
+            
+        if prodi_id is not None and prodi_id != 0:
+            query = query.filter(ProgramStudi.id == prodi_id)
 
         # Pagination
         total_records = query.count()
@@ -407,7 +412,6 @@ async def get_timetable_by_dosen(
 
         timetable_data = query.offset((page - 1) * page_size).limit(page_size).all()
 
-        # Fetch timeslot details in one query
         timeslot_ids = set(
             ts_id for entry in timetable_data for ts_id in entry.timeslot_ids if ts_id
         )
@@ -472,23 +476,18 @@ async def get_timetable_by_dosen(
 
 @router.delete("/{dosen_id}", response_model=dict)
 async def delete_dosen(dosen_id: int, db: Session = Depends(get_db)):
-    """ ✅ Delete both Dosen and User """
-    
-    # 🔹 Find the Dosen
+
     db_dosen = db.query(Dosen).filter(Dosen.pegawai_id == dosen_id).first()
     if not db_dosen:
         raise HTTPException(status_code=404, detail="Dosen not found")
 
-    # 🔹 Find the associated User
     db_user = db.query(User).filter(User.id == db_dosen.user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="Associated User not found")
 
-    # 🔹 Delete Dosen first
     db.delete(db_dosen)
     db.commit()
 
-    # 🔹 Delete associated User
     db.delete(db_user)
     db.commit()
 

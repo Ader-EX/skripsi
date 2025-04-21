@@ -264,14 +264,17 @@ def fetch_dosen_preferences(db: Session, opened_classes):
     return preferences_cache
 
 def initialize_population(opened_classes, rooms, timeslots, population_size, opened_class_cache, recess_times):
+    # struktur awal
     population = []
     timeslots_list = sorted(timeslots, key=lambda x: (x.day_index, x.start_time))
 
+    # loop awal utk generate populasi
     for _ in range(population_size):
+        # logger.info(f"Generating population member {_ + 1}/{population_size}")
         solution = []
         room_schedule = {}
         lecturer_schedule = {}
-
+        # sortir
         sorted_classes = sorted(
             opened_classes, key=lambda oc: opened_class_cache[oc.id]["sks"], reverse=True
         )
@@ -279,7 +282,7 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
         for oc in sorted_classes:
             class_info = opened_class_cache[oc.id]
             
-            # ✅ FIX: Use effective SKS
+           
             effective_sks = get_effective_sks(class_info)
             tipe_mk = class_info["mata_kuliah"].tipe_mk
 
@@ -421,7 +424,7 @@ def check_jabatan_constraint(solution, opened_class_cache, timeslot_cache, dosen
 from datetime import datetime
 
 def identify_recess_times(timeslot_cache):
-    """Identify recess gaps dynamically from the timeslot list."""
+    
     recess_times = set()
     sorted_timeslots = sorted(timeslot_cache.values(), key=lambda x: (x.day_index, x.start_time))
 
@@ -441,9 +444,7 @@ def identify_recess_times(timeslot_cache):
 
 
 def simulated_annealing(db: Session, initial_temperature=1000, cooling_rate=0.95, iterations_per_temp=100):
-    """
-    Simulated Annealing for timetable scheduling with early stopping when fitness is 0.
-    """
+    
     clear_timetable(db)
     logger.info("🔥 Starting Simulated Annealing for scheduling...")
 
@@ -517,7 +518,7 @@ def simulated_annealing(db: Session, initial_temperature=1000, cooling_rate=0.95
 
 
 def get_effective_sks(class_info):
-    """Return effective SKS: if tipe_mk is 'P', multiply by 2, else return sks."""
+    """Return effective SKS: if tipe_mk = 'P', * 2, else ("T" or "S") return sks."""
     sks = class_info['sks']
     if class_info['mata_kuliah'].tipe_mk == 'P':
         return sks * 2

@@ -1,11 +1,9 @@
-import base64
-import io
+
 import random
 import logging
-import math
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import  Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -14,11 +12,7 @@ from routes.sa_routes import get_effective_sks, identify_recess_times
 from database import get_db
 from routes.algorithm_routes import clear_timetable, fetch_data
 from model.academicperiod_model import AcademicPeriods
-from model.user_model import User
-from model.matakuliah_model import MataKuliah
-from model.dosen_model import Dosen
-from model.ruangan_model import Ruangan
-from model.timeslot_model import TimeSlot
+
 from model.preference_model import Preference
 from model.openedclass_model import OpenedClass, openedclass_dosen
 from model.timetable_model import TimeTable
@@ -121,7 +115,7 @@ def check_daily_load_balance(solution, opened_class_cache, timeslot_cache, penal
             continue
         avg = sum(counts) / len(counts)
         for count in counts:
-            if abs(count - avg) > 2:
+            if abs(count - avg) > 4:
                 penalty += penalties["daily_load"] * abs(count - avg)
     return penalty
 
@@ -358,28 +352,32 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
     population = []  
     timeslots_list = sorted(timeslots, key=lambda x: (x.day_index, x.start_time))
     
+    # bagian buat populasi berdasarkan parameter GA
     for _ in range(population_size):  
         solution = []
         room_schedule = {}
         lecturer_schedule = {}
         
+        # urutin kelas biar yang paling banyak sks diatas
         sorted_classes = sorted(
             opened_classes, key=lambda oc: get_effective_sks(opened_class_cache[oc.id]), reverse=True
         )
-        
+        # urutin kelas berdasarkan waktu yang paling awal     
         for oc in sorted_classes:
             class_info = opened_class_cache[oc.id]
             effective_sks = get_effective_sks(class_info)
             tipe_mk = class_info["mata_kuliah"].tipe_mk
+            # ambil ruangan berdasarkan tipe mk
             compatible_rooms = [r for r in rooms if r.tipe_ruangan == tipe_mk]
 
+            # kalo gaada ya skip
             if not compatible_rooms:
                 continue
 
-            assigned = False
-            random.shuffle(compatible_rooms)
-            possible_start_idxs = list(range(len(timeslots_list) - effective_sks + 1))
-            random.shuffle(possible_start_idxs)
+            assigned = False # flag buat anaknya udh masuk atau belum
+            random.shuffle(compatible_rooms) # acak ruangan yang ada
+            possible_start_idxs = list(range(len(timeslots_list) - effective_sks + 1)) # cari slot mulai yang mungkin
+            random.shuffle(possible_start_idxs) # acak juga biar variasi
 
             # Pisahkan timeslot berdasarkan preferensi dosen
             preferred_timeslots = []
@@ -554,18 +552,23 @@ def hybrid_schedule(
     best_solution_overall = None
     best_fitness_overall = float('inf')
     
+    # loop tiap generasi
     for gen in range(generations):
+        # seleksi disini make roulette
         selected_pop = roulette_wheel_selection(
             population, opened_class_cache, room_cache, timeslot_cache,
             preferences_cache, dosen_cache, penalties
         )
         new_population = []
+        # crossover disini. jadi pasangan yang dipilih dari seleksi akan di crossover disini
         for i in range(0, len(selected_pop), 2):
             if i + 1 < len(selected_pop):
                 child1, child2 = crossover(selected_pop[i], selected_pop[i+1])
                 new_population.extend([child1, child2])
             else:
                 new_population.append(selected_pop[i])
+                
+            # mutasi disni. acak 1 gen aja dari hasil crossover make probabilitas
         mutated_population = []
         for indiv in new_population:
             mutated_indiv = mutate(
