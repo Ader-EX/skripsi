@@ -1,4 +1,5 @@
 
+import math
 import random
 import logging
 
@@ -628,9 +629,13 @@ def hybrid_schedule(
             if new_fitness < current_fitness:
                 current_solution = new_solution
                 current_fitness = new_fitness
-                if current_fitness < best_fitness_sa:
-                    best_solution_sa = current_solution
-                    best_fitness_sa = current_fitness
+                acceptance_probability = math.exp((current_fitness - new_fitness) / temperature)
+                if new_fitness < current_fitness or random.random() < acceptance_probability:
+                    current_solution = new_solution
+                    current_fitness = new_fitness
+                # if current_fitness < best_fitness_sa:
+                #     best_solution_sa = current_solution
+                #     best_fitness_sa = current_fitness
                     logger.info(f"SA Iteration {iteration}.{i}: New best fitness = {new_fitness}")
                     if best_fitness_sa == 0:
                         temperature = 0

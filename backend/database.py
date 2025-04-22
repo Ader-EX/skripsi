@@ -19,7 +19,7 @@ host = os.getenv("DB_HOST")
 port = os.getenv("DB_PORT")
 database = os.getenv("DB_NAME")
 sqliteDB = os.getenv("DATABASE_OFFICE_URL")
-print(sqliteDB)
+
 
 if ENV == "home":
     DATABASE_URL = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
@@ -30,15 +30,15 @@ else:
 
 engine = create_engine(
     DATABASE_URL,
-    pool_pre_ping=True,        # Helps prevent stale connections
-    pool_recycle=3600,         # Recycles connections after 1 hour (optional)
+    pool_pre_ping=True,        
+    pool_recycle=3600,         
     connect_args={
-        "connect_timeout": 10,     # Timeout for establishing connection (seconds)
-        "read_timeout": 60,        # Timeout for reading query results (seconds)
-        "write_timeout": 60        # Timeout for sending queries (seconds)
+        "connect_timeout": 10,     
+        "read_timeout": 60,        
+        "write_timeout": 60        
     }
 )
-# Create session and base
+
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
@@ -54,7 +54,6 @@ SessionLocal = sessionmaker(
 )
 Base = declarative_base()
 
-# Dependency to get the database session
 def get_db():
     db = SessionLocal()
     try:
