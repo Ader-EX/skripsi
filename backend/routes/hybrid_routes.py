@@ -151,14 +151,20 @@ def check_jabatan_constraint(solution, opened_class_cache, timeslot_cache, dosen
 
 def fitness(solution, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache, penalties):
     conflict_score = check_conflicts(solution, opened_class_cache, room_cache, timeslot_cache, penalties)
-    if conflict_score > 0:
-        return conflict_score * penalties["conflict_multiplier"]
+    
     room_type_score = check_room_type_compatibility(solution, opened_class_cache, room_cache, penalties)
     special_needs_score = check_special_needs_compliance(solution, opened_class_cache, room_cache, preferences_cache, penalties)
     daily_load_score = check_daily_load_balance(solution, opened_class_cache, timeslot_cache, penalties)
     preference_score = check_preference_compliance(solution, opened_class_cache, timeslot_cache, preferences_cache, penalties)
     jabatan_penalty = check_jabatan_constraint(solution, opened_class_cache, timeslot_cache, dosen_cache, penalties)
-    return room_type_score + special_needs_score + daily_load_score + preference_score + jabatan_penalty
+    
+    soft_score = room_type_score + special_needs_score + daily_load_score + preference_score + jabatan_penalty
+    
+   
+    if conflict_score > 0:
+        return (conflict_score * penalties["conflict_multiplier"]) + soft_score
+    else:
+        return soft_score
 
 def generate_neighbor_solution(current_solution, opened_classes, rooms, timeslots, opened_class_cache, recess_times):
     new_solution = current_solution.copy()
@@ -349,68 +355,87 @@ def mutate(solution, opened_classes, rooms, timeslots, opened_class_cache, reces
                     break
     return new_solution
 
-def initialize_population(opened_classes, rooms, timeslots, population_size, opened_class_cache, recess_times, preferences_cache):
-    population = []  
+def initialize_population(
+    opened_classes, rooms, timeslots, population_size,
+    opened_class_cache, recess_times, preferences_cache, dosen_cache
+):
+    population = []
+    # Urutkan semua timeslot berdasarkan hari (day_index) & jam mulai
     timeslots_list = sorted(timeslots, key=lambda x: (x.day_index, x.start_time))
     
-    # bagian buat populasi berdasarkan parameter GA
-    for _ in range(population_size):  
+    for _ in range(population_size):
         solution = []
-        room_schedule = {}
-        lecturer_schedule = {}
+        room_schedule = {}      # (room_id, slot_id) -> kelas_id
+        lecturer_schedule = {}  # (dosen_id, slot_id) -> kelas_id
         
-        # urutin kelas biar yang paling banyak sks diatas
+        # Sort kelas by SKS descending, biar yang durasinya panjang diassign dulu
         sorted_classes = sorted(
-            opened_classes, key=lambda oc: get_effective_sks(opened_class_cache[oc.id]), reverse=True
+            opened_classes,
+            key=lambda oc: get_effective_sks(opened_class_cache[oc.id]),
+            reverse=True
         )
-        # urutin kelas berdasarkan waktu yang paling awal     
+        
         for oc in sorted_classes:
             class_info = opened_class_cache[oc.id]
-            effective_sks = get_effective_sks(class_info)
+            sks = get_effective_sks(class_info)
             tipe_mk = class_info["mata_kuliah"].tipe_mk
-            # ambil ruangan berdasarkan tipe mk
+
+            # Cari ruangan yang cocok tipe-nya
             compatible_rooms = [r for r in rooms if r.tipe_ruangan == tipe_mk]
-
-            # kalo gaada ya skip
             if not compatible_rooms:
-                continue
-
-            assigned = False # flag buat anaknya udh masuk atau belum
-            random.shuffle(compatible_rooms) # acak ruangan yang ada
-            possible_start_idxs = list(range(len(timeslots_list) - effective_sks + 1)) # cari slot mulai yang mungkin
-            random.shuffle(possible_start_idxs) # acak juga biar variasi
-
-            # Pisahkan timeslot berdasarkan preferensi dosen
+                continue  # skip kalau gak ada ruangan cocok
+            
+            # Cek apakah ada dosen dengan jabatan -> if True, kita must avoid Mondays
+            has_jabatan = any(
+                dosen_cache[d].jabatan is not None
+                for d in class_info["dosen_ids"]
+                if d in dosen_cache
+            )
+            
+            assigned = False
+            random.shuffle(compatible_rooms)
+            
+            # Semua kemungkinan start index untuk potongan timeslot berisi 'sks' slot
+            possible_start_idxs = list(range(len(timeslots_list) - sks + 1))
+            random.shuffle(possible_start_idxs)
+            
+            # Pisahkan preferred vs non-preferred
             preferred_timeslots = []
             non_preferred_timeslots = []
-
-            for start_idx in possible_start_idxs:
-                slots = timeslots_list[start_idx: start_idx + effective_sks]
-                slot_ids = {slot.id for slot in slots}
-
+            for idx in possible_start_idxs:
+                slots = timeslots_list[idx : idx + sks]
+                
+                # Jika dosen punya jabatan, skip semua slot Senin (day_index==0)
+                if has_jabatan and slots[0].day_index == 0:
+                    continue
+                
+                slot_ids = {s.id for s in slots}
+                # Cek keseluruhan dosen suka slot ini?
                 is_preferred = all(
-                    any(t in preferences_cache.get((oc.id, dosen_id), {}).get('preferences', {}) for t in slot_ids)
-                    for dosen_id in class_info["dosen_ids"]
+                    any(t in preferences_cache.get((oc.id, d), {}).get("preferences", {}) for t in slot_ids)
+                    for d in class_info["dosen_ids"]
                 )
-
+                
                 if is_preferred:
-                    preferred_timeslots.append(start_idx)
+                    preferred_timeslots.append(idx)
                 else:
-                    non_preferred_timeslots.append(start_idx)
-
+                    non_preferred_timeslots.append(idx)
+            
             sorted_start_idxs = preferred_timeslots + non_preferred_timeslots
-
+            
+            # Coba assign per ruangan & per start_idx
             for room in compatible_rooms:
+
                 if assigned:
                     break
                 for start_idx in sorted_start_idxs:
-                    slots = timeslots_list[start_idx : start_idx + effective_sks]
+                    slots = timeslots_list[idx : idx + sks]
 
                     if not all(
                         slots[i].day_index == slots[0].day_index and 
                         slots[i].id == slots[i-1].id + 1 and
                         slots[i].id not in recess_times
-                        for i in range(1, effective_sks)
+                        for i in range(1, sks)
                     ):
                         continue
 
@@ -440,13 +465,13 @@ def initialize_population(opened_classes, rooms, timeslots, population_size, ope
                 
                 for room in compatible_rooms:
                     for start_idx in possible_start_idxs:
-                        slots = timeslots_list[start_idx : start_idx + effective_sks]
+                        slots = timeslots_list[idx : idx + sks]
                         
                         if not all(
                             slots[i].day_index == slots[0].day_index and 
                             slots[i].id == slots[i-1].id + 1 and
                             slots[i].id not in recess_times
-                            for i in range(1, effective_sks)
+                            for i in range(1, sks)
                         ):
                             continue
                         
@@ -546,7 +571,7 @@ def hybrid_schedule(
     # ------------------------- GA Phase -------------------------
     population = initialize_population(
         opened_classes, rooms, timeslots, population_size,
-        opened_class_cache, recess_times, preferences_cache
+        opened_class_cache, recess_times, preferences_cache, dosen_cache
     )
     
   
@@ -589,7 +614,7 @@ def hybrid_schedule(
         )
         logger.info(f"GA Generation {gen+1}: Best fitness = {best_fitness_gen}")
 
-        # Update overall best if found a new one
+        # ganti paling baru kalo ketemu yang bagusan
         if best_fitness_gen < best_fitness_overall:
             best_solution_overall = best_solution_gen
             best_fitness_overall = best_fitness_gen
@@ -599,7 +624,7 @@ def hybrid_schedule(
             population = [best_solution_gen]
             break
 
-    # If no overall best was found, pick from the final population
+    # kalo ga ketemu yang bener2 paling bagus. ambil aja yang paling terakhir
     if best_solution_overall is None:
         best_solution_overall = min(
             population,
@@ -610,7 +635,7 @@ def hybrid_schedule(
         )
     logger.info(f"GA phase completed with best fitness = {best_fitness_overall}")
 
-    # Use the overall best solution from GA as the starting point for SA
+    
     best_solution_ga = best_solution_overall
     
     # ------------------------- SA Phase -------------------------
@@ -621,6 +646,7 @@ def hybrid_schedule(
     best_fitness_sa = current_fitness
 
     iteration = 0
+    # iterasi temperatur < 1. kalo dibawah 1 ya stop
     while temperature > 1:
         iteration += 1
         for i in range(iterations_per_temp):
@@ -629,13 +655,13 @@ def hybrid_schedule(
             if new_fitness < current_fitness:
                 current_solution = new_solution
                 current_fitness = new_fitness
-                acceptance_probability = math.exp((current_fitness - new_fitness) / temperature)
-                if new_fitness < current_fitness or random.random() < acceptance_probability:
-                    current_solution = new_solution
-                    current_fitness = new_fitness
-                # if current_fitness < best_fitness_sa:
-                #     best_solution_sa = current_solution
-                #     best_fitness_sa = current_fitness
+                # acceptance_probability = math.exp((current_fitness - new_fitness) / temperature)
+                # if new_fitness < current_fitness or random.random() < acceptance_probability:
+                #     current_solution = new_solution
+                #     current_fitness = new_fitness
+                if current_fitness < best_fitness_sa:
+                    best_solution_sa = current_solution
+                    best_fitness_sa = current_fitness
                     logger.info(f"SA Iteration {iteration}.{i}: New best fitness = {new_fitness}")
                     if best_fitness_sa == 0:
                         temperature = 0
@@ -652,17 +678,40 @@ def hybrid_schedule(
     total_time = datetime.now() - start_time
     logger.info(f"Hybrid GA-SA scheduling completed with final best fitness = {best_fitness_sa}. Total computation time: {total_time}")
     
-    raw_conflict = check_conflicts(best_solution_sa, opened_class_cache, room_cache, timeslot_cache, penalties)
-    if raw_conflict > 0:
-        normalized_fitness = best_fitness_sa / penalties["conflict_multiplier"]
-    else:
-        normalized_fitness = best_fitness_sa
-    logger.info(f"Normalized fitness (raw conflict score): {normalized_fitness}")
-
+    hard_conflicts = check_conflicts(best_solution_sa, opened_class_cache, room_cache, timeslot_cache, penalties)
+    
+    # Calculate all soft constraint violations separately
+    room_type_score = check_room_type_compatibility(best_solution_sa, opened_class_cache, room_cache, penalties)
+    special_needs_score = check_special_needs_compliance(best_solution_sa, opened_class_cache, room_cache, preferences_cache, penalties)
+    daily_load_score = check_daily_load_balance(best_solution_sa, opened_class_cache, timeslot_cache, penalties)
+    preference_score = check_preference_compliance(best_solution_sa, opened_class_cache, timeslot_cache, preferences_cache, penalties)
+    jabatan_penalty = check_jabatan_constraint(best_solution_sa, opened_class_cache, timeslot_cache, dosen_cache, penalties)
+    
+    soft_score = room_type_score + special_needs_score + daily_load_score + preference_score + jabatan_penalty
+    
+    logger.info(f"Final solution evaluation:")
+    logger.info(f"  - Hard conflicts: {hard_conflicts}")
+    logger.info(f"  - Soft constraint violations: {soft_score}")
+    logger.info(f"  - Total fitness score: {best_fitness_sa}")
+    
+    # Create detailed breakdown for the return value
+    constraint_breakdown = {
+        "hard_conflicts": hard_conflicts,
+        "soft_constraints": {
+            "room_type_mismatch": room_type_score,
+            "special_needs": special_needs_score,
+            "daily_load_balance": daily_load_score,
+            "preference_violations": preference_score,
+            "jabatan_restrictions": jabatan_penalty,
+            "total_soft": soft_score
+        },
+        "total_fitness": best_fitness_sa
+    }
+    
     return {
-        "timetable": formatted_solution,
+        # "timetable": formatted_solution,
         "computation_time": str(total_time),
-        "final_fitness": normalized_fitness
+        "fitness_details": constraint_breakdown
     }
 
 
@@ -722,7 +771,7 @@ async def generate_schedule_hybrid(
         return {
             "message": "Schedule generated successfully using Hybrid GA-SA",
             "computation_time": best_timetable["computation_time"],
-            "final_fitness": best_timetable["final_fitness"]
+            "final_fitness": best_timetable["fitness_details"]
         }
     except Exception as e:
         logger.error(f"Error generating schedule with Hybrid GA-SA: {e}")
@@ -896,7 +945,7 @@ async def generate_schedule_hybrid(
 # # ------------------------- Endpoints -------------------------
 
 # @router.post("/generate-schedule-hybrid-with-tracking")
-# async def generate_schedule_hybrid(
+# async def generate_schedule_hybrid_tracking(
 #     db: Session = Depends(get_db),
 #     population_size: int = 50,
 #     generations: int = 50,
