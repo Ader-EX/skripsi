@@ -354,21 +354,21 @@ def mutate(solution, opened_classes, rooms, timeslots, opened_class_cache, reces
                     logger.info(f"Mutasi: kelas {opened_class_id} pindah ke ruangan {new_room.id}, dg timeslot {slots[0].id}")
                     break
     return new_solution
-
 def initialize_population(
     opened_classes, rooms, timeslots, population_size,
     opened_class_cache, recess_times, preferences_cache, dosen_cache
 ):
+ 
     population = []
-    # Urutkan semua timeslot berdasarkan hari (day_index) & jam mulai
     timeslots_list = sorted(timeslots, key=lambda x: (x.day_index, x.start_time))
     
     for _ in range(population_size):
+       
         solution = []
-        room_schedule = {}      # (room_id, slot_id) -> kelas_id
-        lecturer_schedule = {}  # (dosen_id, slot_id) -> kelas_id
+        room_schedule = {}      # Menyimpan jadwal penggunaan ruangan dengan format (room_id, slot_id) -> kelas_id
+        lecturer_schedule = {}  # Menyimpan jadwal dosen dengan format (dosen_id, slot_id) -> kelas_id
         
-        # Sort kelas by SKS descending, biar yang durasinya panjang diassign dulu
+        
         sorted_classes = sorted(
             opened_classes,
             key=lambda oc: get_effective_sks(opened_class_cache[oc.id]),
@@ -380,12 +380,12 @@ def initialize_population(
             sks = get_effective_sks(class_info)
             tipe_mk = class_info["mata_kuliah"].tipe_mk
 
-            # Cari ruangan yang cocok tipe-nya
+          
             compatible_rooms = [r for r in rooms if r.tipe_ruangan == tipe_mk]
             if not compatible_rooms:
-                continue  # skip kalau gak ada ruangan cocok
+                continue  # Lewati jika tidak ada ruangan yang cocok
             
-            # Cek apakah ada dosen dengan jabatan -> if True, kita must avoid Mondays
+            # Cek dosen jabatan? -> gaboleh senen
             has_jabatan = any(
                 dosen_cache[d].jabatan is not None
                 for d in class_info["dosen_ids"]
@@ -393,44 +393,49 @@ def initialize_population(
             )
             
             assigned = False
-            random.shuffle(compatible_rooms)
+            random.shuffle(compatible_rooms)  # Acak urutan ruangan untuk variasi solusi
             
-            # Semua kemungkinan start index untuk potongan timeslot berisi 'sks' slot
+            # Cari semua kemungkinan indeks awal untuk slot waktu berurutan sesuai jumlah SKS
             possible_start_idxs = list(range(len(timeslots_list) - sks + 1))
-            random.shuffle(possible_start_idxs)
+            random.shuffle(possible_start_idxs)  # Acak urutan indeks untuk variasi solusi
             
-            # Pisahkan preferred vs non-preferred
+          
             preferred_timeslots = []
             non_preferred_timeslots = []
             for idx in possible_start_idxs:
                 slots = timeslots_list[idx : idx + sks]
                 
-                # Jika dosen punya jabatan, skip semua slot Senin (day_index==0)
+                # Jika dosen memiliki jabatan, hindari jadwal hari Senin (day_index==0)
                 if has_jabatan and slots[0].day_index == 0:
                     continue
                 
                 slot_ids = {s.id for s in slots}
-                # Cek keseluruhan dosen suka slot ini?
+                # Cek apakah semua dosen menyukai slot waktu ini
                 is_preferred = all(
                     any(t in preferences_cache.get((oc.id, d), {}).get("preferences", {}) for t in slot_ids)
                     for d in class_info["dosen_ids"]
                 )
                 
+                # Kelompokkan slot waktu berdasarkan preferensi
                 if is_preferred:
                     preferred_timeslots.append(idx)
                 else:
                     non_preferred_timeslots.append(idx)
             
+         
             sorted_start_idxs = preferred_timeslots + non_preferred_timeslots
             
-            # Coba assign per ruangan & per start_idx
+            # Coba jadwalkan kelas ke ruangan dan slot waktu yang tersedia
             for room in compatible_rooms:
-
                 if assigned:
                     break
                 for start_idx in sorted_start_idxs:
                     slots = timeslots_list[idx : idx + sks]
 
+                    # Pastikan semua slot :
+                    #  di hari yang sama
+                    #  ga kepotong istirahat
+                    # berurutan
                     if not all(
                         slots[i].day_index == slots[0].day_index and 
                         slots[i].id == slots[i-1].id + 1 and
@@ -439,6 +444,7 @@ def initialize_population(
                     ):
                         continue
 
+                    # Cek ketersediaan slot waktu dan dosen
                     slot_available = True
                     for slot in slots:
                         if (room.id, slot.id) in room_schedule or any(
@@ -447,6 +453,7 @@ def initialize_population(
                             slot_available = False
                             break
 
+                    # Jika semua slot tersedia, jadwalkan kelas
                     if slot_available:
                         for slot in slots:
                             room_schedule[(room.id, slot.id)] = oc.id
@@ -456,6 +463,7 @@ def initialize_population(
                         assigned = True
                         break
 
+            # kalo ga ketemu, make fallback
             if not assigned:
                 logger.warning(f"Jadwal nggak ketemu buat kelas {oc.id}, coba fallback dengan minim konflik.")
                 best_conflict = float('inf')
@@ -463,10 +471,12 @@ def initialize_population(
                 best_slots = None
                 best_room = None
                 
+                # Cari jadwal dengan konflik paling sedikit
                 for room in compatible_rooms:
                     for start_idx in possible_start_idxs:
                         slots = timeslots_list[idx : idx + sks]
                         
+                        # Pastikan semua slot waktu pada hari yang sama, berurutan, dan tidak bentrok dengan waktu istirahat
                         if not all(
                             slots[i].day_index == slots[0].day_index and 
                             slots[i].id == slots[i-1].id + 1 and
@@ -475,18 +485,21 @@ def initialize_population(
                         ):
                             continue
                         
+                        # Hitung jumlah konflik yang terjadi
                         conflict_cost = sum(
                             (room.id, slot.id) in room_schedule or any(
                                 (dosen_id, slot.id) in lecturer_schedule for dosen_id in class_info["dosen_ids"]
                             ) for slot in slots
                         )
                         
+                        # Update jadwal terbaik jika ditemukan konflik yang lebih sedikit
                         if conflict_cost < best_conflict:
                             best_conflict = conflict_cost
                             best_assignment = (oc.id, room.id, slots[0].id)
                             best_slots = slots
                             best_room = room
                 
+                # Terapkan jadwal dengan konflik minimal jika ditemukan
                 if best_assignment:
                     for slot in best_slots:
                         room_schedule[(best_room.id, slot.id)] = oc.id
@@ -497,6 +510,7 @@ def initialize_population(
                 else:
                     logger.warning(f"Kelas {oc.id} gagal dijadwalkan, bahkan dengan fallback.")
         
+        # Tambahkan solusi ke dalam populasi
         population.append(solution)
         
     return population

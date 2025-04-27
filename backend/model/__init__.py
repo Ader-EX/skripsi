@@ -17,3 +17,7 @@ from .openedclass_model import OpenedClass
 from .programstudi_model import ProgramStudi
 # from .matakuliah_programstudi import MataKuliahProgramStudi
 from .academicperiod_model import AcademicPeriods
+from .timetable_model import TimeTable
+from .ruangan_model import Ruangan
+from .temporary_timetable_model import TemporaryTimeTable
+from .dosenopened_model import openedclass_dosen

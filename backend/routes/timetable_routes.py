@@ -1,6 +1,6 @@
 import json
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 from model.mahasiswatimetable_model import MahasiswaTimeTable
 from model.ruangan_model import Ruangan
@@ -75,207 +75,52 @@ import json
 
 
 
-
-# @router.post("/resolve-conflicts")
-# async def resolve_conflicts(db: Session = Depends(get_db)):
-#     """
-#     Smart conflict resolution that:
-#     - Resolves the most severe conflicts first.
-#     - Ensures no new conflicts are created.
-#     - Rolls back changes if conflicts remain after resolution.
-#     """
-
-#     from .algorithm_routes import check_timetable_conflicts
-
-#     # ✅ Step 1: Fetch existing conflicts
-#     conflict_response = await check_timetable_conflicts(db)
-#     conflicts = conflict_response.get("conflict_details", [])
-
-#     resolved_conflicts = []
-
-#     for conflict in sorted(conflicts, key=lambda x: conflict_priority(x["type"])):
-#         timetable_id = conflict["timetable_id"]
-#         conflict_type = conflict["type"]
-
-#         # ✅ Fetch the conflicting timetable entry
-#         timetable_entry = db.query(TimeTable).filter(TimeTable.id == timetable_id).first()
-#         if not timetable_entry:
-#             continue  # Skip if timetable not found
-
-#         # ✅ Step 2: Try finding a new available room first
-#         new_room = find_available_room(db, timetable_entry)
-#         if new_room:
-#             new_timeslot_ids = timetable_entry.timeslot_ids  # Keep existing timeslot
-#         else:
-#             # ✅ Step 3: If no new room, try a new timeslot
-#             new_timeslot_ids = find_available_consecutive_timeslots(db, timetable_entry, timetable_entry.ruangan_id)
-
-#         # ✅ Step 4: Verify no new conflicts are introduced
-#         if new_room and new_timeslot_ids:
-#             if not causes_new_conflict(db, new_room.id, new_timeslot_ids):
-#                 # ✅ Apply changes if it's a safe move
-#                 timetable_entry.ruangan_id = new_room.id
-#                 timetable_entry.timeslot_ids = new_timeslot_ids
-#                 timetable_entry.is_conflicted = False
-#                 timetable_entry.reason = None  # Conflict resolved
-
-#                 # ✅ Generate placeholder
-#                 new_placeholder = generate_placeholder(db, new_room.id, new_timeslot_ids)
-#                 timetable_entry.placeholder = new_placeholder
-
-#                 resolved_conflicts.append({
-#                     "timetable_id": timetable_entry.id,
-#                     "previous_timeslot": conflict.get("timeslot_id"),
-#                     "new_timeslot": new_timeslot_ids,
-#                     "previous_room": timetable_entry.ruangan_id,
-#                     "new_room": new_room.id,
-#                     "resolved_conflict_type": conflict_type
-#                 })
-#             else:
-#                 continue  # Skip if the move creates new conflicts
-
-#     # ✅ Commit only if no new conflicts were created
-#     db.commit()
-
-#     return {
-#         "message": "Conflicts resolved successfully",
-#         "resolved_conflicts": resolved_conflicts
-#     }
-
-
-# def conflict_priority(conflict_type):
-#     """
-#     Assigns priority levels to conflict types.
-#     Higher priority conflicts are resolved first.
-#     """
-#     priority_map = {
-#         "Lecturer Conflict": 3,  # Most important
-#         "Room Conflict": 2,
-#         "Timeslot Conflict": 1,
-#         "Day Crossing": 0  # Least important
-#     }
-#     return priority_map.get(conflict_type, 0)  # Default priority: 0
-
-
-# def find_available_consecutive_timeslots(db: Session, timetable_entry, room_id):
-#     """
-#     Finds a set of consecutive available timeslots for a given room.
-#     Ensures that the timeslots are in the same day and do not introduce new conflicts.
-#     """
-#     required_timeslot_count = len(timetable_entry.timeslot_ids)
-
-#     # Fetch all timeslots grouped by day
-#     all_timeslots = db.query(TimeSlot).order_by(TimeSlot.day_index, TimeSlot.start_time).all()
-#     grouped_by_day = {}
-
-#     for ts in all_timeslots:
-#         if ts.day_index not in grouped_by_day:
-#             grouped_by_day[ts.day_index] = []
-#         grouped_by_day[ts.day_index].append(ts)
-
-#     # Try to find consecutive timeslots for the selected room
-#     for day_index, timeslots in grouped_by_day.items():
-#         for i in range(len(timeslots) - required_timeslot_count + 1):
-#             selected_slots = timeslots[i:i + required_timeslot_count]
-#             new_timeslot_ids = [ts.id for ts in selected_slots]
-
-#             # Check if this move introduces new conflicts
-#             if not causes_new_conflict(db, room_id, new_timeslot_ids):
-#                 return new_timeslot_ids
-
-#     return None  # No valid timeslots found
-
-
-# def find_available_room(db: Session, timetable_entry):
-#     """
-#     Finds an available room that has sufficient capacity and is not occupied.
-#     """
-#     candidate_rooms = db.query(Ruangan).filter(Ruangan.kapasitas >= timetable_entry.kapasitas).all()
-
-#     for room in candidate_rooms:
-#         # Check if the room is free during all required timeslots
-#         if not causes_new_conflict(db, room.id, timetable_entry.timeslot_ids):
-#             return room  # Found an available room
-
-#     return None  # No available room
-
-
-# def causes_new_conflict(db: Session, room_id, timeslot_ids):
-#     """
-#     Checks if assigning a room and timeslot would cause new conflicts.
-#     """
-#     conflict = db.query(TimeTable).filter(
-#         TimeTable.ruangan_id == room_id,
-#         func.json_contains(TimeTable.timeslot_ids, json.dumps(timeslot_ids))
-#     ).first()
-
-#     return conflict is not None  # Returns True if conflict exists
-
-
-# def generate_placeholder(db: Session, room_id, timeslot_ids):
-#     """
-#     Generates a placeholder string based on the new room and timeslot assignment.
-#     """
-#     timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
-
-#     if timeslots:
-#         return f"1. {room_id} - {timeslots[0].day} ({timeslots[0].start_time} - {timeslots[-1].end_time})"
-#     return "1. Unknown Room - Unknown Timeslot"
-
-
 @router.post("/resolve-conflicts")
 async def resolve_conflicts(db: Session = Depends(get_db)):
-    """
-    Smart conflict resolution that:
-    - For each conflict, tries to find ANY new room and ANY new consecutive timeslots,
-      ignoring the original room/time and ignoring any preference or day restrictions.
-    - Applies the first valid combination that does not create a new conflict.
-    """
-
+    
    
-
-    conflict_response = await check_timetable_conflicts(db)
-    conflicts = conflict_response.get("conflict_details", [])
+    conflicted_entries = db.query(TimeTable).filter(
+        TimeTable.is_conflicted == True,
+        TimeTable.reason.isnot(None)
+    ).order_by(case(
+        {"Lecturer Conflict": 3, "Room Conflict": 2, "Timeslot Conflict": 1, "Day Crossing": 0},
+        value=TimeTable.reason
+    ).desc()).all()
+    
     resolved_conflicts = []
 
-    for conflict in sorted(conflicts, key=lambda x: conflict_priority(x["type"])):
-        timetable_id = conflict["timetable_id"]
-        conflict_type = conflict["type"]
-
-        timetable_entry = db.query(TimeTable).filter(TimeTable.id == timetable_id).first()
-        if not timetable_entry:
-            continue
-
-        new_room, new_timeslot_ids = find_new_room_and_timeslot(db, timetable_entry)
-
+    for entry in conflicted_entries:
+       
+        new_room, new_timeslot_ids = find_new_room_and_timeslot(db, entry)
+        
         if new_room and new_timeslot_ids:
-            if not causes_new_conflict(db, new_room.id, new_timeslot_ids):
-                old_room_id = timetable_entry.ruangan_id
-                old_timeslots = timetable_entry.timeslot_ids
-
-                timetable_entry.ruangan_id = new_room.id
-                timetable_entry.timeslot_ids = new_timeslot_ids
-                timetable_entry.is_conflicted = True
-                timetable_entry.reason = None  
-
-                new_placeholder = generate_placeholder(db, new_room.id, new_timeslot_ids)
-                timetable_entry.placeholder = new_placeholder
-
-                resolved_conflicts.append({
-                    "timetable_id": timetable_entry.id,
-                    "previous_room": old_room_id,
-                    "new_room": new_room.id,
-                    "previous_timeslot": old_timeslots,
-                    "new_timeslot": new_timeslot_ids,
-                    "resolved_conflict_type": conflict_type
-                })
-            # else: if it introduces a new conflict, skip
-
+            old_room_id = entry.ruangan_id
+            old_timeslots = entry.timeslot_ids
+            conflict_type = entry.reason
+            
+            entry.ruangan_id = new_room.id
+            entry.timeslot_ids = new_timeslot_ids
+            entry.is_conflicted = False  
+            entry.reason = None
+            
+            entry.placeholder = generate_placeholder(db, new_room.id, new_timeslot_ids)
+            
+            resolved_conflicts.append({
+                "timetable_id": entry.id,
+                "previous_room": old_room_id,
+                "new_room": new_room.id,
+                "previous_timeslot": old_timeslots,
+                "new_timeslot": new_timeslot_ids,
+                "resolved_conflict_type": conflict_type
+            })
+    
     db.commit()
-
+    
     return {
         "message": "Conflicts resolved successfully",
-        "resolved_conflicts": resolved_conflicts
+        "resolved_conflicts": resolved_conflicts,
+        "total_resolved": len(resolved_conflicts),
+        "total_remaining": db.query(TimeTable).filter(TimeTable.is_conflicted == True).count()
     }
 
 
@@ -294,40 +139,35 @@ def conflict_priority(conflict_type):
 
 
 def find_new_room_and_timeslot(db: Session, timetable_entry: TimeTable):
-    """
-    Tries all candidate rooms and all possible consecutive timeslots
-    (any day, ignoring original timeslot) to find a valid combination.
-    Returns (room, timeslot_ids) or (None, None) if no valid combination is found.
-    """
+    #  mencoba seluruh kemungkinan ruangan dan timeslot yang berutuan.  
+  
 
     required_sks = len(timetable_entry.timeslot_ids)
     candidate_rooms = db.query(Ruangan).filter(
         Ruangan.kapasitas >= timetable_entry.kapasitas
     ).all()
 
-    # Gather all timeslots, grouped by day
+    # ambil seluruh timeslot
     all_timeslots = db.query(TimeSlot).order_by(TimeSlot.day_index, TimeSlot.start_time).all()
     grouped_by_day = {}
     for ts in all_timeslots:
         grouped_by_day.setdefault(ts.day_index, []).append(ts)
 
-    # For each candidate room
+    # untuk setiap kandidtat ruangan
     for room in candidate_rooms:
-        # For each day
+        # untuk tiap hari yang ada
         for day_index, timeslots in grouped_by_day.items():
-            # Slide over the timeslots to find consecutive blocks of length = required_sks
+            # geser timeslot untuk mencari yang beututan    # untuk setiap timeslot yang ada di ruangan tersebut
             for i in range(len(timeslots) - required_sks + 1):
                 selected_block = timeslots[i : i + required_sks]
 
-                # Ensure these timeslots are truly consecutive (IDs are sequential & same day)
-                # or at least that they share the same day_index
-                # (If you want strict "ID must be consecutive", you can check that too)
+                # buat ngecek berutuan engganya
                 if not all(ts.day_index == day_index for ts in selected_block):
                     continue
 
                 new_timeslot_ids = [ts.id for ts in selected_block]
 
-                # Check if there's a conflict
+                # Cek konflik baru
                 if not causes_new_conflict(db, room.id, new_timeslot_ids):
                     return (room, new_timeslot_ids)
 
@@ -335,11 +175,7 @@ def find_new_room_and_timeslot(db: Session, timetable_entry: TimeTable):
 
 
 def causes_new_conflict(db: Session, room_id: int, timeslot_ids: list[int]) -> bool:
-    """
-    Checks if assigning a given room and a list of timeslot IDs would cause new conflicts.
-    """
-    # If any timetable entry in the DB uses the same room AND
-    # intersects the same timeslot IDs, that's a conflict
+
     conflict = db.query(TimeTable).filter(
         TimeTable.ruangan_id == room_id,
         func.json_contains(TimeTable.timeslot_ids, json.dumps(timeslot_ids))
@@ -350,7 +186,7 @@ def causes_new_conflict(db: Session, room_id: int, timeslot_ids: list[int]) -> b
 
 def generate_placeholder(db: Session, room_id: int, timeslot_ids: list[int]) -> str:
     """
-    Generates a placeholder string based on the new room and timeslot assignment.
+    Generate placeholder berdasarkan kelas paling atas (biasanya kelas A)
     """
     timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
     if timeslots:
@@ -361,12 +197,11 @@ def generate_placeholder(db: Session, room_id: int, timeslot_ids: list[int]) -> 
 
 @router.post("/", response_model=TimeTableResponse)
 def create_timetable(timetable: TimeTableCreate, db: Session = Depends(get_db)):
-    # 1️⃣ Check if `opened_class_id` already exists
+    
     existing_class = db.query(TimeTable).filter(TimeTable.opened_class_id == timetable.opened_class_id).first()
     if existing_class:
         raise HTTPException(status_code=400, detail="This opened class already has a timetable entry.")
 
-    # 2️⃣ Prevent room conflict in `ruangan_id`
     for timeslot in timetable.timeslot_ids:
         conflict = db.query(TimeTable).filter(
             TimeTable.ruangan_id == timetable.ruangan_id,
@@ -375,22 +210,18 @@ def create_timetable(timetable: TimeTableCreate, db: Session = Depends(get_db)):
         if conflict:
             raise HTTPException(status_code=400, detail=f"Room {timetable.ruangan_id} is already booked for timeslot {timeslot}.")
 
-    # 3️⃣ Fetch the active `academic_period_id`
     active_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
     if not active_period:
         raise HTTPException(status_code=404, detail="No active academic period found.")
 
     academic_period_id = active_period.id
 
-    # 4️⃣ Get `kapasitas` and `kelas` from `OpenedClass`
     opened_class = db.query(OpenedClass).filter(OpenedClass.id == timetable.opened_class_id).first()
     if not opened_class:
         raise HTTPException(status_code=404, detail="Opened class not found.")
 
     kapasitas = opened_class.kapasitas
-    kelas = opened_class.kelas  # Ensure this value is retrieved correctly
-
-    # 5️⃣ Fetch Timeslot Details to Generate Placeholder
+    kelas = opened_class.kelas  
     timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(timetable.timeslot_ids)).all()
     if timeslots:
         timeslot_str = f"{timetable.ruangan_id} - {timeslots[0].day} ({timeslots[0].start_time} - {timeslots[-1].end_time})"
@@ -399,14 +230,12 @@ def create_timetable(timetable: TimeTableCreate, db: Session = Depends(get_db)):
 
     selected_class_times = [f"1. {timeslot_str}"]
 
-    # 6️⃣ Find the **first alphabetical class** instead of assuming "A"
     mata_kuliah_kodemk = opened_class.mata_kuliah_kodemk
     mata_kuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == mata_kuliah_kodemk).first()
 
     base_class = db.query(OpenedClass).filter(
         OpenedClass.mata_kuliah_kodemk == mata_kuliah_kodemk
-    ).order_by(OpenedClass.kelas).first()  # ✅ Sorted alphabetically
-
+    ).order_by(OpenedClass.kelas).first()
     if base_class:
         base_timetable = db.query(TimeTable).filter(TimeTable.opened_class_id == base_class.id).first()
         if base_timetable:
@@ -416,20 +245,19 @@ def create_timetable(timetable: TimeTableCreate, db: Session = Depends(get_db)):
                 if mata_kuliah and mata_kuliah.tipe_mk == "T":
                     selected_class_times.append(f"2. {base_str}")
 
-    # 7️⃣ Generate final placeholder string
+  
     placeholder = "\n".join(selected_class_times)
 
-    # ✅ Create new timetable entry
     new_timetable = TimeTable(
         opened_class_id=timetable.opened_class_id,
         ruangan_id=timetable.ruangan_id,
         timeslot_ids=timetable.timeslot_ids,
-        is_conflicted=True,  # Always True first time to check for conflicts
-        kelas=kelas,  # Ensure this value is included
-        kapasitas=kapasitas,  # Ensure this value is included
+        is_conflicted=True,  
+        kelas=kelas, 
+        kapasitas=kapasitas, 
         reason=None,
-        academic_period_id=academic_period_id,  # Ensure active period is assigned
-        kuota=0,  # Always 0 for POST
+        academic_period_id=academic_period_id,  
+        kuota=0, 
         placeholder=placeholder,
     )
 
@@ -440,7 +268,6 @@ def create_timetable(timetable: TimeTableCreate, db: Session = Depends(get_db)):
 
 
 
-# 🔵 READ all timetables
 @router.get("/", response_model=List[TimeTableResponse])
 def get_all_timetables(db: Session = Depends(get_db)):
     return db.query(TimeTable).all()
@@ -518,24 +345,24 @@ def update_timetable(id: int, updated_timetable: TimeTableUpdate, db: Session = 
     if not timetable:
         raise HTTPException(status_code=404, detail="Timetable not found.")
 
-    # Prevent updating to another `opened_class_id` if it already exists
+    
     if updated_timetable.opened_class_id and updated_timetable.opened_class_id != timetable.opened_class_id:
         existing_class = db.query(TimeTable).filter(TimeTable.opened_class_id == updated_timetable.opened_class_id).first()
         if existing_class:
             raise HTTPException(status_code=400, detail="This opened class already has a timetable entry.")
 
-    # Prevent room conflict in `ruangan_id`
+    
     if updated_timetable.ruangan_id:
         for timeslot in updated_timetable.timeslot_ids or timetable.timeslot_ids:
             conflict = db.query(TimeTable).filter(
                 TimeTable.ruangan_id == updated_timetable.ruangan_id,
                 func.json_contains(TimeTable.timeslot_ids, json.dumps([timeslot])),
-                TimeTable.id != id  # Exclude itself from the conflict check
+                TimeTable.id != id  
             ).first()
             if conflict:
                 raise HTTPException(status_code=400, detail=f"Room {updated_timetable.ruangan_id} is already booked for timeslot {timeslot}.")
 
-    # Fetch Timeslot Details (from updated data if provided, else from the existing record)
+    
     timeslot_ids = updated_timetable.timeslot_ids or timetable.timeslot_ids
     timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
     if timeslots:
@@ -545,16 +372,16 @@ def update_timetable(id: int, updated_timetable: TimeTableUpdate, db: Session = 
 
     selected_class_times = [f"1. {timeslot_str}"]
 
-    # Get the course identifier from the associated opened class
+    
     mata_kuliah_kodemk = timetable.opened_class.mata_kuliah_kodemk
     mata_kuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == mata_kuliah_kodemk).first()
 
-    # Find the **first alphabetical class** instead of assuming "A"
+  
     base_class = db.query(OpenedClass).filter(
         OpenedClass.mata_kuliah_kodemk == mata_kuliah_kodemk
-    ).order_by(OpenedClass.kelas).first()  # ✅ Sorted alphabetically
+    ).order_by(OpenedClass.kelas).first() 
 
-    # Generate base class placeholder
+   
     if base_class:
         base_timetable = db.query(TimeTable).filter(TimeTable.opened_class_id == base_class.id).first()
         if base_timetable:
@@ -564,7 +391,7 @@ def update_timetable(id: int, updated_timetable: TimeTableUpdate, db: Session = 
                 if mata_kuliah and mata_kuliah.tipe_mk == "T":
                     selected_class_times.append(f"2. {base_str}")
 
-    # Generate final placeholder string
+    
     updated_placeholder = "\n".join(selected_class_times)
 
     
@@ -576,7 +403,7 @@ def update_timetable(id: int, updated_timetable: TimeTableUpdate, db: Session = 
     db.commit()
     db.refresh(timetable)
 
-    # Cascading update: If the updated record is the base class (first alphabetically), update all related timetables.
+    
     if timetable.opened_class.kelas.upper() == base_class.kelas.upper():
         related_timetables = db.query(TimeTable).join(OpenedClass).filter(
             OpenedClass.mata_kuliah_kodemk == mata_kuliah_kodemk,
@@ -600,15 +427,13 @@ def update_timetable(id: int, updated_timetable: TimeTableUpdate, db: Session = 
 
 @router.delete("/{id}")
 def delete_timetable(id: int, db: Session = Depends(get_db)):
-    # Find the timetable entry
     timetable = db.query(TimeTable).filter(TimeTable.id == id).first()
     if not timetable:
         raise HTTPException(status_code=404, detail="Timetable not found")
 
-    # Delete related mahasiswa_timetable entries
+  
     db.query(MahasiswaTimeTable).filter(MahasiswaTimeTable.timetable_id == id).delete(synchronize_session=False)
 
-    # Delete the timetable entry
     db.delete(timetable)
     db.commit()
 

@@ -24,7 +24,7 @@ class TimeTable(Base):
     # Relationships
     ruangan: Mapped["Ruangan"] = relationship("Ruangan", back_populates="timetables")
     academic_period: Mapped["AcademicPeriods"] = relationship("AcademicPeriods", back_populates="timetables")
-    mahasiswa_timetable: Mapped[List["MahasiswaTimeTable"]] = relationship("MahasiswaTimeTable", back_populates="timetable")
+    mahasiswa_timetable: Mapped[List["MahasiswaTimeTable"]] = relationship("MahasiswaTimeTable", back_populates="timetable", lazy="selectin")
     opened_class: Mapped["OpenedClass"] = relationship("OpenedClass", back_populates="timetables")
     temporary_timetables: Mapped[List["TemporaryTimeTable"]] = relationship(
         "TemporaryTimeTable",

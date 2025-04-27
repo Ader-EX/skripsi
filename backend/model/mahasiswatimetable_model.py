@@ -10,8 +10,8 @@ class MahasiswaTimeTable(Base):
     timetable_id: Mapped[int] = mapped_column(ForeignKey("timetable.id"), nullable=False)
     academic_period_id: Mapped[int] = mapped_column(ForeignKey("academic_periods.id"), nullable=False)
 
-    mahasiswa: Mapped["Mahasiswa"] = relationship("Mahasiswa", back_populates="mahasiswa_timetables")
-    timetable: Mapped["TimeTable"] = relationship("TimeTable", back_populates="mahasiswa_timetable")
+    mahasiswa: Mapped["Mahasiswa"] = relationship("Mahasiswa", back_populates="mahasiswa_timetables",  lazy="selectin")
+    timetable: Mapped["TimeTable"] = relationship("TimeTable", back_populates="mahasiswa_timetable",  lazy="selectin")
     academic_period: Mapped["AcademicPeriods"] = relationship("AcademicPeriods", back_populates="mahasiswa_timetables")
 
     def __repr__(self):
