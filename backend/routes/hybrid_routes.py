@@ -646,28 +646,39 @@ def hybrid_schedule(
     best_fitness_sa = current_fitness
 
     iteration = 0
-    # iterasi temperatur < 1. kalo dibawah 1 ya stop
+    # Continue while temperature is above 1
     while temperature > 1:
         iteration += 1
         for i in range(iterations_per_temp):
+            # Generate neighbor solution
             new_solution = generate_neighbor_solution(current_solution, opened_classes, rooms, timeslots, opened_class_cache, recess_times)
             new_fitness = fitness(new_solution, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache, penalties)
-            if new_fitness < current_fitness:
-                current_solution = new_solution
+            
+            # Update best solution if new solution is better
+            if new_fitness < best_fitness_sa:
+                best_solution_sa = new_solution.copy()
+                best_fitness_sa = new_fitness
+                logger.info(f"SA Iteration {iteration}.{i}: New best fitness = {new_fitness}")
+                
+                # If perfect solution found, exit early
+                if best_fitness_sa == 0:
+                    temperature = 0
+                    break
+            
+            # Standard SA acceptance criterion
+            delta_fitness = new_fitness - current_fitness
+            acceptance_probability = math.exp(-delta_fitness / temperature) if delta_fitness > 0 else 1.0
+            
+            # Accept new solution based on SA probability
+            if delta_fitness <= 0 or random.random() < acceptance_probability:
+                current_solution = new_solution.copy()
                 current_fitness = new_fitness
-                # acceptance_probability = math.exp((current_fitness - new_fitness) / temperature)
-                # if new_fitness < current_fitness or random.random() < acceptance_probability:
-                #     current_solution = new_solution
-                #     current_fitness = new_fitness
-                if current_fitness < best_fitness_sa:
-                    best_solution_sa = current_solution
-                    best_fitness_sa = current_fitness
-                    logger.info(f"SA Iteration {iteration}.{i}: New best fitness = {new_fitness}")
-                    if best_fitness_sa == 0:
-                        temperature = 0
-                        break
+                
+        # Exit outer loop if perfect solution found
         if best_fitness_sa == 0:
             break
+            
+        # Cool down temperature
         temperature *= cooling_rate
         logger.info(f"SA Cooling: Temperature now = {temperature:.2f}")
 

@@ -160,8 +160,6 @@ async def create_user(user: UserCreate, db: Session = Depends(get_db)):
         )
         db.add(new_dosen)
 
-  
-
     db.commit()
     return new_user
 
