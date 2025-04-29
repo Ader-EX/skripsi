@@ -33,13 +33,12 @@ async def create_academic_period(
     academic_period: AcademicPeriodCreate, db: Session = Depends(get_db)
 ):
     if academic_period.start_date >= academic_period.end_date:
-        raise HTTPException(status_code=400, detail="Start date must be earlier than end date")
+        raise HTTPException(status_code=400, detail="Start date harus lebih awal dari tanggal akhir")
 
-    # If the new period is set as active, deactivate any existing active period
     if academic_period.is_active:
         active_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
         if active_period:
-            active_period.is_active = False  # Deactivate old active period
+            active_period.is_active = False  
             db.commit()
 
     new_period = AcademicPeriods(**academic_period.dict())
@@ -59,22 +58,19 @@ async def update_academic_period(
     academic_period = db.query(AcademicPeriods).filter(AcademicPeriods.id == academic_period_id).first()
     
     if not academic_period:
-        raise HTTPException(status_code=404, detail="Academic period not found")
+        raise HTTPException(status_code=404, detail="Academic period tidak ditemukan")
 
-    # Validate dates
     if updated_period.start_date >= updated_period.end_date:
-        raise HTTPException(status_code=400, detail="Start date must be earlier than end date")
+        raise HTTPException(status_code=400, detail="Start date harus lebih awal dari tanggal akhir")
 
-    # If the updated period is marked as active, deactivate the current active one
     if updated_period.is_active:
         active_period = db.query(AcademicPeriods).filter(
             AcademicPeriods.is_active == True, AcademicPeriods.id != academic_period_id
         ).first()
         if active_period:
-            active_period.is_active = False  # Deactivate the previously active period
+            active_period.is_active = False  
             db.commit()
 
-    # Update fields
     for key, value in updated_period.dict().items():
         setattr(academic_period, key, value)
 
@@ -96,7 +92,7 @@ async def get_active_academic_period(db: Session = Depends(get_db)):
     active_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
     
     if not active_period:
-        raise HTTPException(status_code=404, detail="No active academic period found")
+        raise HTTPException(status_code=404, detail="active academic period tidak ditemukan")
 
     return {
         "id" : active_period.id,
@@ -111,7 +107,7 @@ async def get_active_academic_period(db: Session = Depends(get_db)):
 async def get_academic_period_by_id(academic_period_id: int, db: Session = Depends(get_db)):
     academic_period = db.query(AcademicPeriods).filter(AcademicPeriods.id == academic_period_id).first()
     if not academic_period:
-        raise HTTPException(status_code=404, detail="Academic period not found")
+        raise HTTPException(status_code=404, detail="Academic period tidak ditemukan")
     return academic_period
 
 
@@ -123,16 +119,14 @@ async def update_academic_period(
 ):
     academic_period = db.query(AcademicPeriods).filter(AcademicPeriods.id == academic_period_id).first()
     if not academic_period:
-        raise HTTPException(status_code=404, detail="Academic period not found")
+        raise HTTPException(status_code=404, detail="Academic period tidak ditemukan")
 
-    # Validate dates
     if updated_period.start_date >= updated_period.end_date:
         raise HTTPException(
             status_code=400,
-            detail="Start date must be earlier than end date"
+            detail="Start date harus lebih awal dari tanggal akhir"
         )
 
-    # Ensure only one active period exists
     if updated_period.is_active:
         active_period = db.query(AcademicPeriods).filter(
             AcademicPeriods.is_active == True, AcademicPeriods.id != academic_period_id
@@ -140,7 +134,7 @@ async def update_academic_period(
         if active_period:
             raise HTTPException(
                 status_code=400,
-                detail="Only one academic period can be active at a time"
+                detail="Hanya satu academic period yang bisa aktif pada satu waktu"
             )
 
     for key, value in updated_period.dict().items():
@@ -157,25 +151,24 @@ async def update_academic_period(
 async def delete_academic_period(academic_period_id: int, db: Session = Depends(get_db)):
     academic_period = db.query(AcademicPeriods).filter(AcademicPeriods.id == academic_period_id).first()
     if not academic_period:
-        raise HTTPException(status_code=404, detail="Academic period not found")
+        raise HTTPException(status_code=404, detail="Academic period tidak ditemukan")
 
     db.delete(academic_period)
     db.commit()
-    return {"message": "Academic period deleted successfully"}
+    return {"message": "Academic period berhasil dihapus"}
 
 
 
 @router.put("/{id}/activate", status_code=status.HTTP_200_OK)
 async def activate_academic_period(id: int, db: Session = Depends(get_db)):
-    # Set all periods to inactive first
+    
     db.query(AcademicPeriods).update({"is_active": False})
     db.commit()
 
-    # Activate the selected period
     period = db.query(AcademicPeriods).filter(AcademicPeriods.id == id).first()
 
     if not period:
-        raise HTTPException(status_code=404, detail="Academic period not found")
+        raise HTTPException(status_code=404, detail="Academic period tidak ditemukan")
 
     period.is_active = True
     db.commit()

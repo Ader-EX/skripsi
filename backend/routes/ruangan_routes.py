@@ -12,7 +12,7 @@ from enum import Enum
 
 router = APIRouter()
 
-# Enums for predefined values
+
 class GedungEnum(str, Enum):
     KHD = "KHD"
     DS = "DS"
@@ -37,7 +37,6 @@ class TipeRuangan(str, Enum):
     T = "T"
     S = "S"
 
-# Schemas for API requests and responses
 class RuanganCreate(BaseModel):
     kode_ruangan: str
     nama_ruang: str
@@ -70,13 +69,12 @@ class PaginatedRuangan(BaseModel):
     class Config:
         orm_mode = True
 
-# CRUD Operations
 @router.post("/", response_model=RuanganRead, status_code=status.HTTP_201_CREATED)
 async def create_ruangan(ruangan: RuanganCreate, db: Session = Depends(get_db)):
     # Check if ruangan already exists
     db_ruangan = db.query(Ruangan).filter(Ruangan.kode_ruangan == ruangan.kode_ruangan).first()
     if db_ruangan:
-        raise HTTPException(status_code=400, detail="Ruangan with this kode_ruangan already exists")
+        raise HTTPException(status_code=400, detail="Ruangan dengan kode_ruangan ini sudah ada")
 
     new_ruangan = Ruangan(**ruangan.dict())
     db.add(new_ruangan)
@@ -124,7 +122,7 @@ def get_timeslot_availability(
 ) -> List[Dict]:
     ruangan = db.query(Ruangan).filter(Ruangan.id == ruangan_id).first()
     if not ruangan:
-        raise HTTPException(status_code=404, detail="Ruangan not found")
+        raise HTTPException(status_code=404, detail="Ruangan tidak ditemukan")
 
     timeslot_query = db.query(TimeSlot)
     if day_index is not None:
@@ -177,14 +175,14 @@ def get_timeslot_availability(
 async def get_ruangan(ruangan_id: int, db: Session = Depends(get_db)):
     ruangan = db.query(Ruangan).filter(Ruangan.id == ruangan_id).first()
     if not ruangan:
-        raise HTTPException(status_code=404, detail="Ruangan not found")
+        raise HTTPException(status_code=404, detail="Ruangan tidak ditemukan")
     return ruangan
 
 @router.put("/{ruangan_id}", response_model=RuanganRead)
 async def update_ruangan(ruangan_id: int, updated_ruangan: RuanganCreate, db: Session = Depends(get_db)):
     ruangan = db.query(Ruangan).filter(Ruangan.id == ruangan_id).first()
     if not ruangan:
-        raise HTTPException(status_code=404, detail="Ruangan not found")
+        raise HTTPException(status_code=404, detail="Ruangan tidak ditemukan")
 
     for key, value in updated_ruangan.dict().items():
         setattr(ruangan, key, value)
@@ -197,12 +195,12 @@ async def update_ruangan(ruangan_id: int, updated_ruangan: RuanganCreate, db: Se
 async def delete_ruangan(ruangan_id: int, db: Session = Depends(get_db)):
     ruangan = db.query(Ruangan).filter(Ruangan.id == ruangan_id).first()
     if not ruangan:
-        raise HTTPException(status_code=404, detail="Ruangan not found")
+        raise HTTPException(status_code=404, detail="Ruangan tidak ditemukan")
 
     db.delete(ruangan)
     db.commit()
 
-    return {"message": "Ruangan and related timetables deleted successfully"}
+    return {"message": "Ruangan and related timetables berhasil dihapus"}
 
 
 

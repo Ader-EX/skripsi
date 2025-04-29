@@ -36,7 +36,7 @@ def generate_random_preferences():
                 )
                 preferences_to_add.append(pref)
 
-        # Insert semua sekaligus
+        
         db.bulk_save_objects(preferences_to_add)
         db.commit()
         print(f"Berhasil insert {len(preferences_to_add)} preferences ke database.")

@@ -22,23 +22,13 @@ import math
 
 
 
-# Configure logging
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
-
-
-
-# def clear_timetable(db: Session):
-#     """Deletes all entries in the timetable table."""
-#     logger.debug("Clearing all entries in the timetable table...")
-#     db.query(TimeTable).delete()
-#     db.commit()
-#     logger.debug("Timetable cleared successfully.")
-
 
 def fetch_data(db: Session):
    
@@ -70,7 +60,7 @@ def fetch_data(db: Session):
 
 
 def clear_timetable(db: Session):
-    """Deletes all entries in the timetable table."""
+
     db.execute(text("DELETE FROM temporary_timetable"))
     db.execute(text("DELETE FROM mahasiswa_timetable"))
     db.execute(text("DELETE FROM timetable"))
@@ -104,7 +94,7 @@ async def get_timetable_view(
     )
 
     if not active_academic_period:
-        raise HTTPException(status_code=404, detail="No active academic period found")
+        raise HTTPException(status_code=404, detail="active academic period tidak ditemukan")
 
  
     timetables_query = (
@@ -390,7 +380,7 @@ from sqlalchemy import desc
 async def reset_schedule(db: Session = Depends(get_db)):
     try:
         clear_timetable(db)
-        return {"message": "Schedule reset successfully"}
+        return {"message": "Schedule berhasil di reset"}
     except Exception as e:
         logger.error(f"Error resetting schedule: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -463,7 +453,6 @@ async def get_timetable(
 
             permanent_records = query.all()
 
-            # Format permanent records
             for timetable in permanent_records:
                 opened_class = timetable.opened_class
                 mata_kuliah = opened_class.mata_kuliah
@@ -528,7 +517,6 @@ async def get_timetable(
 
             temporary_records = temp_query.all()
 
-            # Format temporary records
             for temp in temporary_records:
                 timetable = temp.timetable
                 opened_class = timetable.opened_class
@@ -584,9 +572,6 @@ async def get_timetable(
         if is_conflicted is not None:
             formatted_data = [record for record in formatted_data if record["is_conflicted"] == is_conflicted]
 
-        # ==========================
-        # PAGINATION on merged/filtered data
-        # ==========================
         total_records = len(formatted_data)
         total_pages = (total_records + limit - 1) // limit
         paginated_data = formatted_data[(page - 1) * limit: page * limit]
@@ -616,24 +601,20 @@ async def create_timetable(
     db: Session = Depends(get_db)
 ):
     try:
-        # Create new timetable entry
         new_timetable = TimeTable(
             kapasitas=timetable.capacity,
             kuota=timetable.enrolled,
             ruangan_id=timetable.room_id
         )
         
-        # Create opened class
         opened_class = OpenedClass(
             mata_kuliah_id=timetable.subject_id,
             kelas=timetable.class_name
         )
         
-        # Add lecturers
         lecturers = db.query(Dosen).filter(Dosen.id.in_(timetable.lecturer_ids)).all()
         opened_class.dosens.extend(lecturers)
         
-        # Create timeslots
         timeslots = []
         for ts in timetable.timeslots:
             timeslot = TimeSlot(
@@ -644,46 +625,37 @@ async def create_timetable(
             db.add(timeslot)
             timeslots.append(timeslot)
         
-        db.flush()  # Get IDs for timeslots
+        db.flush()  
         new_timetable.timeslot_ids = [t.id for t in timeslots]
         
-        # Check for conflicts
         new_timetable.is_conflicted = check_for_conflicts(db, new_timetable)
         
         db.add(new_timetable)
         db.commit()
         
-        return {"message": "Timetable created successfully", "id": new_timetable.id}
+        return {"message": "Timetable berhasil dibuat", "id": new_timetable.id}
         
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error creating timetable: {str(e)}")
 
 def check_for_conflicts(db: Session, timetable: TimeTable) -> bool:
-    """
-    Check if the given timetable has any conflicts with existing timetables.
-    Returns True if conflicts exist, False otherwise.
-    """
-    # Get all timeslots for the current timetable
+   
     current_timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(timetable.timeslot_ids)).all()
     
-    # Get all other timetables
     other_timetables = db.query(TimeTable).filter(TimeTable.id != timetable.id).all()
     
     for other_timetable in other_timetables:
         other_timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(other_timetable.timeslot_ids)).all()
         
-        # Check for room conflicts
         if timetable.ruangan_id == other_timetable.ruangan_id:
             for current_ts in current_timeslots:
                 for other_ts in other_timeslots:
                     if current_ts.day == other_ts.day:
-                        # Check if time periods overlap
                         if (current_ts.start_time < other_ts.end_time and 
                             current_ts.end_time > other_ts.start_time):
                             return True
         
-        # Check for lecturer conflicts
         current_lecturer_ids = {d.id for d in timetable.opened_class.dosens}
         other_lecturer_ids = {d.id for d in other_timetable.opened_class.dosens}
         
@@ -708,7 +680,6 @@ async def get_timetable(
     filter: Optional[str] = Query(None, description="Filter by Mata Kuliah name or Kodemk")
 ):
     try:
-        # Base query optimized for MySQL (including title_depan & title_belakang)
         query = db.query(
             TimeTable.id, 
             TimeTable.opened_class_id,
@@ -727,13 +698,12 @@ async def get_timetable(
                 func.concat_ws(" ", Dosen.title_depan, Dosen.nama, Dosen.title_belakang)
                 .distinct()
                 .op('SEPARATOR')('||')
-            ).label("dosen_names")  # ✅ Properly formatted dosen names
+            ).label("dosen_names")
         ).join(OpenedClass, TimeTable.opened_class_id == OpenedClass.id) \
          .join(MataKuliah, OpenedClass.mata_kuliah_kodemk == MataKuliah.kodemk) \
          .join(Dosen, OpenedClass.dosens) \
          .group_by(TimeTable.id, OpenedClass.id, MataKuliah.kodemk, MataKuliah.namamk, MataKuliah.kurikulum, MataKuliah.sks, MataKuliah.smt)
 
-        # Apply filter
         if filter:
             query = query.filter(
                 or_(
@@ -742,14 +712,11 @@ async def get_timetable(
                 )
             )
 
-        # Get total count before pagination
         total_records = db.query(func.count()).select_from(query.subquery()).scalar()
         total_pages = (total_records + limit - 1) // limit
 
-        # Fetch paginated data
         timetable_data = query.offset((page - 1) * limit).limit(limit).all()
 
-        # Fetch timeslot details in a single query
         timeslot_ids = set(
             ts_id for entry in timetable_data for ts_id in entry.timeslot_ids if ts_id
         )
@@ -757,17 +724,14 @@ async def get_timetable(
             ts.id: ts for ts in db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
         }
 
-        # Format the data
         formatted_timetable = []
         for idx, entry in enumerate(timetable_data, start=(page - 1) * limit + 1):
-            # ✅ Format Dosen names into a numbered list
             if entry.dosen_names:
                 dosen_list = entry.dosen_names.split("||")
                 formatted_dosen = "\n".join([f"{i+1}. {dosen.strip()}" for i, dosen in enumerate(dosen_list)])
             else:
                 formatted_dosen = "-"
 
-            # ✅ Fetch timeslot details
             formatted_timeslots = [
                 {
                     "id": ts.id,
@@ -788,8 +752,8 @@ async def get_timetable(
                 "kap_peserta": f"{entry.kapasitas} / {entry.kuota}",
                 "sks": entry.sks,
                 "smt": entry.smt,
-                "dosen": formatted_dosen,  # ✅ Now properly formatted with titles
-                "timeslots": formatted_timeslots,  # ✅ Includes full timeslot details
+                "dosen": formatted_dosen,  
+                "timeslots": formatted_timeslots,  
             }
             formatted_timetable.append(formatted_entry)
 
@@ -815,12 +779,7 @@ def check_conflicts(db: Session,
                     opened_class_cache,
                     room_cache,
                     timeslot_cache):
-    """
-    Checks timetable conflicts including timeslot validity, room, day crossing,
-    and lecturer conflicts using interval overlap checking.
-    Pendekatan: untuk tiap entri timetable, ambil daftar timeslot (dari timetable_entry.timeslot_ids),
-    hitung interval keseluruhan (start, end) dan periksa konflik berdasarkan interval tersebut.
-    """
+    
     conflict_details = []
     # Struktur untuk menyimpan penggunaan ruangan:
     # room_usage[room_code][day_str] = list of (overall_start, overall_end, timetable_entry.id)
@@ -999,13 +958,9 @@ def check_conflicts(db: Session,
 
 @router.get("/check-conflicts")
 async def check_timetable_conflicts(db: Session = Depends(get_db)):
-    """
-    API Endpoint to check timetable conflicts and update is_conflicted status.
-    """
     # Ambil data yang dibutuhkan
     _, _, _, _, _, _, opened_class_cache, room_cache, timeslot_cache = fetch_data(db)
     timetable = db.query(TimeTable).all()
-    # Solusi: gunakan semua entri di timetable, karena tiap entri sudah memiliki timeslot_ids lengkap
     solution = [(entry.opened_class_id, entry.ruangan_id, entry.timeslot_ids[0]) for entry in timetable]
     conflict_result = check_conflicts(db, solution, opened_class_cache, room_cache, timeslot_cache)
     return {
@@ -1034,7 +989,7 @@ async def get_timetable_by_id(
         )
 
         if not timetable:
-            raise HTTPException(status_code=404, detail="Timetable not found")
+            raise HTTPException(status_code=404, detail="Timetable tidak ditemukan")
 
         opened_class = timetable.opened_class
         mata_kuliah = opened_class.mata_kuliah
@@ -1091,7 +1046,7 @@ async def update_timetable(
        
         existing_timetable = db.query(TimeTable).filter(TimeTable.id == timetable_id).first()
         if not existing_timetable:
-            raise HTTPException(status_code=404, detail="Timetable not found")
+            raise HTTPException(status_code=404, detail="Timetable tidak ditemukan")
 
        
         existing_timetable.kapasitas = timetable.capacity
@@ -1127,7 +1082,7 @@ async def update_timetable(
         existing_timetable.is_conflicted = check_for_conflicts(db, existing_timetable)
         
         db.commit()
-        return {"message": "Timetable updated successfully"}
+        return {"message": "Timetable berhasil diupdate"}
         
     except Exception as e:
         db.rollback()
@@ -1141,14 +1096,14 @@ async def delete_timetable(
     try:
         timetable = db.query(TimeTable).filter(TimeTable.id == timetable_id).first()
         if not timetable:
-            raise HTTPException(status_code=404, detail="Timetable not found")
+            raise HTTPException(status_code=404, detail="Timetable tidak ditemukan")
 
         db.query(TimeSlot).filter(TimeSlot.id.in_(timetable.timeslot_ids)).delete()
         
         db.delete(timetable)
         db.commit()
         
-        return {"message": "Timetable deleted successfully"}
+        return {"message": "Timetable berhasil dihapus"}
         
     except Exception as e:
         db.rollback()

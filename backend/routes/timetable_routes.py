@@ -117,7 +117,7 @@ async def resolve_conflicts(db: Session = Depends(get_db)):
     db.commit()
     
     return {
-        "message": "Conflicts resolved successfully",
+        "message": "Conflicts berhasil diatasi",
         "resolved_conflicts": resolved_conflicts,
         "total_resolved": len(resolved_conflicts),
         "total_remaining": db.query(TimeTable).filter(TimeTable.is_conflicted == True).count()
@@ -125,15 +125,12 @@ async def resolve_conflicts(db: Session = Depends(get_db)):
 
 
 def conflict_priority(conflict_type):
-    """
-    Assigns priority levels to conflict types.
-    Higher priority conflicts are resolved first.
-    """
+    # format prioritas konflik biar yg dihandle dari yang paling penting dlu
     priority_map = {
-        "Lecturer Conflict": 3,  # Most important
+        "Lecturer Conflict": 3,  
         "Room Conflict": 2,
         "Timeslot Conflict": 1,
-        "Day Crossing": 0  # Least important
+        "Day Crossing": 0  
     }
     return priority_map.get(conflict_type, 0)
 
@@ -192,15 +189,15 @@ def generate_placeholder(db: Session, room_id: int, timeslot_ids: list[int]) -> 
     if timeslots:
         first_ts = min(timeslots, key=lambda t: t.start_time)
         last_ts = max(timeslots, key=lambda t: t.end_time)
-        return f"1. Room {room_id} - {first_ts.day.value} ({first_ts.start_time} - {last_ts.end_time})"
-    return "1. Unknown Room - Unknown Timeslot"
+        return f"1. Ruangan {room_id} - {first_ts.day.value} ({first_ts.start_time} - {last_ts.end_time})"
+    return "1. Unknown Room - Unknown slot waktu"
 
 @router.post("/", response_model=TimeTableResponse)
 def create_timetable(timetable: TimeTableCreate, db: Session = Depends(get_db)):
     
     existing_class = db.query(TimeTable).filter(TimeTable.opened_class_id == timetable.opened_class_id).first()
     if existing_class:
-        raise HTTPException(status_code=400, detail="This opened class already has a timetable entry.")
+        raise HTTPException(status_code=400, detail="opened class entri ini sudah ada")
 
     for timeslot in timetable.timeslot_ids:
         conflict = db.query(TimeTable).filter(
@@ -208,17 +205,17 @@ def create_timetable(timetable: TimeTableCreate, db: Session = Depends(get_db)):
             func.json_contains(TimeTable.timeslot_ids, json.dumps([timeslot]))
         ).first()
         if conflict:
-            raise HTTPException(status_code=400, detail=f"Room {timetable.ruangan_id} is already booked for timeslot {timeslot}.")
+            raise HTTPException(status_code=400, detail=f"Ruangan {timetable.ruangan_id} sudah mengambil timeslot {timeslot}.")
 
     active_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
     if not active_period:
-        raise HTTPException(status_code=404, detail="No active academic period found.")
+        raise HTTPException(status_code=404, detail="periode akademik aktif tidak ditemukan.")
 
     academic_period_id = active_period.id
 
     opened_class = db.query(OpenedClass).filter(OpenedClass.id == timetable.opened_class_id).first()
     if not opened_class:
-        raise HTTPException(status_code=404, detail="Opened class not found.")
+        raise HTTPException(status_code=404, detail="Opened class tidak ditemukan.")
 
     kapasitas = opened_class.kapasitas
     kelas = opened_class.kelas  
@@ -287,14 +284,14 @@ def get_timetable_by_day_and_room(
             timeslot_json = json.dumps(timeslot_ids)
             query = query.filter(func.json_contains(TimeTable.timeslot_ids, timeslot_json))
         else:
-            raise HTTPException(status_code=404, detail=f"No timeslots found for {day}")
+            raise HTTPException(status_code=404, detail=f"Timeslot tidak ditemukan untuk {day}")
 
     if room_id:
         query = query.filter(TimeTable.ruangan_id == room_id)
 
     timetables = query.all()
     if not timetables:
-        raise HTTPException(status_code=404, detail="No timetables found with the given filters")
+        raise HTTPException(status_code=404, detail="Tidak ditemukan timetables untuk filter yang diminta")
 
     return timetables
 
@@ -318,7 +315,7 @@ def get_timetable(id: int, db: Session = Depends(get_db)):
     )
 
     if not timetable:
-        raise HTTPException(status_code=404, detail="Timetable not found")
+        raise HTTPException(status_code=404, detail="Timetable tidak ditemukan")
 
     timetable_data = {
         "id": timetable.TimeTable.id,
@@ -343,13 +340,13 @@ def get_timetable(id: int, db: Session = Depends(get_db)):
 def update_timetable(id: int, updated_timetable: TimeTableUpdate, db: Session = Depends(get_db)):
     timetable = db.query(TimeTable).filter(TimeTable.id == id).first()
     if not timetable:
-        raise HTTPException(status_code=404, detail="Timetable not found.")
+        raise HTTPException(status_code=404, detail="Timetable tidak ditemukan")
 
     
     if updated_timetable.opened_class_id and updated_timetable.opened_class_id != timetable.opened_class_id:
         existing_class = db.query(TimeTable).filter(TimeTable.opened_class_id == updated_timetable.opened_class_id).first()
         if existing_class:
-            raise HTTPException(status_code=400, detail="This opened class already has a timetable entry.")
+            raise HTTPException(status_code=400, detail="opened class ini sudah memiliki entri")
 
     
     if updated_timetable.ruangan_id:
@@ -360,7 +357,7 @@ def update_timetable(id: int, updated_timetable: TimeTableUpdate, db: Session = 
                 TimeTable.id != id  
             ).first()
             if conflict:
-                raise HTTPException(status_code=400, detail=f"Room {updated_timetable.ruangan_id} is already booked for timeslot {timeslot}.")
+                raise HTTPException(status_code=400, detail=f"Ruangan {updated_timetable.ruangan_id} sudah digunakan di waktu {timeslot}.")
 
     
     timeslot_ids = updated_timetable.timeslot_ids or timetable.timeslot_ids
@@ -429,7 +426,7 @@ def update_timetable(id: int, updated_timetable: TimeTableUpdate, db: Session = 
 def delete_timetable(id: int, db: Session = Depends(get_db)):
     timetable = db.query(TimeTable).filter(TimeTable.id == id).first()
     if not timetable:
-        raise HTTPException(status_code=404, detail="Timetable not found")
+        raise HTTPException(status_code=404, detail="Timetable tidak ditemukan")
 
   
     db.query(MahasiswaTimeTable).filter(MahasiswaTimeTable.timetable_id == id).delete(synchronize_session=False)
@@ -437,5 +434,5 @@ def delete_timetable(id: int, db: Session = Depends(get_db)):
     db.delete(timetable)
     db.commit()
 
-    return {"message": "Timetable and related mahasiswa_timetable entries deleted successfully"}
+    return {"message": "Timetable dan related mahasiswa_timetable entri berhasil dihapus"}
 

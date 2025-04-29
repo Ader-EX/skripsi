@@ -9,12 +9,11 @@ from database import get_db
 from pydantic import BaseModel
 from model.mahasiswa_model import Mahasiswa
 from model.programstudi_model import ProgramStudi
-from model.user_model import User  # Import the User model
+from model.user_model import User  
 from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hash_password(password: str) -> str:
-    """Hash a password for security."""
     return pwd_context.hash(password)
 
 router = APIRouter()
@@ -23,7 +22,6 @@ class UserRead(BaseModel):
     id: int
     nim_nip: str
 
-# Pydantic Models
 class MahasiswaBase(BaseModel):
     nama: str
     tahun_masuk: int
@@ -43,8 +41,8 @@ class MahasiswaBase(BaseModel):
 
 
 class MahasiswaCreate(BaseModel):
-    nim_nip: str  # ✅ Required for creating a user
-    password: str  # ✅ Password must be provided
+    nim_nip: str
+    password: str
     nama: str
     tahun_masuk: int
     semester: int = 1
@@ -62,8 +60,8 @@ class MahasiswaCreate(BaseModel):
 
 
 class MahasiswaUpdate(BaseModel):
-    nim_nip: Optional[str] = None  # ✅ Allow updating NIM
-    password: Optional[str] = None  # ✅ Allow updating Password
+    nim_nip: Optional[str] = None  
+    password: Optional[str] = None 
     nama: Optional[str] = None
     tahun_masuk: Optional[int] = None
     semester: Optional[int] = None
@@ -85,8 +83,8 @@ class MahasiswaRead(BaseModel):
     sks_diambil: int
     program_studi_id: int
     program_studi_name: Optional[str] = None
-    nim_nip: str  # ✅ Return User's nim_nip
-    role: str  # ✅ Return role
+    nim_nip: str  
+    role: str  
     tgl_lahir: Optional[date] = None
     kota_lahir: Optional[str] = None
     jenis_kelamin: Optional[str] = None
@@ -99,36 +97,26 @@ class MahasiswaRead(BaseModel):
         orm_mode = True
 
 
-# Create Mahasiswa
 @router.post("/", response_model=MahasiswaRead, status_code=status.HTTP_201_CREATED)
 async def create_mahasiswa(mahasiswa: MahasiswaCreate, db: Session = Depends(get_db)):
-    """
-    Create a new Mahasiswa record.
-    - **If User does not exist**, create a new User.
-    - **If Mahasiswa already exists**, return 409 Conflict.
-    """
 
-    # ✅ **Check if User already exists by nim_nip**
     existing_user = db.query(User).filter(User.nim_nip == mahasiswa.nim_nip).first()
     
     if existing_user:
-        # Check if this User is already linked to a Mahasiswa
         existing_mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.user_id == existing_user.id).first()
         if existing_mahasiswa:
-            raise HTTPException(status_code=409, detail="Mahasiswa already exists for this User")
+            raise HTTPException(status_code=409, detail="Mahasiswa sudah ada untuk User ini")
     else:
-        # ✅ **Create new User**
-        hashed_password = hash_password(mahasiswa.password)  # Hash password
+        hashed_password = hash_password(mahasiswa.password)  
         new_user = User(
             nim_nip=mahasiswa.nim_nip,
             password=hashed_password,
-            role="mahasiswa",  # ✅ Auto-assign role
+            role="mahasiswa",
         )
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
 
-    # ✅ **Create new Mahasiswa**
     new_mahasiswa = Mahasiswa(
         nama=mahasiswa.nama,
         tahun_masuk=mahasiswa.tahun_masuk,
@@ -142,7 +130,7 @@ async def create_mahasiswa(mahasiswa: MahasiswaCreate, db: Session = Depends(get
         alamat=mahasiswa.alamat,
         kode_pos=mahasiswa.kode_pos,
         hp=mahasiswa.hp,
-        user_id=new_user.id if not existing_user else existing_user.id,  # ✅ Link to user
+        user_id=new_user.id if not existing_user else existing_user.id,
     )
     
     db.add(new_mahasiswa)
@@ -177,11 +165,10 @@ def read_all_mahasiswa(
     search: Optional[str] = Query(None, description="Search by user fullname or NIM")
 ):
     query = db.query(Mahasiswa).options(
-        joinedload(Mahasiswa.user),  # Explicitly load the user relationship
-        joinedload(Mahasiswa.program_studi)  # Explicitly load program_studi relationship
+        joinedload(Mahasiswa.user),  
+        joinedload(Mahasiswa.program_studi)
     )
     
-    # Apply joins
     query = query.join(Mahasiswa.user)
     query = query.join(Mahasiswa.program_studi)
 
@@ -202,11 +189,9 @@ def read_all_mahasiswa(
 
     mahasiswa_list = query.all()
     
-    # Create a list to store transformed data
     response_data = []
     
     for mhs in mahasiswa_list:
-        # Create a dictionary with all required fields
         mhs_data = {
             "id": mhs.id,
             "nama": mhs.nama,
@@ -215,10 +200,9 @@ def read_all_mahasiswa(
             "sks_diambil": mhs.sks_diambil,
             "program_studi_id": mhs.program_studi_id,
             "program_studi_name": mhs.program_studi.name if mhs.program_studi else None,
-            # Get these fields from the user relationship
+            
             "nim_nip": mhs.user.nim_nip,
             "role": mhs.user.role,
-            # Optional fields
             "tgl_lahir": mhs.tgl_lahir,
             "kota_lahir": mhs.kota_lahir,
             "jenis_kelamin": mhs.jenis_kelamin,
@@ -242,7 +226,7 @@ async def get_mahasiswa(
     query = (
         db.query(Mahasiswa)
         .join(User)
-        .options(joinedload(Mahasiswa.user))  # ✅ Load user data
+        .options(joinedload(Mahasiswa.user))  
     )
 
     if search:
@@ -274,18 +258,15 @@ async def get_mahasiswa(
         data=result
     )
 
-# Read Mahasiswa by ID
 @router.get("/{mahasiswa_id}", response_model=MahasiswaRead)
 async def read_mahasiswa(mahasiswa_id: int, db: Session = Depends(get_db)):
-    """
-    Fetch Mahasiswa details including User info.
-    """
+
     db_mahasiswa = db.query(Mahasiswa).join(User).filter(Mahasiswa.id == mahasiswa_id).options(
-        joinedload(Mahasiswa.user)  # ✅ Load user data
+        joinedload(Mahasiswa.user)  
     ).first()
 
     if not db_mahasiswa:
-        raise HTTPException(status_code=404, detail="Mahasiswa not found")
+        raise HTTPException(status_code=404, detail="Mahasiswa tidak ditemukan")
 
     return {
         "id": db_mahasiswa.id,
@@ -304,44 +285,36 @@ async def read_mahasiswa(mahasiswa_id: int, db: Session = Depends(get_db)):
         "kode_pos": db_mahasiswa.kode_pos,
         "hp": db_mahasiswa.hp,
     }
-# Read All Mahasiswa
 
 
-# Update Mahasiswa
 @router.put("/{mahasiswa_id}", response_model=MahasiswaRead)
 async def update_mahasiswa(mahasiswa_id: int, mahasiswa: MahasiswaUpdate, db: Session = Depends(get_db)):
-    """
-    Update Mahasiswa details and sync User model.
-    """
+    
     db_mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.id == mahasiswa_id).first()
     if not db_mahasiswa:
-        raise HTTPException(status_code=404, detail="Mahasiswa not found")
+        raise HTTPException(status_code=404, detail="Mahasiswa tidak ditemukan")
 
-    # Ensure User exists
     user = db.query(User).filter(User.id == db_mahasiswa.user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
 
-    # ✅ Update `nim_nip` in User Model
     if mahasiswa.nim_nip and mahasiswa.nim_nip != user.nim_nip:
         existing_user = db.query(User).filter(User.nim_nip == mahasiswa.nim_nip).first()
         if existing_user:
-            raise HTTPException(status_code=400, detail="NIM already exists")
+            raise HTTPException(status_code=400, detail="NIM sudah ada")
         user.nim_nip = mahasiswa.nim_nip
 
-    # ✅ Update password if provided
     if mahasiswa.password:
         user.password = hash_password(mahasiswa.password)
 
-    # ✅ Update Mahasiswa fields
     for key, value in mahasiswa.dict(exclude_unset=True).items():
-        if key in ["nim_nip", "password"]:  # These are handled separately
+        if key in ["nim_nip", "password"]:
             continue
         setattr(db_mahasiswa, key, value)
 
     db.commit()
     db.refresh(db_mahasiswa)
-    db.refresh(user)  # ✅ Ensure User updates are committed
+    db.refresh(user)  
 
     return {
         "id": db_mahasiswa.id,
@@ -361,23 +334,17 @@ async def update_mahasiswa(mahasiswa_id: int, mahasiswa: MahasiswaUpdate, db: Se
         "hp": db_mahasiswa.hp,
     }
 
-# Delete Mahasiswa
 @router.delete("/{mahasiswa_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_mahasiswa(mahasiswa_id: int, db: Session = Depends(get_db)):
-    """
-    Delete a Mahasiswa and their associated User account.
-    """
     db_mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.id == mahasiswa_id).first()
     if not db_mahasiswa:
-        raise HTTPException(status_code=404, detail="Mahasiswa not found")
+        raise HTTPException(status_code=404, detail="Mahasiswa tidak ditemukan")
 
-    # ✅ Delete associated User
     db_user = db.query(User).filter(User.id == db_mahasiswa.user_id).first()
     if db_user:
         db.delete(db_user)
 
-    # ✅ Delete Mahasiswa
     db.delete(db_mahasiswa)
     db.commit()
 
-    return {"message": "Mahasiswa and associated user deleted successfully"}
+    return {"message": "Mahasiswa dan user relasinya berhasil dihapus"}

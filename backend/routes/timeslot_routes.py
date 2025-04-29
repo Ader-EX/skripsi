@@ -25,17 +25,16 @@ class TimeSlotRead(TimeSlotBase):
         orm_mode = True
 
 
-# Create TimeSlot
 @router.post("/", response_model=TimeSlotRead, status_code=status.HTTP_201_CREATED)
 async def create_timeslot(timeslot: TimeSlotCreate, db: Session = Depends(get_db)):
-    # Check for conflicts with existing timeslots
+    
     conflict = db.query(TimeSlot).filter(
         TimeSlot.day == timeslot.day,
         TimeSlot.start_time < timeslot.end_time,
         TimeSlot.end_time > timeslot.start_time
     ).first()
     if conflict:
-        raise HTTPException(status_code=400, detail="TimeSlot overlaps with an existing one")
+        raise HTTPException(status_code=400, detail="TimeSlot bertabrakan dengan yang sudah ada")
 
     # Create the timeslot
     new_timeslot = TimeSlot(**timeslot.dict())
@@ -50,14 +49,14 @@ async def create_timeslot(timeslot: TimeSlotCreate, db: Session = Depends(get_db
 async def read_timeslot(timeslot_id: int, db: Session = Depends(get_db)):
     timeslot = db.query(TimeSlot).filter(TimeSlot.id == timeslot_id).first()
     if not timeslot:
-        raise HTTPException(status_code=404, detail="TimeSlot not found")
+        raise HTTPException(status_code=404, detail="TimeSlot tidak ditemukan")
     return timeslot
 
 
 # Read All TimeSlots
 @router.get("/", response_model=List[TimeSlotRead])
 async def read_all_timeslots(
-    day: Optional[str] = Query(None, description="Filter timeslots by day of the week"),
+    day: Optional[str] = Query(None, description="Filter timeslots berdasarkan hari"),
     db: Session = Depends(get_db),
 ):
     query = db.query(TimeSlot)
@@ -71,9 +70,8 @@ async def read_all_timeslots(
 async def update_timeslot(timeslot_id: int, updated_timeslot: TimeSlotCreate, db: Session = Depends(get_db)):
     timeslot = db.query(TimeSlot).filter(TimeSlot.id == timeslot_id).first()
     if not timeslot:
-        raise HTTPException(status_code=404, detail="TimeSlot not found")
+        raise HTTPException(status_code=404, detail="TimeSlot tidak ditemukan")
 
-    # Check for conflicts with updated time
     conflict = db.query(TimeSlot).filter(
         TimeSlot.day == updated_timeslot.day,
         TimeSlot.start_time < updated_timeslot.end_time,
@@ -81,7 +79,7 @@ async def update_timeslot(timeslot_id: int, updated_timeslot: TimeSlotCreate, db
         TimeSlot.id != timeslot_id
     ).first()
     if conflict:
-        raise HTTPException(status_code=400, detail="Updated TimeSlot overlaps with an existing one")
+        raise HTTPException(status_code=400, detail="Updated TimeSlot bertabrakan dengan yang sudah ada")
 
     for key, value in updated_timeslot.dict().items():
         setattr(timeslot, key, value)
@@ -91,13 +89,12 @@ async def update_timeslot(timeslot_id: int, updated_timeslot: TimeSlotCreate, db
     return timeslot
 
 
-# Delete TimeSlot
 @router.delete("/{timeslot_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_timeslot(timeslot_id: int, db: Session = Depends(get_db)):
     timeslot = db.query(TimeSlot).filter(TimeSlot.id == timeslot_id).first()
     if not timeslot:
-        raise HTTPException(status_code=404, detail="TimeSlot not found")
+        raise HTTPException(status_code=404, detail="TimeSlot tidak ditemukan")
 
     db.delete(timeslot)
     db.commit()
-    return {"message": "TimeSlot deleted successfully"}
+    return {"message": "TimeSlot berhasil dihapus"}

@@ -11,7 +11,6 @@ from database import SessionLocal
 from model.temporary_timetable_model import TemporaryTimeTable
 from datetime import datetime
 
-# Import all routes
 from routes.user_routes import router as user_router
 from routes.dosen_routes import router as dosen_router
 from routes.matakuliah_routes import router as matakuliah_router
@@ -86,7 +85,7 @@ def cleanup_expired_temporary_timetables():
     finally:
         db.close()
 
-scheduler.add_job(cleanup_expired_temporary_timetables, 'interval', minutes=20)
+scheduler.add_job(cleanup_expired_temporary_timetables, 'interval', minutes=200)
 
 
 app = FastAPI(

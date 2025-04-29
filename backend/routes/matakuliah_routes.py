@@ -4,7 +4,7 @@ from database import get_db
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 from model.matakuliah_model import MataKuliah
-from model.programstudi_model import ProgramStudi  # Assuming you have a ProgramStudi model
+from model.programstudi_model import ProgramStudi  
 
 router = APIRouter()
 
@@ -25,7 +25,7 @@ class MataKuliahBase(BaseModel):
     kurikulum: str
     status_mk: str
     have_kelas_besar: bool
-    program_studi_id: int  # Single foreign key reference
+    program_studi_id: int 
 
     class Config:
         orm_mode = True
@@ -65,10 +65,6 @@ class PaginatedMataKuliah(BaseModel):
 
 
 
-
-
-
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
@@ -78,7 +74,6 @@ from model.matakuliah_model import MataKuliah
 
 
 
-# Pydantic response model
 class MataKuliahSimpleResponse(BaseModel):
     kodemk: str
     namamk: str
@@ -111,7 +106,7 @@ async def get_all_matakuliah(
 ):
     query = db.query(MataKuliah)
     
-    # Convert semester to int safely
+
     if semester and semester != "Semua":
         try:
             semester = int(semester)
@@ -192,12 +187,10 @@ async def get_matakuliah_names(
 # Create MataKuliah
 @router.post("/", response_model=MataKuliahRead)
 async def create_matakuliah(matakuliah: MataKuliahCreate, db: Session = Depends(get_db)):
-    # Check if the ProgramStudi exists
     program_studi = db.query(ProgramStudi).filter(ProgramStudi.id == matakuliah.program_studi_id).first()
     if not program_studi:
-        raise HTTPException(status_code=404, detail="Program Studi not found")
+        raise HTTPException(status_code=404, detail="Program Studi tidak ditemukan")
 
-    # Create MataKuliah
     new_matakuliah = MataKuliah(**matakuliah.dict())
     db.add(new_matakuliah)
     db.commit()
@@ -205,30 +198,26 @@ async def create_matakuliah(matakuliah: MataKuliahCreate, db: Session = Depends(
 
     return MataKuliahRead(**new_matakuliah.__dict__, program_studi_name=program_studi.name)
 
-# ✅ **Get MataKuliah by ID**
 @router.get("/{matakuliah_id}", response_model=MataKuliahRead)
 async def get_matakuliah(matakuliah_id: str, db: Session = Depends(get_db)):
     matakuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == matakuliah_id).first()
     if not matakuliah:
-        raise HTTPException(status_code=404, detail="MataKuliah not found")
+        raise HTTPException(status_code=404, detail="MataKuliah tidak ditemukan")
 
     program_studi_name = db.query(ProgramStudi.name).filter(ProgramStudi.id == matakuliah.program_studi_id).scalar()
 
     return MataKuliahRead(**matakuliah.__dict__, program_studi_name=program_studi_name)
 
-# ✅ **Update MataKuliah**
 @router.put("/{matakuliah_id}", response_model=MataKuliahRead)
 async def update_matakuliah(matakuliah_id: str, updated_data: MataKuliahCreate, db: Session = Depends(get_db)):
     matakuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == matakuliah_id).first()
     if not matakuliah:
-        raise HTTPException(status_code=404, detail="MataKuliah not found")
+        raise HTTPException(status_code=404, detail="MataKuliah tidak ditemukan")
 
-    # Validate new program_studi_id
     program_studi = db.query(ProgramStudi).filter(ProgramStudi.id == updated_data.program_studi_id).first()
     if not program_studi:
         raise HTTPException(status_code=400, detail=f"ProgramStudi with ID {updated_data.program_studi_id} does not exist.")
 
-    # Update MataKuliah fields
     for key, value in updated_data.dict().items():
         setattr(matakuliah, key, value)
 
@@ -237,12 +226,11 @@ async def update_matakuliah(matakuliah_id: str, updated_data: MataKuliahCreate, 
 
     return MataKuliahRead(**matakuliah.__dict__, program_studi_name=program_studi.name)
 
-# ✅ **Delete MataKuliah**
 @router.delete("/{kodemk}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_matakuliah(kodemk: str, db: Session = Depends(get_db)):
     matakuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == kodemk).first()
     if not matakuliah:
-        raise HTTPException(status_code=404, detail="MataKuliah not found")
+        raise HTTPException(status_code=404, detail="MataKuliah tidak ditemukan")
 
     db.delete(matakuliah)
     db.commit()
@@ -250,8 +238,7 @@ async def delete_matakuliah(kodemk: str, db: Session = Depends(get_db)):
         "id" : kodemk,
         "detail" : "MataKuliah deleted successfully"
 
-    }  # FastAPI expects no content for 204 status
-
+    }  
 
 
 

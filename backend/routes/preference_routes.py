@@ -56,7 +56,6 @@ async def create_preference(preference: PreferenceCreate, db: Session = Depends(
 
 
 
-# Read Preference by ID
 @router.get("/{preference_id}", response_model=PreferenceRead)
 async def read_preference(preference_id: int, db: Session = Depends(get_db)):
     preference = db.query(Preference).filter(Preference.id == preference_id).first()
@@ -69,7 +68,6 @@ async def read_dosen_preference( dosen_id: int, db: Session = Depends(get_db)):
     preferences = db.query(Preference).filter(Preference.dosen_id == dosen_id).all()
     return preferences
 
-# Check Dosen has Preference set or not.
 @router.get("/dosen/{user_id}/has-preference", response_model=bool)
 async def dosen_has_preference(user_id: int, db: Session = Depends(get_db)):
     preference = db.query(Preference).filter(Preference.dosen_id == user_id).first()
@@ -78,7 +76,6 @@ async def dosen_has_preference(user_id: int, db: Session = Depends(get_db)):
     return True
 
 
-# Read All Preferences
 @router.get("/", response_model=List[PreferenceRead])
 async def read_all_preferences(
     dosen_id: Optional[int] = None,
@@ -98,9 +95,8 @@ async def toggle_special_needs(dosen_id: int, db: Session = Depends(get_db)):
     preferences = db.query(Preference).filter(Preference.dosen_id == dosen_id).all()
 
     if not preferences:
-        raise HTTPException(status_code=404, detail="No preferences found for the given dosen_id")
+        raise HTTPException(status_code=404, detail="preferensi tidak ditemukan untuk dosen ini")
 
-    # Flip the current value (if at least one is True, set all to False, otherwise set all to True)
     current_status = any(pref.is_special_needs for pref in preferences)
     new_status = not current_status
 
@@ -110,19 +106,17 @@ async def toggle_special_needs(dosen_id: int, db: Session = Depends(get_db)):
 
     db.commit()
     return {
-        "message": f"Special needs preferences toggled to {new_status} for dosen {dosen_id}"
+        "message": f"Special needs preferences diubah menjadi {new_status} untuk dosen {dosen_id}"
     }
 
 
 
-# Update Preference
 @router.put("/{preference_id}", response_model=PreferenceRead)
 async def update_preference(preference_id: int, updated_preference: PreferenceCreate, db: Session = Depends(get_db)):
     preference = db.query(Preference).filter(Preference.id == preference_id).first()
     if not preference:
-        raise HTTPException(status_code=404, detail="Preference not found")
+        raise HTTPException(status_code=404, detail="Preference tidak ditemukan")
 
-    # Update the preference fields
     for key, value in updated_preference.dict().items():
         setattr(preference, key, value)
 
@@ -131,13 +125,12 @@ async def update_preference(preference_id: int, updated_preference: PreferenceCr
     return preference
 
 
-# Delete Preference
 @router.delete("/{preference_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_preference(preference_id: int, db: Session = Depends(get_db)):
     preference = db.query(Preference).filter(Preference.id == preference_id).first()
     if not preference:
-        raise HTTPException(status_code=404, detail="Preference not found")
+        raise HTTPException(status_code=404, detail="Preference tidak ditemukan")
 
     db.delete(preference)
     db.commit()
-    return {"message": "Preference deleted successfully"}
+    return {"message": "Preference berhasil dihapus"}

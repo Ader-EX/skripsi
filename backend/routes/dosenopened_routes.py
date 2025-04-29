@@ -23,9 +23,9 @@ router = APIRouter()
 class AssignDosenRequest(BaseModel):
     dosen_id: int
     opened_class_id: int
-    is_dosen_kb: bool  # Boolean to determine if the lecturer is a 'Dosen Besar'
-    kapasitas: int  # Capacity of the class
-    kelas: str  # Class name (A, B, C, etc.)
+    is_dosen_kb: bool  
+    kapasitas: int  
+    kelas: str  
 
 
 
@@ -34,29 +34,22 @@ def assign_dosen_to_class(
     request: AssignDosenRequest,
     db: Session = Depends(get_db),
 ):
-    """
-    Assign a Dosen to an Opened Class, then adjust used_preference so that exactly one lecturer (preferably a dosen kecil)
-    is marked as used_preference for that class.
-    """
-    # Fetch the opened class and dosen
     opened_class = db.query(OpenedClass).filter(OpenedClass.id == request.opened_class_id).first()
     dosen = db.query(Dosen).filter(Dosen.pegawai_id == request.dosen_id).first()
 
     if not opened_class:
-        raise HTTPException(status_code=404, detail="Opened class not found")
+        raise HTTPException(status_code=404, detail="Opened class tidak ditemukan")
     if not dosen:
-        raise HTTPException(status_code=404, detail="Dosen not found")
+        raise HTTPException(status_code=404, detail="Dosen tidak ditemukan")
 
-    # Check current capacity
     existing_lecturers = db.execute(
         openedclass_dosen.select().where(openedclass_dosen.c.opened_class_id == request.opened_class_id)
     ).fetchall()
 
     if len(existing_lecturers) >= request.kapasitas:
-        raise HTTPException(status_code=400, detail="Class is already at full capacity")
+        raise HTTPException(status_code=400, detail="Class sudah penuh")
 
-    # Insert the lecturer with a default used_preference of False.
-    # Also assume the request contains a boolean flag 'is_dosen_besar'
+   
     db.execute(
         openedclass_dosen.insert().values(
             opened_class_id=request.opened_class_id,
@@ -67,22 +60,17 @@ def assign_dosen_to_class(
     )
     db.commit()
 
-    # Recalculate used_preference for the class to ensure exactly one is marked.
     updated_assignments = db.execute(
         openedclass_dosen.select().where(openedclass_dosen.c.opened_class_id == request.opened_class_id)
     ).fetchall()
 
     if updated_assignments:
-        # Prefer a dosen kecil (i.e., where is_dosen_besar is False)
         non_besar = [assignment for assignment in updated_assignments if not assignment.is_dosen_besar]
         if non_besar:
-            # If there's exactly one non-besar, choose that; if more, pick by some tie-breaker (e.g. lower dosen_id)
             chosen = sorted(non_besar, key=lambda a: a.dosen_id)[0]
         else:
-            # Otherwise, if all are dosen besar, pick the first one
             chosen = updated_assignments[0]
 
-        # Reset all to False, then update the chosen one to True.
         db.execute(
             openedclass_dosen.update().where(
                 openedclass_dosen.c.opened_class_id == request.opened_class_id
@@ -97,6 +85,6 @@ def assign_dosen_to_class(
         db.commit()
 
     return {
-        "message": f"Dosen {dosen.pegawai_id} assigned to class {opened_class.kelas}.",
-        "used_preference": True  # Now ensured to have exactly one used_preference.
+        "message": f"Dosen {dosen.pegawai_id} dijadwalkan untuk kelas {opened_class.kelas}.",
+        "used_preference": True
     }

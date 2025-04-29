@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
-# 🔹 **Pydantic Models**
+
 class MahasiswaTimeTableBase(BaseModel):
     mahasiswa_id: int
     timetable_id: int
@@ -32,103 +32,90 @@ class MahasiswaTimeTableRead(MahasiswaTimeTableBase):
         orm_mode = True
 
 
-# ✅ **POST: Add Mahasiswa to Timetable**
 @router.post("/", response_model=MahasiswaTimeTableRead, status_code=status.HTTP_201_CREATED)
 async def add_lecture_to_timetable(entry: MahasiswaTimeTableCreate, db: Session = Depends(get_db)):
-    # Check if Mahasiswa exists
+  
     mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.id == entry.mahasiswa_id).first()
     if not mahasiswa:
-        raise HTTPException(status_code=404, detail="Mahasiswa not found")
+        raise HTTPException(status_code=404, detail="Mahasiswa tidak ditemukan")
 
-    # Check if Timetable exists
     timetable = db.query(TimeTable).filter(TimeTable.id == entry.timetable_id).first()
     if not timetable:
-        raise HTTPException(status_code=404, detail="Timetable not found")
+        raise HTTPException(status_code=404, detail="Timetable tidak ditemukan")
 
-    # Get Active Academic Period
     active_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
     if not active_period:
-        raise HTTPException(status_code=400, detail="No active academic period found")
+        raise HTTPException(status_code=400, detail=" active academic period tidak ditemukan")
 
-    # Check if the class is full
     if timetable.kuota >= timetable.kapasitas:
-        raise HTTPException(status_code=400, detail="Class is full, cannot add more students")
+        raise HTTPException(status_code=400, detail="Kelas sudah penuh")
 
-    # Get the OpenedClass associated with the timetable
     opened_class = db.query(OpenedClass).filter(OpenedClass.id == timetable.opened_class_id).first()
     if not opened_class:
-        raise HTTPException(status_code=404, detail="Opened Class not found")
+        raise HTTPException(status_code=404, detail="Opened Class tidak ditemukan")
 
-    # Get MataKuliah directly from OpenedClass
     mata_kuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == opened_class.mata_kuliah_kodemk).first()
     if not mata_kuliah:
-        raise HTTPException(status_code=404, detail="Mata Kuliah not found")
+        raise HTTPException(status_code=404, detail="Mata Kuliah tidak ditemukan")
 
-    # Get the class (e.g., "A", "B", etc.)
     selected_class = opened_class.kelas  
 
-    # Prevent selecting the same kodemk with different classes
     existing_kodemk_entry = db.query(MahasiswaTimeTable).join(TimeTable).join(OpenedClass).filter(
         MahasiswaTimeTable.mahasiswa_id == entry.mahasiswa_id,
         OpenedClass.mata_kuliah_kodemk == mata_kuliah.kodemk,
-        OpenedClass.kelas != selected_class  # Prevent different classes
+        OpenedClass.kelas != selected_class  
     ).first()
 
     if existing_kodemk_entry:
         raise HTTPException(
             status_code=400, 
-            detail=f"Already enrolled in {mata_kuliah.kodemk} with a different class ({existing_kodemk_entry.timetable.opened_class.kelas})"
+            detail=f"Sudah masuk ke {mata_kuliah.kodemk} dengan kelas yang berbeda ({existing_kodemk_entry.timetable.opened_class.kelas})"
         )
 
-    # Prevent students from taking related courses with different classes
+    # biar mahasiswa tidak bisa mengambil mata kuliah yang berhubungan dengan kelas yang berbeda
     related_courses = db.query(MahasiswaTimeTable).join(TimeTable).join(OpenedClass).join(MataKuliah).filter(
         MahasiswaTimeTable.mahasiswa_id == entry.mahasiswa_id,
         MataKuliah.namamk.ilike(f"%{mata_kuliah.namamk.replace('Praktikum', '').strip()}%"),
-        OpenedClass.kelas != selected_class  # Ensure same class
+        OpenedClass.kelas != selected_class 
     ).first()
 
     if related_courses:
         raise HTTPException(
             status_code=400, 
-            detail=f"Cannot take {mata_kuliah.namamk} in class {selected_class} because you have taken a related course in a different class ({related_courses.timetable.opened_class.kelas})"
+            detail=f"Tidak bisa mengambil {mata_kuliah.namamk} di kelas {selected_class} karena user telah mengambil kelas yang sama tapi beda kelas ({related_courses.timetable.opened_class.kelas})"
         )
 
-    # Check for duplicate entries
     existing_entry = db.query(MahasiswaTimeTable).filter(
         MahasiswaTimeTable.mahasiswa_id == entry.mahasiswa_id,
         MahasiswaTimeTable.timetable_id == entry.timetable_id
     ).first()
 
     if existing_entry:
-        raise HTTPException(status_code=400, detail="Timetable already added to the mahasiswa's schedule")
+        raise HTTPException(status_code=400, detail="Timetable sudab ditambahkan ke mahasiswa schedule")
 
-    # Update Mahasiswa's `sks_diambil`
-    mahasiswa.sks_diambil += mata_kuliah.sks  # Add SKS from MataKuliah
-    db.commit()  # Commit update to Mahasiswa
+    mahasiswa.sks_diambil += mata_kuliah.sks  
+    db.commit()  
 
-    # Create a new MahasiswaTimeTable entry
     new_entry = MahasiswaTimeTable(
         mahasiswa_id=entry.mahasiswa_id,
         timetable_id=entry.timetable_id,
-        academic_period_id=active_period.id  # ✅ Assign the active academic period
+        academic_period_id=active_period.id  
     )
     db.add(new_entry)
 
-    # **Increment `kuota` after successfully adding the student**
     timetable.kuota += 1  
-    db.commit()  # Commit both the new entry and the updated `kuota`
+    db.commit()
     db.refresh(new_entry)
 
     return new_entry
 
 
-# ✅ **GET: Get Mahasiswa's Timetable**
 @router.get("/{mahasiswa_id}", response_model=List[MahasiswaTimeTableRead])
 async def get_timetable_by_mahasiswa(mahasiswa_id: int, db: Session = Depends(get_db)):
     timetable_entries = db.query(MahasiswaTimeTable).filter(MahasiswaTimeTable.mahasiswa_id == mahasiswa_id).all()
 
     if not timetable_entries:
-        raise HTTPException(status_code=404, detail="No timetable entries found for this mahasiswa")
+        raise HTTPException(status_code=404, detail="No timetable entries ditemukan untuk mahasiswa ini")
 
     return timetable_entries
 
@@ -141,15 +128,13 @@ async def get_timetable_by_mahasiswa(
 ):
     mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.id == mahasiswa_id).first()
     if not mahasiswa:
-        raise HTTPException(status_code=404, detail="Mahasiswa not found")
+        raise HTTPException(status_code=404, detail="Mahasiswa tidak ditemukan")
 
-    # ✅ Fetch the active academic period
     active_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
     if not active_period:
         raise HTTPException(status_code=404, detail="No active academic period found")
 
     try:
-        # ✅ Fetch timetable data within the active academic period
         query = db.query(
             TimeTable.id,
             TimeTable.opened_class_id,
@@ -179,7 +164,7 @@ async def get_timetable_by_mahasiswa(
          .join(MahasiswaTimeTable, MahasiswaTimeTable.timetable_id == TimeTable.id) \
          .filter(
             MahasiswaTimeTable.mahasiswa_id == mahasiswa_id,
-            TimeTable.academic_period_id == active_period.id  # ✅ Ensure only active academic period data
+            TimeTable.academic_period_id == active_period.id  
          ) \
          .group_by(
             TimeTable.id, OpenedClass.id, MataKuliah.kodemk, MataKuliah.namamk, 
@@ -196,7 +181,6 @@ async def get_timetable_by_mahasiswa(
 
         timetable_data = query.all()
 
-        # ✅ Fetch timeslot details in a single query
         timeslot_ids = set(
             ts_id for entry in timetable_data for ts_id in entry.timeslot_ids if ts_id
         )
@@ -206,13 +190,11 @@ async def get_timetable_by_mahasiswa(
 
         formatted_timetable = []
         for entry in timetable_data:
-            # ✅ Format Dosen names into a numbered list
             formatted_dosen = (
                 "\n".join([f"{i+1}. {dosen.strip()}" for i, dosen in enumerate(entry.dosen_names.split("||"))])
                 if entry.dosen_names else "-"
             )
 
-            # ✅ Fetch timeslot details
             formatted_timeslots = [
                 {
                     "id": ts.id,
@@ -257,32 +239,25 @@ async def get_timetable_by_mahasiswa(
 
 @router.delete("/timetable/{mahasiswa_id}/{timetable_id}", status_code=status.HTTP_200_OK)
 async def delete_timetable_entry(mahasiswa_id: int, timetable_id: int, db: Session = Depends(get_db)):
-    """
-    Deletes a specific timetable entry for a mahasiswa and updates the `kuota` count.
-    """
-    # Check if Mahasiswa exists
+ 
     mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.id == mahasiswa_id).first()
     if not mahasiswa:
-        raise HTTPException(status_code=404, detail="Mahasiswa not found")
+        raise HTTPException(status_code=404, detail="Mahasiswa tidak ditemukan")
 
-    # Check if Timetable exists
     timetable = db.query(TimeTable).filter(TimeTable.id == timetable_id).first()
     if not timetable:
-        raise HTTPException(status_code=404, detail="Timetable entry not found")
+        raise HTTPException(status_code=404, detail="Timetable entry tidak ditemukan")
 
-    # Check if Mahasiswa is enrolled in this timetable
     entry = db.query(MahasiswaTimeTable).filter(
         MahasiswaTimeTable.mahasiswa_id == mahasiswa_id,
         MahasiswaTimeTable.timetable_id == timetable_id
     ).first()
 
     if not entry:
-        raise HTTPException(status_code=404, detail="Timetable entry not found for this mahasiswa")
+        raise HTTPException(status_code=404, detail="Timetable entry tidak ditemukan for this mahasiswa")
 
-    # ✅ Remove the timetable entry
     db.delete(entry)
 
-    # ✅ Update mahasiswa's total SKS
     mata_kuliah = (
         db.query(MataKuliah)
         .join(OpenedClass, OpenedClass.mata_kuliah_kodemk == MataKuliah.kodemk)
@@ -292,14 +267,13 @@ async def delete_timetable_entry(mahasiswa_id: int, timetable_id: int, db: Sessi
     )
 
     if mata_kuliah:
-        mahasiswa.sks_diambil -= mata_kuliah.sks  # Deduct SKS
+        mahasiswa.sks_diambil -= mata_kuliah.sks  
         if mahasiswa.sks_diambil < 0:
-            mahasiswa.sks_diambil = 0  # Prevent negative SKS
+            mahasiswa.sks_diambil = 0  
 
-    # ✅ Decrement `kuota` in `TimeTable`
     if timetable.kuota > 0:
-        timetable.kuota -= 1  # Reduce enrolled students count
+        timetable.kuota -= 1  
 
-    db.commit()  # Commit all changes
+    db.commit()  
 
-    return {"message": "Timetable entry deleted successfully, kuota updated"}
+    return {"message": "Timetable entry berhasil dihapus, kuota updated"}

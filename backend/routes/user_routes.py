@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 import os
 from jwt import encode, decode
 from datetime import datetime, timedelta, timezone
-from enum import Enum  # Import Enum for predefined options
+from enum import Enum  
 
 load_dotenv()
 
@@ -112,7 +112,7 @@ class LoginRequest(BaseModel):
 async def create_user(user: UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.nim_nip == user.nim_nip).first()
     if db_user:
-        raise HTTPException(status_code=400, detail="NIM/NIP already registered")
+        raise HTTPException(status_code=400, detail="NIM/NIP sudah terdaftar")
 
     hashed_password = hash_password(user.password)
 
@@ -165,17 +165,17 @@ async def create_user(user: UserCreate, db: Session = Depends(get_db)):
 
 @router.get("/details")
 async def get_user_details(
-    nim_nip: str = Query(..., description="The NIM/NIP of the user"),
+    nim_nip: str = Query(..., description="NIM/NIP dari user yang ingin diambil detailnya"),
     db: Session = Depends(get_db),
 ):
     user = db.query(User).filter(User.nim_nip == nim_nip).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
 
     if user.role == "mahasiswa":
         mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.user_id == user.id).first()
         if not mahasiswa:
-            raise HTTPException(status_code=404, detail="Mahasiswa details not found")
+            raise HTTPException(status_code=404, detail="Mahasiswa details tidak ditemukan")
 
         return MahasiswaDetails(
             id=mahasiswa.id,
@@ -197,7 +197,7 @@ async def get_user_details(
     elif user.role == "dosen":
         dosen = db.query(Dosen).filter(Dosen.user_id == user.id).first()
         if not dosen:
-            raise HTTPException(status_code=404, detail="Dosen details not found")
+            raise HTTPException(status_code=404, detail="Dosen details  tidak ditemukan")
 
         return DosenDetails(
             pegawai_id=dosen.pegawai_id,
@@ -219,7 +219,7 @@ async def get_user_details(
     raise HTTPException(status_code=400, detail="Invalid user role")
 
 @router.get("/users", response_model=List[UserRead])
-async def get_all_users(role: Optional[RoleEnum] = Query(None, description="Filter users by role"),
+async def get_all_users(role: Optional[RoleEnum] = Query(None, description="Filter users dengan role"),
                         db: Session = Depends(get_db)):
     query = db.query(User)
     if role:
@@ -232,7 +232,7 @@ async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.nim_nip == login_request.nim_nip).first()
     
     if not user or not verify_password(login_request.password, user.password):
-        raise HTTPException(status_code=401, detail="NIM/NIP or password is incorrect")
+        raise HTTPException(status_code=401, detail="NIM/NIP or password salah")
 
     role_id = None
     user_name = user.nim_nip
@@ -284,14 +284,14 @@ async def login(login_request: LoginRequest, db: Session = Depends(get_db)):
 async def read_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
     return user
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
     
     if user.role == "mahasiswa":
         mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.user_id == user.id).first()
@@ -304,13 +304,13 @@ async def delete_user(user_id: int, db: Session = Depends(get_db)):
     
     db.delete(user)
     db.commit()
-    return {"message": "User deleted successfully"}
+    return {"message": "User berhasil dihapus"}
 
 @router.put("/{user_id}", response_model=UserRead)
 async def update_user(user_id: int, updated_user: UserCreate, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
     user.nim_nip = updated_user.nim_nip
     user.password = hash_password(updated_user.password)
     user.role = updated_user.role.value

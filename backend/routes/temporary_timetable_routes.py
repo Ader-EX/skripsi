@@ -14,12 +14,11 @@ from model.openedclass_model import OpenedClass
 from model.ruangan_model import Ruangan
 from model.timetable_model import TimeTable
 from model.user_model import User
-from database import get_db  # Pastikan ada function get_db di database.py
+from database import get_db 
 from model.temporary_timetable_model import TemporaryTimeTable
 
 router = APIRouter()
 
-# ====== SCHEMAS ======
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
@@ -55,13 +54,12 @@ class TemporaryTimeTableResponse(TemporaryTimeTableBase):
         orm_mode = True
 
 
-# ====== CRUD FUNCTIONS ======
 
 def create_temporary_timetable(db: Session, temp_data: TemporaryTimeTableCreate):
     
     academic_period = db.query(AcademicPeriods).filter(AcademicPeriods.id == temp_data.academic_period_id).first()
     if not academic_period:
-        raise HTTPException(status_code=404, detail="Academic period not found.")
+        raise HTTPException(status_code=404, detail="Academic period tidak ditemukan")
 
     db_temp = TemporaryTimeTable(**temp_data.dict())
     db.add(db_temp)
@@ -85,7 +83,7 @@ def update_temporary_timetable(db: Session, temp_id: int, temp_data: TemporaryTi
     if "academic_period_id" in temp_dict:
         academic_period = db.query(AcademicPeriods).filter(AcademicPeriods.id == temp_dict["academic_period_id"]).first()
         if not academic_period:
-            raise HTTPException(status_code=404, detail="Academic period not found.")
+            raise HTTPException(status_code=404, detail="Academic period tidak ditemukan")
 
     for key, value in temp_dict.items():
         setattr(db_temp, key, value)
@@ -135,21 +133,18 @@ async def get_temporary_timetable_by_mahasiswa(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
 ):
-    """
-    Retrieves the list of temporary timetable classes for a specific student (Mahasiswa),
-    filtered by active academic period.
-    """
+
     
     mahasiswa = db.query(Mahasiswa).filter(Mahasiswa.id == mahasiswa_id).first()
     if not mahasiswa:
-        raise HTTPException(status_code=404, detail="Mahasiswa not found")
+        raise HTTPException(status_code=404, detail="Mahasiswa tidak ditemukan")
 
     active_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
     if not active_period:
-        raise HTTPException(status_code=404, detail="No active academic period found")
+        raise HTTPException(status_code=404, detail=" active academic period tidak ditemukan")
 
     try:
-        # JOIN TemporaryTimeTable -> TimeTable -> OpenedClass -> MataKuliah -> Ruangan
+      
         query = db.query(
             TemporaryTimeTable.id,
             TemporaryTimeTable.timetable_id,
@@ -205,13 +200,12 @@ async def get_temporary_timetable_by_mahasiswa(
                 )
             )
 
-        # Pagination
+  
         total_records = query.count()
         total_pages = (total_records + page_size - 1) // page_size
 
         temporary_data = query.offset((page - 1) * page_size).limit(page_size).all()
 
-        # Get all timeslot information
         timeslot_ids = set(
             ts_id for entry in temporary_data for ts_id in entry.new_timeslot_ids if ts_id
         )
@@ -221,7 +215,6 @@ async def get_temporary_timetable_by_mahasiswa(
 
         formatted_timetable = []
         for entry in temporary_data:
-            # Format dosen names
             formatted_dosen = (
                 "\n".join(
                     [f"{i+1}. {name.strip()}" for i, name in enumerate(entry.dosen_names.split("||"))]
@@ -229,7 +222,6 @@ async def get_temporary_timetable_by_mahasiswa(
                 if entry.dosen_names else "-"
             )
 
-            # Format timeslot details
             formatted_timeslots = [
                 {
                     "id": ts.id,
@@ -240,7 +232,6 @@ async def get_temporary_timetable_by_mahasiswa(
                 for ts_id in entry.new_timeslot_ids if (ts := timeslot_map.get(ts_id))
             ]
 
-            # Combine timeslots to a schedule string
             if formatted_timeslots:
                 sorted_slots = sorted(formatted_timeslots, key=lambda x: x["start_time"])
                 day = sorted_slots[0]["day"]
@@ -255,7 +246,7 @@ async def get_temporary_timetable_by_mahasiswa(
                 "matakuliah": entry.namamk,
                 "kurikulum": entry.kurikulum,
                 "kelas": entry.kelas,
-                "kap_peserta": "-",  # Optional: Retrieve from TimeTable if needed
+                "kap_peserta": "-",  
                 "sks": entry.sks,
                 "smt": entry.smt,
                 "dosen": formatted_dosen,
@@ -297,17 +288,13 @@ async def get_temporary_timetable_by_dosen(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
 ):
-    """
-    Retrieves the list of temporary timetable classes taught by a specific lecturer (Dosen),
-    filtered by active academic period.
-    """
+   
 
     dosen = db.query(Dosen).filter(Dosen.pegawai_id == dosen_id).first()
     if not dosen:
         raise HTTPException(status_code=404, detail="Dosen not found")
 
     try:
-        # JOIN TemporaryTimeTable -> TimeTable -> AcademicPeriods -> OpenedClass -> MataKuliah -> Ruangan
         query = db.query(
             TemporaryTimeTable.id,
             TemporaryTimeTable.timetable_id,
@@ -339,7 +326,7 @@ async def get_temporary_timetable_by_dosen(
          .filter(
              and_(
                  OpenedClass.dosens.any(Dosen.pegawai_id == dosen_id),
-                 AcademicPeriods.is_active == True  # ✅ Active academic period filter
+                 AcademicPeriods.is_active == True  
              )
          ) \
          .group_by(
@@ -364,7 +351,7 @@ async def get_temporary_timetable_by_dosen(
                 )
             )
 
-        # Pagination
+       
         total_records = query.count()
         total_pages = (total_records + page_size - 1) // page_size
 
@@ -387,7 +374,7 @@ async def get_temporary_timetable_by_dosen(
                 if entry.dosen_names else "-"
             )
 
-            # Format timeslot details
+           
             formatted_timeslots = [
                 {
                     "id": ts.id,
@@ -398,7 +385,7 @@ async def get_temporary_timetable_by_dosen(
                 for ts_id in entry.new_timeslot_ids if (ts := timeslot_map.get(ts_id))
             ]
 
-            # Combine timeslots to a schedule string
+           
             if formatted_timeslots:
                 sorted_slots = sorted(formatted_timeslots, key=lambda x: x["start_time"])
                 day = sorted_slots[0]["day"]
@@ -413,7 +400,7 @@ async def get_temporary_timetable_by_dosen(
                 "matakuliah": entry.namamk,
                 "kurikulum": entry.kurikulum,
                 "kelas": entry.kelas, 
-                "kap_peserta": "-",  # Optional: Retrieve from TimeTable if needed
+                "kap_peserta": "-",  
                 "sks": entry.sks,
                 "smt": entry.smt,
                 "dosen": formatted_dosen,
@@ -442,14 +429,14 @@ async def get_temporary_timetable_by_dosen(
 def get_temporary_timetable_endpoint(temp_id: int, db: Session = Depends(get_db)):
     db_temp = get_temporary_timetable_by_id(db, temp_id)
     if not db_temp:
-        raise HTTPException(status_code=404, detail="Temporary timetable not found")
+        raise HTTPException(status_code=404, detail="Temporary timetable tidak ditemukan")
     return db_temp
 
 @router.put("/{temp_id}", response_model=TemporaryTimeTableResponse)
 def update_temporary_timetable_endpoint(temp_id: int, temp: TemporaryTimeTableUpdate, db: Session = Depends(get_db)):
     db_temp = update_temporary_timetable(db, temp_id, temp)
     if not db_temp:
-        raise HTTPException(status_code=404, detail="Temporary timetable not found")
+        raise HTTPException(status_code=404, detail="Temporary timetable tidak ditemukan")
     return db_temp
 
 
@@ -457,5 +444,5 @@ def update_temporary_timetable_endpoint(temp_id: int, temp: TemporaryTimeTableUp
 def delete_temporary_timetable_endpoint(temp_id: int, db: Session = Depends(get_db)):
     db_temp = delete_temporary_timetable(db, temp_id)
     if not db_temp:
-        raise HTTPException(status_code=404, detail="Temporary timetable not found")
-    return {"detail": "Temporary timetable deleted"}
+        raise HTTPException(status_code=404, detail="Temporary timetable tidak ditemukan")
+    return {"detail": "Temporary timetable berhasil dihapus"}

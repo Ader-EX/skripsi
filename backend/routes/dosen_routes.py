@@ -20,7 +20,7 @@ from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Updated models to match your schema
+
 class UserRead(BaseModel):
     id: int
     nim_nip: str
@@ -68,7 +68,7 @@ class DosenBase(BaseModel):
         try:
             return datetime.strptime(value, "%d/%m/%Y")
         except ValueError:
-            raise ValueError("tanggal_lahir must be in the format DD/MM/YYYY")
+            raise ValueError("tanggal_lahir harus dengan format DD/MM/YYYY")
 
 
 class DosenRead(BaseModel):
@@ -185,7 +185,7 @@ async def get_all_dosen(
 async def create_dosen(dosen: DosenCreate = Body(...), db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.nim_nip == dosen.nim_nip).first()
     if existing_user:
-        raise HTTPException(status_code=400, detail="User with this NIM/NIP already exists.")
+        raise HTTPException(status_code=400, detail="User dengan NIM/NIP ini sudah ada.")
 
     new_user = User(
         nim_nip=dosen.nim_nip,
@@ -247,7 +247,7 @@ async def get_dosen(dosen_id: int, db: Session = Depends(get_db)):
     dosen = db.query(Dosen).options(joinedload(Dosen.user)).filter(Dosen.pegawai_id == dosen_id).first()
     
     if not dosen:
-        raise HTTPException(status_code=404, detail="Dosen not found")
+        raise HTTPException(status_code=404, detail="Dosen tidak ditemukan")
 
     return dosen
 
@@ -273,11 +273,11 @@ class DosenUpdate(BaseModel):
 async def update_dosen(dosen_id: int, dosen: DosenUpdate, db: Session = Depends(get_db)):
     db_dosen = db.query(Dosen).filter(Dosen.pegawai_id == dosen_id).first()
     if not db_dosen:
-        raise HTTPException(status_code=404, detail="Dosen not found")
+        raise HTTPException(status_code=404, detail="Dosen tidak ditemukan")
 
     db_user = db.query(User).filter(User.id == db_dosen.user_id).first()
     if not db_user:
-        raise HTTPException(status_code=404, detail="Associated User not found")
+        raise HTTPException(status_code=404, detail="User relasinya tidak ditemukan")
 
     if dosen.nim_nip is not None:
         db_user.nim_nip = dosen.nim_nip
@@ -312,24 +312,6 @@ async def update_dosen(dosen_id: int, dosen: DosenUpdate, db: Session = Depends(
     db.refresh(db_user)
 
     return {"message": "Dosen berhasil diperbarui", "dosen_id": db_dosen.pegawai_id} 
-# @router.delete("/{dosen_id}", response_model=dict)
-# async def delete_dosen(dosen_id: int, db: Session = Depends(get_db)):
-#     db_dosen = db.query(Dosen).filter(Dosen.pegawai_id == dosen_id).first()
-#     if not db_dosen:
-#         raise HTTPException(status_code=404, detail="Dosen not found")
-
-#     db_user = db.query(User).filter(User.id == db_dosen.user_id).first()
-#     if not db_user:
-#         raise HTTPException(status_code=404, detail="Associated User not found")
-
-#     db.delete(db_dosen)
-#     db.commit()
-
-#     db.delete(db_user)
-#     db.commit()
-
-#     return {"message": "Dosen dan User berhasil dihapus"}
-
 
 @router.get("/timetable/{dosen_id}", response_model=Dict[str, Any])
 async def get_timetable_by_dosen(
@@ -340,13 +322,9 @@ async def get_timetable_by_dosen(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
 ):
-    """
-    Mengembalikan list kelas yg diajar oleh dosen tertentu (Dosen),
-    difilter berdasarkan periode akademik aktif.
-    """
     dosen = db.query(Dosen).filter(Dosen.pegawai_id == dosen_id).first()
     if not dosen:
-        raise HTTPException(status_code=404, detail="Dosen not found")
+        raise HTTPException(status_code=404, detail="Dosen tidak ditemukan")
 
     try:
         query = db.query(
@@ -406,7 +384,7 @@ async def get_timetable_by_dosen(
         if prodi_id is not None and prodi_id != 0:
             query = query.filter(ProgramStudi.id == prodi_id)
 
-        # Pagination
+   
         total_records = query.count()
         total_pages = (total_records + page_size - 1) // page_size
 
@@ -479,11 +457,11 @@ async def delete_dosen(dosen_id: int, db: Session = Depends(get_db)):
 
     db_dosen = db.query(Dosen).filter(Dosen.pegawai_id == dosen_id).first()
     if not db_dosen:
-        raise HTTPException(status_code=404, detail="Dosen not found")
+        raise HTTPException(status_code=404, detail="Dosen tidak ditemukan")
 
     db_user = db.query(User).filter(User.id == db_dosen.user_id).first()
     if not db_user:
-        raise HTTPException(status_code=404, detail="Associated User not found")
+        raise HTTPException(status_code=404, detail="Associated User tidak ditemukan")
 
     db.delete(db_dosen)
     db.commit()

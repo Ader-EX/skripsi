@@ -42,24 +42,20 @@ router = APIRouter()
 
 @router.post("/", response_model=OpenedClassResponse)
 async def create_opened_class(data: OpenedClassCreate, db: Session = Depends(get_db)):
-    # 1. Validate Mata Kuliah exists.
     mata_kuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == data.mata_kuliah_kodemk).first()
     if not mata_kuliah:
-        raise HTTPException(status_code=404, detail="Mata Kuliah not found")
+        raise HTTPException(status_code=404, detail="Mata Kuliah tidak ditemukan")
 
-    # 2. Check if an opened class with the same course and class already exists.
     existing_class = db.query(OpenedClass).filter(
         OpenedClass.mata_kuliah_kodemk == data.mata_kuliah_kodemk,
         OpenedClass.kelas == data.kelas
     ).first()
     if existing_class:
-        raise HTTPException(status_code=400, detail="Opened class with this Mata Kuliah and Kelas already exists")
+        raise HTTPException(status_code=400, detail="Opened class dengan mata kuliah dan kelas ini sudah ada")
 
-    # 3. Validate that at least one dosen is assigned.
     if not data.dosens:
-        raise HTTPException(status_code=400, detail="At least one dosen must be assigned")
+        raise HTTPException(status_code=400, detail="Minimal satu dosen harus dipilih")
 
-    # For theory courses, ensure that at most one dosen is marked as dosen besar.
     if mata_kuliah.tipe_mk == "T":
         if sum(1 for d in data.dosens if d.is_dosen_besar) > 1:
             raise HTTPException(status_code=400, detail="Hanya satu dosen dapat ditandai sebagai dosen besar.")
@@ -69,27 +65,23 @@ async def create_opened_class(data: OpenedClassCreate, db: Session = Depends(get
                 detail="Untuk kelas teori (dengan tipe MK T), salah satu dosen harus menjadi dosen besar."
             )
 
-    # Validate user-supplied used_preference flags.
     user_used_prefs = [d for d in data.dosens if getattr(d, "used_preference", False)]
     if len(user_used_prefs) > 1:
         raise HTTPException(status_code=400, detail="Hanya satu dosen yang bisa dipilih sebagai used_preference")
 
-    # 4. Create new opened class but do not commit yet.
     new_class = OpenedClass(
         mata_kuliah_kodemk=data.mata_kuliah_kodemk,
         kelas=data.kelas,
         kapasitas=data.kapasitas
     )
     db.add(new_class)
-    db.flush()  # Assigns an ID without finalizing the transaction
+    db.flush()  
 
-    # 5. Retrieve dosens from the DB.
     dosen_ids = [dosen.id for dosen in data.dosens]
     dosens = db.query(Dosen).filter(Dosen.pegawai_id.in_(dosen_ids)).all()
     if not dosens:
         raise HTTPException(status_code=404, detail="No valid Dosen found")
 
-    # 6. Determine dosen_besar_id.
     dosen_besar_id = next((dosen.id for dosen in data.dosens if dosen.is_dosen_besar), None)
     if not dosen_besar_id and mata_kuliah.tipe_mk == "T":
         from sqlalchemy import func
@@ -111,7 +103,6 @@ async def create_opened_class(data: OpenedClassCreate, db: Session = Depends(get
             detail="Untuk kelas teori (dengan tipe MK T), salah satu dosen harus menjadi dosen besar."
         )
 
-    # 7. Determine which dosen gets used_preference.
     if len(user_used_prefs) == 1:
         chosen_used_pref_id = user_used_prefs[0].id
         if len(dosens) > 1 and chosen_used_pref_id == dosen_besar_id:
@@ -130,7 +121,6 @@ async def create_opened_class(data: OpenedClassCreate, db: Session = Depends(get
                 raise HTTPException(status_code=400, detail="Tidak ada dosen yang valid untuk dipilih sebagai used_preference")
             chosen_used_pref_id = non_dosen_besar[0].pegawai_id
 
-    # 8. Build dosen assignment entries.
     dosen_entries = []
     for dosen in dosens:
         is_dosen_besar = (dosen.pegawai_id == dosen_besar_id)
@@ -142,7 +132,6 @@ async def create_opened_class(data: OpenedClassCreate, db: Session = Depends(get
             "is_dosen_besar": is_dosen_besar
         })
 
-    # 9. Insert dosen assignments.
     db.execute(openedclass_dosen.insert(), dosen_entries)
     db.commit()
     db.refresh(new_class)
@@ -230,7 +219,6 @@ async def get_opened_classes(
         )
 
     if no_timetable:
-        # Filter opened classes with no timetable entries
         query = query.filter(~OpenedClass.timetables.any())
 
     total_records = query.count()
@@ -273,39 +261,33 @@ async def get_opened_classes(
 
 @router.put("/{opened_class_id}", response_model=OpenedClassResponse)
 async def update_opened_class(opened_class_id: int, data: OpenedClassCreate, db: Session = Depends(get_db)):
-    # Step 1: Check if the OpenedClass exists.
+  
     opened_class = db.query(OpenedClass).filter(OpenedClass.id == opened_class_id).first()
     if not opened_class:
-        raise HTTPException(status_code=404, detail="Opened class not found")
+        raise HTTPException(status_code=404, detail="Opened class tidak ditemukan")
 
-    # Step 2: Check if MataKuliah exists.
     mata_kuliah = db.query(MataKuliah).filter(MataKuliah.kodemk == data.mata_kuliah_kodemk).first()
     if not mata_kuliah:
-        raise HTTPException(status_code=404, detail="Mata Kuliah not found")
+        raise HTTPException(status_code=404, detail="Mata Kuliah tidak ditemukan")
 
-    # For theory courses, ensure that at most one dosen is marked as dosen besar.
     if mata_kuliah.tipe_mk == "T":
         if sum(1 for d in data.dosens if d.is_dosen_besar) > 1:
             raise HTTPException(status_code=400, detail="Hanya satu dosen dapat ditandai sebagai dosen besar.")
 
-    # Step 3: Update OpenedClass details.
     opened_class.mata_kuliah_kodemk = data.mata_kuliah_kodemk
     opened_class.kelas = data.kelas
     opened_class.kapasitas = data.kapasitas
     db.commit()
     db.refresh(opened_class)
 
-    # Step 4: Remove old `openedclass_dosen` data.
     from sqlalchemy import delete
     db.execute(delete(openedclass_dosen).where(openedclass_dosen.c.opened_class_id == opened_class_id))
 
-    # Step 5: Retrieve dosens from the DB.
     dosen_ids = [dosen.id for dosen in data.dosens]
     dosens = db.query(Dosen).filter(Dosen.pegawai_id.in_(dosen_ids)).all()
     if not dosens:
         raise HTTPException(status_code=404, detail="No valid Dosen found")
 
-    # Determine dosen_besar_id (fallback logic can be applied if needed)
     dosen_besar_id = next((dosen.id for dosen in data.dosens if dosen.is_dosen_besar), None)
     if not dosen_besar_id and mata_kuliah.tipe_mk == "T":
         from sqlalchemy import func
@@ -327,24 +309,18 @@ async def update_opened_class(opened_class_id: int, data: OpenedClassCreate, db:
             detail="Untuk kelas teori (dengan tipe MK T), salah satu dosen harus menjadi dosen besar."
         )
 
-    # Validate user-supplied used_preference flags.
     user_used_prefs = [d for d in data.dosens if getattr(d, "used_preference", False)]
     if len(user_used_prefs) > 1:
         raise HTTPException(status_code=400, detail="Hanya satu dosen yang bisa dipilih sebagai used_preference")
 
-    # Determine which dosen gets used_preference.
     if len(user_used_prefs) == 1:
         chosen_used_pref_id = user_used_prefs[0].id
-        # Only reject if there are multiple dosens and the selected one is dosen_besar.
         if len(dosens) > 1 and chosen_used_pref_id == dosen_besar_id:
             raise HTTPException(status_code=400, detail="Dosen besar tidak dapat dipilih sebagai used_preference")
     else:
-        # If no used_preference is provided:
         if len(dosens) == 1:
-            # If there's only one dosen, select it even if it is dosen_besar.
             chosen_used_pref_id = dosens[0].pegawai_id
         else:
-            # Otherwise, automatically select the oldest among non‑dosen_besar.
             from datetime import datetime
             sorted_dosens = sorted(
                 dosens, 
@@ -355,7 +331,6 @@ async def update_opened_class(opened_class_id: int, data: OpenedClassCreate, db:
                 raise HTTPException(status_code=400, detail="Tidak ada dosen yang valid untuk dipilih sebagai used_preference")
             chosen_used_pref_id = non_dosen_besar[0].pegawai_id
 
-    # Build the dosen assignment entries.
     dosen_entries = []
     for dosen in dosens:
         is_dosen_besar = (dosen.pegawai_id == dosen_besar_id)
@@ -383,24 +358,22 @@ async def get_opened_class(class_id: int, db: Session = Depends(get_db)):
     opened_class = (
         db.query(OpenedClass)
         .options(
-            joinedload(OpenedClass.mata_kuliah),  # Load Mata Kuliah details
-            joinedload(OpenedClass.dosens).joinedload(Dosen.user)  # Load Dosen details
+            joinedload(OpenedClass.mata_kuliah),  
+            joinedload(OpenedClass.dosens).joinedload(Dosen.user)
         )
         .filter(OpenedClass.id == class_id)
         .first()
     )
 
     if not opened_class:
-        raise HTTPException(status_code=404, detail="Opened class not found")
+        raise HTTPException(status_code=404, detail="Opened class tidak ditemukan")
 
-    # Fetch `is_dosen_besar` from `openedclass_dosen`
     dosen_data = db.execute(
         openedclass_dosen.select().where(
             openedclass_dosen.c.opened_class_id == class_id
         )
     ).fetchall()
 
-    # Convert to dictionary {dosen_id: is_dosen_besar}
     dosen_besar_map = {row.dosen_id: row.is_dosen_besar for row in dosen_data}
     used_preference_map = {row.dosen_id: row.used_preference for row in dosen_data}
 
@@ -416,7 +389,7 @@ async def get_opened_class(class_id: int, db: Session = Depends(get_db)):
             {
                 "pegawai_id": dosen.pegawai_id,
                 "nama": dosen.nama,
-                "is_dosen_besar": dosen_besar_map.get(dosen.pegawai_id, False),  # ✅ Add `is_dosen_besar`
+                "is_dosen_besar": dosen_besar_map.get(dosen.pegawai_id, False),
                 "used_preference": used_preference_map.get(dosen.pegawai_id, False) 
                 
             }
@@ -427,15 +400,13 @@ async def get_opened_class(class_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{opened_class_id}/change-used-preference/{dosen_id}")
 async def change_used_preference(opened_class_id: int, dosen_id: int, db: Session = Depends(get_db)):
-    # Check if the OpenedClass exists
     opened_class = db.query(OpenedClass).filter(OpenedClass.id == opened_class_id).first()
     if not opened_class:
-        raise HTTPException(status_code=404, detail="Opened class not found")
+        raise HTTPException(status_code=404, detail="Opened class tidak ditemukan")
 
-    # Check if the Dosen exists and is part of this OpenedClass
     dosen = db.query(Dosen).filter(Dosen.pegawai_id == dosen_id).first()
     if not dosen:
-        raise HTTPException(status_code=404, detail="Dosen not found")
+        raise HTTPException(status_code=404, detail="Dosen tidak ditemukan")
 
     dosen_in_class = db.execute(
         openedclass_dosen.select().where(
@@ -445,16 +416,14 @@ async def change_used_preference(opened_class_id: int, dosen_id: int, db: Sessio
     ).fetchone()
 
     if not dosen_in_class:
-        raise HTTPException(status_code=400, detail="Dosen is not assigned to this class")
+        raise HTTPException(status_code=400, detail="Dosen tidak di assign di kelas ini")
 
-    # Step 1: Reset all dosens in this class to `used_preference = False`
     db.execute(
         update(openedclass_dosen)
         .where(openedclass_dosen.c.opened_class_id == opened_class_id)
         .values(used_preference=False)
     )
 
-    # Step 2: Set `used_preference = True` for the selected dosen
     db.execute(
         update(openedclass_dosen)
         .where(
@@ -465,25 +434,20 @@ async def change_used_preference(opened_class_id: int, dosen_id: int, db: Sessio
     )
 
     db.commit()
-    return {"message": f"Dosen {dosen_id} is now the primary preference for class {opened_class_id}"}
+    return {"message": f"Dosen {dosen_id} sekarang jadi preferensi untuk kelas {opened_class_id}"}
 
 @router.delete("/{opened_class_id}")
 async def delete_opened_class(opened_class_id: int, db: Session = Depends(get_db)):
-    # ✅ Step 1: Check if the OpenedClass exists
     opened_class = db.query(OpenedClass).filter(OpenedClass.id == opened_class_id).first()
     if not opened_class:
-        raise HTTPException(status_code=404, detail="Opened class not found")
+        raise HTTPException(status_code=404, detail="Opened class tidak ditemukan")
 
-    # ✅ Step 2: Delete related Timetable entries
     db.execute(delete(TimeTable).where(TimeTable.opened_class_id == opened_class_id))
 
-    # ✅ Step 3: Delete related `openedclass_dosen` entries
     db.execute(delete(openedclass_dosen).where(openedclass_dosen.c.opened_class_id == opened_class_id))
 
-    # ✅ Step 4: Delete the OpenedClass itself
     db.delete(opened_class)
 
-    # ✅ Step 5: Commit transaction
     db.commit()
 
-    return {"message": f"Opened class {opened_class_id} and its related data have been deleted successfully"}
+    return {"message": f"Opened class {opened_class_id} dan timetable-nya berhasil dihapus"}
