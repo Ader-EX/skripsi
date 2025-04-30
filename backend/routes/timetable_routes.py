@@ -77,8 +77,7 @@ import json
 
 @router.post("/resolve-conflicts")
 async def resolve_conflicts(db: Session = Depends(get_db)):
-    
-   
+
     conflicted_entries = db.query(TimeTable).filter(
         TimeTable.is_conflicted == True,
         TimeTable.reason.isnot(None)

@@ -172,26 +172,42 @@ def fitness(solution, opened_class_cache, room_cache, timeslot_cache, preference
         return (conflict_score * penalties["conflict_multiplier"]) + soft_score
     else:
         return soft_score
-
 def generate_neighbor_solution(current_solution, opened_classes, rooms, timeslots, opened_class_cache, recess_times):
+    # clone dulu solusi sekarang biar originalnya aman
     new_solution = current_solution.copy()
     if not new_solution:
         return new_solution
+
+    # pilih random satu kelas buat dimutasi
     idx = random.randrange(len(new_solution))
     opened_class_id, _, _ = new_solution[idx]
     class_info = opened_class_cache[opened_class_id]
     tipe_mk = class_info["mata_kuliah"].tipe_mk
+
+    # cari ruangan yang kompatibel (tipe ruangan sama tipe mata kuliah)
     compatible_rooms = [r for r in rooms if r.tipe_ruangan == tipe_mk]
     if not compatible_rooms:
         return new_solution
+
+    # acak pilih ruangan baru buat kelas ini
     new_room = random.choice(compatible_rooms)
     effective_sks = get_effective_sks(class_info)
+
+    # semua kemungkinan start index timeslot
     possible_indices = list(range(len(timeslots)))
     random.shuffle(possible_indices)
+
+    # cari potongan timeslot yang valid
     for start_idx in possible_indices:
         if start_idx + effective_sks > len(timeslots):
             continue
         slots = timeslots[start_idx: start_idx + effective_sks]
+
+        # cek syarat:
+        # - semua slot masih di hari yg sama
+        # - ID berurutan
+        # - jam start-end nyambung
+        # - bukan jam istirahat
         if all(
             slots[i].day_index == slots[0].day_index and 
             slots[i].id == slots[i - 1].id + 1 and 
@@ -199,9 +215,12 @@ def generate_neighbor_solution(current_solution, opened_classes, rooms, timeslot
             slots[i].id not in recess_times
             for i in range(1, effective_sks)
         ):
+            # kalau ketemu, langsung ganti entri yang dipilih
             new_solution[idx] = (opened_class_id, new_room.id, slots[0].id)
             break
-    return new_solution
+
+    return new_solution  # balikin solusi baru hasil neighbor
+
 
 def format_solution_for_db(db: Session, solution, opened_class_cache, room_cache, timeslot_cache):
     active_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()

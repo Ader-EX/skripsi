@@ -9,8 +9,8 @@ class OpenedClass(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     # mata_kuliah_program_studi_id: Mapped[int] = mapped_column(ForeignKey("mata_kuliah_program_studi.id"), nullable=False)
     mata_kuliah_kodemk: Mapped[str] = mapped_column(ForeignKey("mata_kuliah.kodemk"), nullable=False)
-    kelas: Mapped[str] = mapped_column(String(10), nullable=False)  # E.g., "A", "B", "C", etc.
-    kapasitas: Mapped[int] = mapped_column(Integer, nullable=False)  # Capacity of the class
+    kelas: Mapped[str] = mapped_column(String(10), nullable=False) 
+    kapasitas: Mapped[int] = mapped_column(Integer, nullable=False)
 
     # Relationships
     dosens: Mapped[list["Dosen"]] = relationship("Dosen", secondary=openedclass_dosen, back_populates="opened_classes")
