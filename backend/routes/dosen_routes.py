@@ -328,14 +328,15 @@ async def get_timetable_by_dosen(
 
     try:
         query = db.query(
-            TimeTable.id,
+            TimeTable.id.label("timetable_id"),
+            ProgramStudi.id.label("program_studi_id"),
             TimeTable.opened_class_id,
             TimeTable.ruangan_id,
             TimeTable.timeslot_ids,
             TimeTable.kelas,
             TimeTable.kapasitas,
             TimeTable.kuota,
-            ProgramStudi.id,
+            # ProgramStudi.id,
             OpenedClass.mata_kuliah_kodemk,
             MataKuliah.kodemk,
             MataKuliah.namamk,
@@ -425,8 +426,9 @@ async def get_timetable_by_dosen(
                 schedule = "-"
 
             formatted_entry = {
-                "timetable_id": entry.id,
+                "timetable_id": entry.timetable_id,
                 "kodemk": entry.kodemk,
+                "course_id" : entry.opened_class_id,
                 "matakuliah": entry.namamk,
                 "kurikulum": entry.kurikulum,
                 "kelas": entry.kelas,

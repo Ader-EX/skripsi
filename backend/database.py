@@ -20,7 +20,6 @@ port = os.getenv("DB_PORT")
 database = os.getenv("DB_NAME")
 sqliteDB = os.getenv("DATABASE_OFFICE_URL")
 
-
 if ENV == "home":
     DATABASE_URL = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
     connect_args = {}
