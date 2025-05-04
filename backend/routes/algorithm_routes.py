@@ -969,22 +969,27 @@ async def check_timetable_conflicts(db: Session = Depends(get_db)):
     }
 
 
-@router.get("/formatted-timetable/{timetable_id}")
+@router.get("/formatted-timetable/{timetable_id}/{program_studi_id}")
 async def get_timetable_by_id(
     timetable_id: int,
+    program_studi_id: int,
     db: Session = Depends(get_db)
 ):
     try:
+        
         timetable = (
             db.query(TimeTable)
+            .join(TimeTable.opened_class)
+            .join(OpenedClass.mata_kuliah)
             .options(
-                joinedload(TimeTable.opened_class)
-                .joinedload(OpenedClass.mata_kuliah),
+                joinedload(TimeTable.opened_class).joinedload(OpenedClass.mata_kuliah),
                 joinedload(TimeTable.ruangan),
-                joinedload(TimeTable.opened_class)
-                .joinedload(OpenedClass.dosens),
+                joinedload(TimeTable.opened_class).joinedload(OpenedClass.dosens),
             )
-            .filter(TimeTable.id == timetable_id)
+            .filter(
+                TimeTable.id == timetable_id,
+                MataKuliah.program_studi_id == program_studi_id
+            )
             .first()
         )
 
@@ -992,47 +997,47 @@ async def get_timetable_by_id(
             raise HTTPException(status_code=404, detail="Timetable tidak ditemukan")
 
         opened_class = timetable.opened_class
-        mata_kuliah = opened_class.mata_kuliah
-        dosens = opened_class.dosens
-        room = timetable.ruangan
+        mata_kuliah  = opened_class.mata_kuliah
+        dosens        = opened_class.dosens
+        room          = timetable.ruangan
 
         # ambil timeslot
-        timeslot_ids = timetable.timeslot_ids
-        timeslots = db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
+        timeslot_ids = timetable.timeslot_ids or []
+        timeslots    = db.query(TimeSlot).filter(TimeSlot.id.in_(timeslot_ids)).all()
 
         formatted_data = {
             "id": timetable.id,
-            "opened_class_id": opened_class.id, 
+            "opened_class_id": opened_class.id,
             "subject": {
                 "code": mata_kuliah.kodemk,
                 "name": mata_kuliah.namamk,
-                "sks" : mata_kuliah.sks
+                "sks":  mata_kuliah.sks,
             },
             "class": opened_class.kelas,
             "lecturers": [{"id": d.pegawai_id, "name": d.nama} for d in dosens],
             "timeslots": [
                 {
-                    "id": t.id,
-                    "day": t.day,
-                    "startTime": str(t.start_time),
-                    "endTime": str(t.end_time)
-                } for t in timeslots
+                    "id":        t.id,
+                    "day":       t.day,
+                    "startTime": t.start_time.strftime("%H:%M"),
+                    "endTime":   t.end_time.strftime("%H:%M"),
+                }
+                for t in timeslots
             ],
             "room": {
-                "id": room.id,
-                "code": room.kode_ruangan,
-                "capacity": room.kapasitas
+                "id":       room.id,
+                "code":     room.kode_ruangan,
+                "capacity": room.kapasitas,
             },
-            "capacity": timetable.kapasitas,
-            "enrolled": timetable.kuota,
-            "is_conflicted": timetable.is_conflicted
+            "capacity":      timetable.kapasitas,
+            "enrolled":      timetable.kuota,
+            "is_conflicted": timetable.is_conflicted,
         }
 
         return formatted_data
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching timetable: {str(e)}")
-
+        raise HTTPException(status_code=500, detail=f"Error fetching timetable: {e}")
 
 
 

@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Body
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, case, func, or_
 from sqlalchemy.orm import Session, joinedload
 from typing import Any, Dict, Optional, List
 from datetime import date, datetime
 from pydantic import BaseModel, EmailStr, validator
 
+from model.temporary_timetable_model import TemporaryTimeTable
 from model.academicperiod_model import AcademicPeriods
 from model.timeslot_model import TimeSlot
 from model.timetable_model import TimeTable
@@ -328,51 +329,57 @@ async def get_timetable_by_dosen(
 
     try:
         query = db.query(
-            TimeTable.id.label("timetable_id"),
-            ProgramStudi.id.label("program_studi_id"),
-            TimeTable.opened_class_id,
-            TimeTable.ruangan_id,
-            TimeTable.timeslot_ids,
-            TimeTable.kelas,
-            TimeTable.kapasitas,
-            TimeTable.kuota,
-            # ProgramStudi.id,
-            OpenedClass.mata_kuliah_kodemk,
-            MataKuliah.kodemk,
-            MataKuliah.namamk,
-            MataKuliah.kurikulum,
-            MataKuliah.sks,
-            MataKuliah.smt,
-            Ruangan.nama_ruang.label("ruangan_name"),
-            func.group_concat(
-                func.concat_ws(" ", Dosen.title_depan, Dosen.nama, Dosen.title_belakang)
-                .distinct()
-                .op('SEPARATOR')('||')
-            ).label("dosen_names")
-        ).join(OpenedClass, TimeTable.opened_class_id == OpenedClass.id) \
-         .join(MataKuliah, OpenedClass.mata_kuliah_kodemk == MataKuliah.kodemk) \
-         .join(ProgramStudi, MataKuliah.program_studi_id == ProgramStudi.id) \
-         .join(Dosen, OpenedClass.dosens) \
-         .join(User, Dosen.user_id == User.id) \
-         .join(Ruangan, TimeTable.ruangan_id == Ruangan.id) \
-         .join(AcademicPeriods, TimeTable.academic_period_id == AcademicPeriods.id) \
-         .filter(
-             and_(
-                 OpenedClass.dosens.any(Dosen.pegawai_id == dosen_id),
-                 AcademicPeriods.is_active == True 
-             )
-         ) \
-         .group_by(
-             TimeTable.id,
-             OpenedClass.id,
-             MataKuliah.kodemk,
-             MataKuliah.namamk,
-             MataKuliah.kurikulum,
-             MataKuliah.sks,
-             MataKuliah.smt,
-             Ruangan.nama_ruang,
-             ProgramStudi.id
-         )
+        TimeTable.id.label("timetable_id"),
+        ProgramStudi.id.label("program_studi_id"),
+        TimeTable.opened_class_id,
+        TimeTable.ruangan_id,
+        TimeTable.timeslot_ids,
+        TimeTable.kelas,
+        TimeTable.kapasitas,
+        TimeTable.kuota,
+        OpenedClass.mata_kuliah_kodemk,
+        MataKuliah.kodemk,
+        MataKuliah.namamk,
+        MataKuliah.kurikulum,
+        MataKuliah.sks,
+        MataKuliah.smt,
+        Ruangan.nama_ruang.label("ruangan_name"),
+        func.group_concat(
+            func.concat_ws(" ", Dosen.title_depan, Dosen.nama, Dosen.title_belakang)
+            .distinct()
+            .op('SEPARATOR')('||')
+        ).label("dosen_names"),
+            case(
+            (TemporaryTimeTable.id.isnot(None), True),
+            else_=False
+        )
+        .label("has_temporary") 
+    ).join(OpenedClass, TimeTable.opened_class_id == OpenedClass.id) \
+    .join(MataKuliah, OpenedClass.mata_kuliah_kodemk == MataKuliah.kodemk) \
+    .join(ProgramStudi, MataKuliah.program_studi_id == ProgramStudi.id) \
+    .join(Dosen, OpenedClass.dosens) \
+    .join(User, Dosen.user_id == User.id) \
+    .join(Ruangan, TimeTable.ruangan_id == Ruangan.id) \
+    .join(AcademicPeriods, TimeTable.academic_period_id == AcademicPeriods.id) \
+    .outerjoin(TemporaryTimeTable, TimeTable.id == TemporaryTimeTable.timetable_id) \
+    .filter(
+        and_(
+            OpenedClass.dosens.any(Dosen.pegawai_id == dosen_id),
+            AcademicPeriods.is_active == True
+        )
+    ) \
+    .group_by(
+        TimeTable.id,
+        OpenedClass.id,
+        MataKuliah.kodemk,
+        MataKuliah.namamk,
+        MataKuliah.kurikulum,
+        MataKuliah.sks,
+        MataKuliah.smt,
+        Ruangan.nama_ruang,
+        ProgramStudi.id,
+        TemporaryTimeTable.id
+    )
 
         if filter:
             query = query.filter(
@@ -438,6 +445,8 @@ async def get_timetable_by_dosen(
                 "dosen": formatted_dosen,
                 "ruangan": entry.ruangan_name,
                 "schedule": schedule,  
+                "has_temporary": entry.has_temporary,
+                
             }
             formatted_timetable.append(formatted_entry)
 

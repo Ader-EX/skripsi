@@ -176,8 +176,8 @@ async def get_temporary_timetable_by_mahasiswa(
              and_(
                  MahasiswaTimeTable.mahasiswa_id == mahasiswa_id,
                  TimeTable.academic_period_id == active_period.id,
-                 TemporaryTimeTable.start_date <= datetime.now(),
-                 TemporaryTimeTable.end_date >= datetime.now()
+                #  TemporaryTimeTable.start_date <= datetime.now(),
+                #  TemporaryTimeTable.end_date >= datetime.now()
              )
          ) \
          .group_by(

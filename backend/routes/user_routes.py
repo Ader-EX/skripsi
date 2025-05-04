@@ -50,7 +50,8 @@ def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None
 class UserCreate(BaseModel):
     nim_nip: str
     password: str
-    role: RoleEnum 
+    role: RoleEnum
+    program_studi_id: Optional[int] = None 
 
 class UserRead(BaseModel):
     id: int
@@ -140,7 +141,7 @@ async def create_user(user: UserCreate, db: Session = Depends(get_db)):
             alamat="",
             kode_pos=None,
             hp="",
-            program_studi_id=1
+            program_studi_id=user.program_studi_id or 1,  
         )
         db.add(new_mahasiswa)
 
@@ -151,7 +152,7 @@ async def create_user(user: UserCreate, db: Session = Depends(get_db)):
             nomor_ktp=None,
             email=None,
             tanggal_lahir=None,
-            progdi_id=None,
+            progdi_id=user.program_studi_id or 1,
             ijin_mengajar=True,
             jabatan=None,
             title_depan=None,

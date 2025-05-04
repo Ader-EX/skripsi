@@ -72,7 +72,7 @@ class MahasiswaUpdate(BaseModel):
     jenis_kelamin: Optional[str] = None
     kewarganegaraan: Optional[str] = None
     alamat: Optional[str] = None
-    kode_pos: Optional[int] = None
+    kode_pos: Optional[int] = 12345
     hp: Optional[str] = None
 
 class MahasiswaRead(BaseModel):
@@ -128,7 +128,7 @@ async def create_mahasiswa(mahasiswa: MahasiswaCreate, db: Session = Depends(get
         jenis_kelamin=mahasiswa.jenis_kelamin,
         kewarganegaraan=mahasiswa.kewarganegaraan,
         alamat=mahasiswa.alamat,
-        kode_pos=mahasiswa.kode_pos,
+        kode_pos=mahasiswa.kode_pos or 12345,
         hp=mahasiswa.hp,
         user_id=new_user.id if not existing_user else existing_user.id,
     )
