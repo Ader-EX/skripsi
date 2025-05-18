@@ -518,7 +518,7 @@ def simulated_annealing(db: Session, initial_temperature=1000, cooling_rate=0.95
 
 
 def get_effective_sks(class_info):
-    """Return effective SKS: if tipe_mk = 'P', * 2, else ("T" or "S") return sks."""
+    """ if tipe_mk = 'P', * 2, else ("T" or "S") return sks."""
     sks = class_info['sks']
     if class_info['mata_kuliah'].tipe_mk == 'P':
         return sks * 2
@@ -527,8 +527,8 @@ def get_effective_sks(class_info):
 
 
 def insert_timetable(db: Session, timetable: List[Dict], opened_class_cache: Dict, room_cache: Dict, timeslot_cache: Dict):
-    """Insert the best timetable into the database, generating the placeholder dynamically."""
-    # Fetch the active academic period
+    
+    # mabil periode akademik aktif
     active_period = db.query(AcademicPeriods).filter(AcademicPeriods.is_active == True).first()
     if not active_period:
         raise ValueError("No active academic period found. Ensure an active period is set.")
@@ -540,18 +540,18 @@ def insert_timetable(db: Session, timetable: List[Dict], opened_class_cache: Dic
             room = room_cache[entry["ruangan_id"]]
             timeslot_ids = entry["timeslot_ids"]
 
-            # Get the first timeslot for the class
+            # ambil timeslot pertama
             first_timeslot = timeslot_cache[timeslot_ids[0]]
-            day = first_timeslot.day.value  # Convert DayEnum to plain string (e.g., "Senin")
-            start_time = first_timeslot.start_time.strftime("%H:%M")  # Format time as string
-            end_time = timeslot_cache[timeslot_ids[-1]].end_time.strftime("%H:%M")  # Format time as string
+            day = first_timeslot.day.value  # Convert DayEnum to  string (e.g., "Senin")
+            start_time = first_timeslot.start_time.strftime("%H:%M")  
+            end_time = timeslot_cache[timeslot_ids[-1]].end_time.strftime("%H:%M")
 
             
             placeholder = f"1. {room.kode_ruangan} - {day} ({start_time} - {end_time})"
 
-            # If it's a kelas besar, add the second entry
+            # kalo punya kelas besar, append ke 2nd entry
             if mata_kuliah.have_kelas_besar:
-                # Find the first entry of the same mata_kuliah_kodemk
+                # cari entry pertama dari mata_kuliah yang sama
                 first_entry_same_kodemk = next(
                     (e for e in timetable if opened_class_cache[e["opened_class_id"]]["mata_kuliah"].kodemk == mata_kuliah.kodemk),
                     None
@@ -563,10 +563,10 @@ def insert_timetable(db: Session, timetable: List[Dict], opened_class_cache: Dic
                     first_entry_start_time = first_entry_timeslot.start_time.strftime("%H:%M")  
                     first_entry_end_time = timeslot_cache[first_entry_same_kodemk["timeslot_ids"][-1]].end_time.strftime("%H:%M")  # Format time as string
 
-                    # Add the second placeholder entry
+                    # append 2nd
                     placeholder += f"\n2. FIK-VCR-KB-1 - {first_entry_day} ({first_entry_start_time} - {first_entry_end_time})"
 
-            # Create the TimeTable entry
+         
             timetable_entry = TimeTable(
                 opened_class_id=entry["opened_class_id"],
                 ruangan_id=entry["ruangan_id"],
@@ -575,8 +575,8 @@ def insert_timetable(db: Session, timetable: List[Dict], opened_class_cache: Dic
                 # is_conflicted=entry["is_conflicted"],
                 kelas=entry["kelas"],
                 kapasitas=opened_class["kapasitas"],
-                academic_period_id=active_period.id,  # Use the active academic period's ID
-                placeholder=placeholder,  # Add the dynamically generated placeholder
+                academic_period_id=active_period.id,
+                placeholder=placeholder,  
             )
             db.add(timetable_entry)
         except KeyError as e:

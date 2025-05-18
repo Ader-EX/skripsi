@@ -96,7 +96,6 @@ def check_special_needs_compliance(solution, opened_class_cache, room_cache, pre
                     penalty += penalties["special_needs"]
     return penalty
         
-        
 def check_daily_load_balance(solution, opened_class_cache, timeslot_cache, penalties):
     penalty = 0
     lecturer_daily_counts = {}
@@ -127,6 +126,7 @@ def check_daily_load_balance(solution, opened_class_cache, timeslot_cache, penal
     return penalty
 
 
+
 def check_preference_compliance(solution, opened_class_cache, timeslot_cache, preferences_cache, penalties):
     penalty = 0
 
@@ -137,11 +137,11 @@ def check_preference_compliance(solution, opened_class_cache, timeslot_cache, pr
                 continue
             pref_info = preferences_cache[key]
 
-            # high-priority -> forbidden
+          
             if pref_info['is_high_priority']:
                 if timeslot_id in pref_info['preferences']:
                     penalty += penalties['high_priority_preference']
-            # low priority -> general preference
+          
             elif pref_info['used_preference']:
                 if timeslot_id not in pref_info['preferences']:
                     penalty += penalties['general_preference']
@@ -177,54 +177,81 @@ def fitness(solution, opened_class_cache, room_cache, timeslot_cache, preference
         return (conflict_score * penalties["conflict_multiplier"]) + soft_score
     else:
         return soft_score
-def generate_neighbor_solution(current_solution, opened_classes, rooms, timeslots, opened_class_cache, recess_times):
-    # clone dulu solusi sekarang biar originalnya aman
-    new_solution = current_solution.copy()
-    if not new_solution:
-        return new_solution
 
-    # pilih random satu kelas buat dimutasi
-    idx = random.randrange(len(new_solution))
-    opened_class_id, _, _ = new_solution[idx]
-    class_info = opened_class_cache[opened_class_id]
-    tipe_mk = class_info["mata_kuliah"].tipe_mk
+def generate_neighbor_solution(
+    current_solution,
+    opened_classes,
+    rooms,
+    timeslots,
+    opened_class_cache,
+    recess_times,
+    room_cache,
+    timeslot_cache,
+    preferences_cache,
+    dosen_cache,
+    penalties,
+    k_candidates=5
+):
+    # clone solusi for safety
+    best_solution = current_solution.copy()
+    best_score = fitness(
+        best_solution,
+        opened_class_cache,
+        room_cache,
+        timeslot_cache,
+        preferences_cache,
+        dosen_cache,
+        penalties
+    )
 
-    # cari ruangan yang kompatibel (tipe ruangan sama tipe mata kuliah)
-    compatible_rooms = [r for r in rooms if r.tipe_ruangan == tipe_mk]
-    if not compatible_rooms:
-        return new_solution
-
-    # acak pilih ruangan baru buat kelas ini
-    new_room = random.choice(compatible_rooms)
-    effective_sks = get_effective_sks(class_info)
-
-    # semua kemungkinan start index timeslot
-    possible_indices = list(range(len(timeslots)))
-    random.shuffle(possible_indices)
-
-    # cari potongan timeslot yang valid
-    for start_idx in possible_indices:
-        if start_idx + effective_sks > len(timeslots):
+    # tes beberapa neighbor lalu pilih terbaik
+    for _ in range(k_candidates):
+        candidate = current_solution.copy()
+        if not candidate:
             continue
-        slots = timeslots[start_idx: start_idx + effective_sks]
 
-        # cek syarat:
-        # - semua slot masih di hari yg sama
-        # - ID berurutan
-        # - jam start-end nyambung
-        # - bukan jam istirahat
-        if all(
-            slots[i].day_index == slots[0].day_index and 
-            slots[i].id == slots[i - 1].id + 1 and 
-            slots[i].start_time == slots[i - 1].end_time and 
-            slots[i].id not in recess_times
-            for i in range(1, effective_sks)
-        ):
-            # kalau ketemu, langsung ganti entri yang dipilih
-            new_solution[idx] = (opened_class_id, new_room.id, slots[0].id)
+        idx = random.randrange(len(candidate))
+        opened_class_id, _, _ = candidate[idx]
+        class_info = opened_class_cache[opened_class_id]
+        tipe_mk = class_info['mata_kuliah'].tipe_mk
+
+        compatible_rooms = [r for r in rooms if r.tipe_ruangan == tipe_mk]
+        if not compatible_rooms:
+            continue
+
+        new_room = random.choice(compatible_rooms)
+        sks = get_effective_sks(class_info)
+        possible_idxs = list(range(len(timeslots) - sks + 1))
+        random.shuffle(possible_idxs)
+
+        # cari potongan valid
+        for start in possible_idxs:
+            slots = timeslots[start : start + sks]
+            if not all(
+                slots[i].day_index == slots[0].day_index and
+                slots[i].id == slots[i-1].id + 1 and
+                slots[i].id not in recess_times
+                for i in range(1, sks)
+            ):
+                continue
+            candidate[idx] = (opened_class_id, new_room.id, slots[0].id)
             break
 
-    return new_solution  # balikin solusi baru hasil neighbor
+        score = fitness(
+            candidate,
+            opened_class_cache,
+            room_cache,
+            timeslot_cache,
+            preferences_cache,
+            dosen_cache,
+            penalties
+        )
+
+        if score < best_score:
+            best_score = score
+            best_solution = candidate.copy()
+
+    return best_solution
 
 
 def format_solution_for_db(db: Session, solution, opened_class_cache, room_cache, timeslot_cache):
@@ -334,68 +361,92 @@ def crossover(parent1, parent2):
     child2 = parent2[:point] + parent1[point:]
     return child1, child2
 
-def mutate(solution, opened_classes, rooms, timeslots, opened_class_cache, recess_times, preferences_cache, mutation_prob=0.1):
+def mutate(
+    solution,
+    opened_classes,
+    rooms,
+    timeslots,
+    opened_class_cache,
+    recess_times,
+    preferences_cache,
+
+    penalties,
+    mutation_prob=0.1,
+    k_candidates=3
+):
+    # clone solusi sekarang biar aman
     new_solution = solution.copy()
-    if not new_solution:
+    # hanya mutasi kadang-kadang sesuai probabilitas
+    if not new_solution or random.random() >= mutation_prob:
         return new_solution
-    if random.random() < mutation_prob:
-        # ngambil salah satu entri solusi
-        idx = random.randrange(len(new_solution))
 
-        opened_class_id, _, _ = new_solution[idx]
-        class_info = opened_class_cache[opened_class_id]
-        effective_sks = get_effective_sks(class_info)
-        tipe_mk = class_info["mata_kuliah"].tipe_mk
-        compatible_rooms = [r for r in rooms if r.tipe_ruangan == tipe_mk]
+    # pilih satu kelas acak untuk dicoba dipindah
+    idx = random.randrange(len(new_solution))
+    opened_class_id, _, _ = new_solution[idx]
+    class_info = opened_class_cache[opened_class_id]
+    sks = get_effective_sks(class_info)
+    tipe_mk = class_info['mata_kuliah'].tipe_mk
 
-        if compatible_rooms:
-            new_room = random.choice(compatible_rooms)
-            valid_timeslots = sorted(timeslots, key=lambda x: (x.day_index, x.start_time))
-            # [0,1,2,3,…] artinya potongan 2-slot bisa mulai di index 0,1,2,…
-            possible_indices = list(range(len(valid_timeslots) - effective_sks + 1))
-            
-            random.shuffle(possible_indices)
+    # kandidat ruang dan waktu
+    compatible_rooms = [r for r in rooms if r.tipe_ruangan == tipe_mk]
+    timeslot_list = sorted(timeslots, key=lambda x: (x.day_index, x.start_time))
 
-            # pisahin timeslot berdasarkan preferensi dosen
-            preferred_timeslots = []
-            non_preferred_timeslots = []
+    best_move = None
+    best_cost = float('inf')
 
-            # buat nyari timeslot yang possible aja
-            for start_idx in possible_indices:
-                slots = valid_timeslots[start_idx : start_idx + effective_sks]
-                slot_ids = {slot.id for slot in slots}
+    for _ in range(k_candidates):
+        # sampel ruangan dan waktu acak
+        room = random.choice(compatible_rooms)
+        start_idx = random.randrange(len(timeslot_list) - sks + 1)
+        slots = timeslot_list[start_idx : start_idx + sks]
 
-                is_preferred = all(
-                    any(t in preferences_cache.get((opened_class_id, dosen_id), {}).get('preferences', {}) for t in slot_ids)
-                    for dosen_id in class_info["dosen_ids"]
-                )
+        # cek kelengkapan potongan waktu
+        if not all(
+            slots[i].day_index == slots[0].day_index and
+            slots[i].id == slots[i-1].id + 1 and
+            slots[i].id not in recess_times
+            for i in range(1, sks)
+        ):
+            continue
 
-                if is_preferred:
-                    preferred_timeslots.append(start_idx)
-                else:
-                    non_preferred_timeslots.append(start_idx)
+        # hitung biaya konflik lokal
+        conflict_cost = sum(
+            (room.id, slot.id) in {
+                # buat dict sementara dari solusi
+                (r, t): oc_id
+                for oc_id, r, t in new_solution
+            }
+            for slot in slots
+        )
 
-            sorted_indices = preferred_timeslots + non_preferred_timeslots
+        # hitung biaya preferensi
+        preference_cost = sum(
+            preferences_cache.get((opened_class_id, d), {}).get('used_preference', False)
+            and slot.id not in preferences_cache.get((opened_class_id, d), {}).get('preferences', {})
+            for d in class_info['dosen_ids']
+            for slot in slots
+        )
 
-            # diurutin, trus buat dicari dia nyambung engganya
-            for start_idx in sorted_indices:
-                # ngambil potongan sebanyak sks 
-                slots = valid_timeslots[start_idx : start_idx + effective_sks]
+        total_cost = (
+            conflict_cost * penalties['conflict_multiplier']
+            + preference_cost * penalties['general_preference']
+        )
 
-                if all(
-                    slots[i].day_index == slots[0].day_index and
-                    slots[i].id == slots[i-1].id + 1 and
-                    slots[i].id not in recess_times
-                    for i in range(1, effective_sks)
-                ):
-                    new_solution[idx] = (opened_class_id, new_room.id, slots[0].id)
-                    logger.info(f"Mutasi: kelas {opened_class_id} pindah ke ruangan {new_room.id}, dg timeslot {slots[0].id}")
-                    break
+        if total_cost < best_cost:
+            best_cost = total_cost
+            best_move = (room.id, slots[0].id)
+
+    if best_move:
+        new_solution[idx] = (opened_class_id, best_move[0], best_move[1])
+        logger.info(
+            f" pindah kelas {opened_class_id} ke ruang {best_move[0]} pada slot {best_move[1]}"
+        )
+
     return new_solution
 
 def initialize_population(
     opened_classes, rooms, timeslots, population_size,
-    opened_class_cache, recess_times, preferences_cache, dosen_cache
+    opened_class_cache, recess_times, preferences_cache, dosen_cache,penalties
 ):
  
     population = []
@@ -450,8 +501,18 @@ def initialize_population(
                 
                 slot_ids = {s.id for s in slots}
                 # cek apakah semua dosen menyukai slot waktu ini
+                if any(
+                     preferences_cache.get((oc.id, d), {}).get("is_special_needs", False)
+                    and t not in preferences_cache[(oc.id, d)]["preferences"]
+                    for d in class_info["dosen_ids"]
+                    for t in slot_ids
+                ):
+                    continue
+
+                # 2) now mark it preferred only if EVERY lecturer opted in and listed it
                 is_preferred = all(
-                    any(t in preferences_cache.get((oc.id, d), {}).get("preferences", {}) for t in slot_ids)
+                    preferences_cache.get((oc.id, d), {}).get("used_preference", False)
+                    and any(t in preferences_cache[(oc.id, d)]["preferences"] for t in slot_ids)
                     for d in class_info["dosen_ids"]
                 )
                 
@@ -469,7 +530,7 @@ def initialize_population(
                 if assigned:
                     break
                 for start_idx in sorted_start_idxs:
-                    slots = timeslots_list[idx : idx + sks]
+                    slots = timeslots_list[start_idx : start_idx + sks]
 
                     # Pastikan semua slot :
                     #  di hari yang sama
@@ -504,50 +565,60 @@ def initialize_population(
 
             # kalo ga ketemu, make fallback
             if not assigned:
-                
-                best_conflict = float('inf')
+                best_cost       = float('inf')
                 best_assignment = None
-                best_slots = None
-                best_room = None
-                
-                # Cari jadwal dengan konflik paling sedikit
+                best_slots      = None
+                best_room       = None
+
                 for room in compatible_rooms:
                     for start_idx in possible_start_idxs:
-                        slots = timeslots_list[idx : idx + sks]
-                        
-                        # Pastikan semua slot waktu pada hari yang sama, berurutan, dan tidak bentrok dengan waktu istirahat
+                        slots = timeslots_list[start_idx : start_idx + sks]
+                        # skip non-contiguous / recess slots
                         if not all(
-                            slots[i].day_index == slots[0].day_index and 
+                            slots[i].day_index == slots[0].day_index and
                             slots[i].id == slots[i-1].id + 1 and
                             slots[i].id not in recess_times
                             for i in range(1, sks)
                         ):
                             continue
-                        
-                        # Hitung jumlah konflik yang terjadi
+
+                        # 5a) conflict cost
                         conflict_cost = sum(
-                            (room.id, slot.id) in room_schedule or any(
-                                (dosen_id, slot.id) in lecturer_schedule for dosen_id in class_info["dosen_ids"]
-                            ) for slot in slots
+                            (room.id, slot.id) in room_schedule
+                            or any((d, slot.id) in lecturer_schedule
+                                for d in class_info["dosen_ids"])
+                            for slot in slots
                         )
-                        
-                        # Update jadwal terbaik jika ditemukan konflik yang lebih sedikit
-                        if conflict_cost < best_conflict:
-                            best_conflict = conflict_cost
+
+                        # 5b) preference‐miss cost
+                        preference_cost = sum(
+                            preferences_cache.get((oc.id, d), {}).get("used_preference", False)
+                            and slot.id not in preferences_cache[(oc.id, d)]["preferences"]
+                            for d in class_info["dosen_ids"]
+                            for slot in slots
+                        )
+
+                        # 5c) combine them
+                        total_cost = (
+                            conflict_cost * penalties["conflict_multiplier"]
+                            + preference_cost * penalties["general_preference"]
+                        )
+
+                        if total_cost < best_cost:
+                            best_cost       = total_cost
                             best_assignment = (oc.id, room.id, slots[0].id)
-                            best_slots = slots
-                            best_room = room
+                            best_slots      = slots
+                            best_room       = room
+
                 
-                # Terapkan jadwal dengan konflik minimal jika ditemukan
                 if best_assignment:
                     for slot in best_slots:
                         room_schedule[(best_room.id, slot.id)] = oc.id
-                        for dosen_id in class_info["dosen_ids"]:
-                            lecturer_schedule[(dosen_id, slot.id)] = oc.id
+                        for d in class_info["dosen_ids"]:
+                            lecturer_schedule[(d, slot.id)] = oc.id
                     solution.append(best_assignment)
                     assigned = True
                     
-                
         # Tambahkan solusi ke dalam populasi
         population.append(solution)
         
@@ -561,7 +632,7 @@ def fetch_dosen_preferences(db: Session, opened_classes: List[OpenedClass]):
             openedclass_dosen.c.opened_class_id == oc.id
         ).all()
         for assignment in dosen_assignments:
-            dosen_id = getattr(assignment, "pegawai_id", None)
+            dosen_id = getattr(assignment, "dosen_id", None)
             used_preference = assignment.used_preference
             dosen_prefs = db.query(Preference).filter(
                 Preference.dosen_id == dosen_id
@@ -623,7 +694,7 @@ def hybrid_schedule(
     # ------------------------- GA Phase -------------------------
     population = initialize_population(
         opened_classes, rooms, timeslots, population_size,
-        opened_class_cache, recess_times, preferences_cache, dosen_cache
+        opened_class_cache, recess_times, preferences_cache, dosen_cache,penalties
     )
     
   
@@ -651,9 +722,10 @@ def hybrid_schedule(
         
         # 1 indiv tuh satu jadwal, bukan 1 entri 
         for indiv in new_population:
+            
             mutated_indiv = mutate(
                 indiv, opened_classes, rooms, timeslots,
-                opened_class_cache, recess_times, preferences_cache, mutation_prob
+                opened_class_cache, recess_times, preferences_cache,penalties, mutation_prob,
             )
             mutated_population.append(mutated_indiv)
         population = mutated_population
@@ -704,7 +776,9 @@ def hybrid_schedule(
         iteration += 1
         for i in range(iterations_per_temp):
             # Generate neighbor solution
-            new_solution = generate_neighbor_solution(current_solution, opened_classes, rooms, timeslots, opened_class_cache, recess_times)
+            #    
+
+            new_solution = generate_neighbor_solution(current_solution, opened_classes, rooms, timeslots, opened_class_cache, recess_times,room_cache, timeslot_cache, preferences_cache, dosen_cache, penalties)
             new_fitness = fitness(new_solution, opened_class_cache, room_cache, timeslot_cache, preferences_cache, dosen_cache, penalties)
             
             # Update best solution jika lebih bagus

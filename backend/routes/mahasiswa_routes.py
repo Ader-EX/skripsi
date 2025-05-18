@@ -317,21 +317,7 @@ async def update_mahasiswa(mahasiswa_id: int, mahasiswa: MahasiswaUpdate, db: Se
     db.refresh(user)  
 
     return {
-        "id": db_mahasiswa.id,
-        "nama": db_mahasiswa.nama,
-        "tahun_masuk": db_mahasiswa.tahun_masuk,
-        "semester": db_mahasiswa.semester,
-        "sks_diambil": db_mahasiswa.sks_diambil,
-        "program_studi_id": db_mahasiswa.program_studi_id,
-        "nim_nip": user.nim_nip,
-        "role": user.role,
-        "tgl_lahir": db_mahasiswa.tgl_lahir,
-        "kota_lahir": db_mahasiswa.kota_lahir,
-        "jenis_kelamin": db_mahasiswa.jenis_kelamin,
-        "kewarganegaraan": db_mahasiswa.kewarganegaraan,
-        "alamat": db_mahasiswa.alamat,
-        "kode_pos": db_mahasiswa.kode_pos,
-        "hp": db_mahasiswa.hp,
+       "message" : "Data mahasiswa berhasil diperbarui",
     }
 
 @router.delete("/{mahasiswa_id}", status_code=status.HTTP_204_NO_CONTENT)

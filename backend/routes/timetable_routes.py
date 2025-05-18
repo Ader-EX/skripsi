@@ -82,7 +82,7 @@ async def resolve_conflicts(db: Session = Depends(get_db)):
         TimeTable.is_conflicted == True,
         TimeTable.reason.isnot(None)
     ).order_by(case(
-        {"Lecturer Conflict": 3, "Room Conflict": 2, "Timeslot Conflict": 1, "Day Crossing": 0},
+        {"Lecturer Conflict": 3, "Room Conflict": 2, "Timeslot Conflict": 1},
         value=TimeTable.reason
     ).desc()).all()
     
