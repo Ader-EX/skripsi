@@ -30,6 +30,7 @@ from routes.sa_routes import router as sa_router
 from routes.ga_routes import router as ga_router
 from routes.hybrid_routes import router as hybrid_router
 from routes.temporary_timetable_routes import router as temporary_timetable_router
+from routes.hybrid_backup_routes import router as hybrid_backup_router
 load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY", "default_secret_key")
@@ -135,6 +136,7 @@ async def shutdown_event():
 
 
 app.include_router(user_router, prefix="/user", tags=["User"])
+app.include_router(hybrid_backup_router, prefix="/hybrid-backup", tags=["Hybrid Backup"])
 app.include_router(dosen_router, prefix="/dosen", tags=["Dosen"])
 app.include_router(matakuliah_router, prefix="/matakuliah", tags=["MataKuliah"])
 app.include_router(ruangan_router, prefix="/ruangan", tags=["Ruangan"])

@@ -736,32 +736,8 @@ def hybrid_schedule(
     
     total_time = datetime.now() - start_time
     logger.info(f"Hybrid GA-SA scheduling completed with final best fitness = {best_fitness_sa}. Total computation time: {total_time}")
-    
-    hard_conflicts = check_conflicts(best_solution_sa, opened_class_cache, room_cache, timeslot_cache, penalties)
-    
-    room_type_score = check_room_type_compatibility(best_solution_sa, opened_class_cache, room_cache, penalties)
-    special_needs_score = check_special_needs_compliance(best_solution_sa, opened_class_cache, room_cache, preferences_cache, penalties)
-    daily_load_score = check_daily_load_balance(best_solution_sa, opened_class_cache, timeslot_cache, penalties)
-    preference_score = check_preference_compliance(best_solution_sa, opened_class_cache, timeslot_cache, preferences_cache, penalties)
-    jabatan_penalty = check_jabatan_constraint(best_solution_sa, opened_class_cache, timeslot_cache, dosen_cache, penalties)
-    
-    soft_score = room_type_score + special_needs_score + daily_load_score + preference_score + jabatan_penalty
-    
-    logger.info(f"Final solution evaluasi:")
-    logger.info(f"  - Hard constraint: {hard_conflicts}")
-    logger.info(f"  - Soft constraint: {soft_score}")
-    logger.info(f"  - Total fitness score: {best_fitness_sa}")
-    
+        
     constraint_breakdown = {
-        "hard_conflicts": hard_conflicts,
-        "soft_constraints": {
-            "room_type_mismatch": room_type_score,
-            "special_needs": special_needs_score,
-            "daily_load_balance": daily_load_score,
-            "preference_violations": preference_score,
-            "jabatan_restrictions": jabatan_penalty,
-            "total_soft": soft_score
-        },
         "total_fitness": best_fitness_sa
     }
     

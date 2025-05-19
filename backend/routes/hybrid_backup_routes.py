@@ -142,10 +142,6 @@ def check_preference_compliance(solution, opened_class_cache, timeslot_cache, pr
                 if timeslot_id in pref_info['preferences']:
                     penalty += penalties['high_priority_preference']
           
-            elif pref_info['used_preference']:
-                if timeslot_id not in pref_info['preferences']:
-                    penalty += penalties['general_preference']
-
     return penalty
 
 def check_jabatan_constraint(solution, opened_class_cache, timeslot_cache, dosen_cache, penalties):
@@ -443,185 +439,139 @@ def mutate(
         )
 
     return new_solution
-
 def initialize_population(
     opened_classes, rooms, timeslots, population_size,
-    opened_class_cache, recess_times, preferences_cache, dosen_cache,penalties
+    opened_class_cache, recess_times, preferences_cache, dosen_cache, penalties
 ):
- 
     population = []
+    # urutkan timeslots berdasarkan hari dan jam
     timeslots_list = sorted(timeslots, key=lambda x: (x.day_index, x.start_time))
-    
+
+    # precompute block_starts untuk tiap panjang SKS
+    max_sks = max(get_effective_sks(opened_class_cache[oc.id]) for oc in opened_classes)
+    n_slots = len(timeslots_list)
+    block_starts = {}
+    for length in range(1, max_sks + 1):
+        starts = []
+        for i in range(n_slots - length + 1):
+            seg = timeslots_list[i : i + length]
+            if all(
+                seg[j].day_index == seg[0].day_index and
+                seg[j].id == seg[j-1].id + 1
+                for j in range(1, length)
+            ):
+                starts.append(i)
+        block_starts[length] = set(starts)
+
     for _ in range(population_size):
-       
         solution = []
-        room_schedule = {}      # Menyimpan jadwal penggunaan ruangan dengan format (room_id, slot_id) -> kelas_id
-        lecturer_schedule = {}  # Menyimpan jadwal dosen dengan format (dosen_id, slot_id) -> kelas_id
-        
-        
+        room_schedule = {}      # (room_id, slot_id) -> oc_id
+        lecturer_schedule = {}  # (dosen_id, slot_id) -> oc_id
+
+        # urutkan kelas berdasarkan SKS desc
         sorted_classes = sorted(
             opened_classes,
             key=lambda oc: get_effective_sks(opened_class_cache[oc.id]),
             reverse=True
         )
-        
+
         for oc in sorted_classes:
             class_info = opened_class_cache[oc.id]
             sks = get_effective_sks(class_info)
             tipe_mk = class_info["mata_kuliah"].tipe_mk
 
-          
+            # skip jika perlu slot lebih dari available
+            window_count = len(timeslots_list) - sks + 1
+            if window_count <= 0:
+                logger.warning(f"Kelas {oc.id} butuh {sks} slot tapi hanya ada {len(timeslots_list)} tersedia; dilewati")
+                continue
+
+            # list ruangan tipemk
             compatible_rooms = [r for r in rooms if r.tipe_ruangan == tipe_mk]
             if not compatible_rooms:
-                continue  # Lewati jika tidak ada ruangan yang cocok
-            
-            # Cek dosen jabatan? -> gaboleh senen
+                continue
+
+            # special_needs filter
+            if any(preferences_cache.get((oc.id, d), {}).get('is_special_needs', False)
+                   for d in class_info['dosen_ids']):
+                sp_rooms = [r for r in compatible_rooms if getattr(r, 'group_code', None) in ['KHD2', 'DS2']]
+                if sp_rooms:
+                    compatible_rooms = sp_rooms
+
+            # dosen jabatan hindari Senin
             has_jabatan = any(
-                dosen_cache[d].jabatan is not None
-                for d in class_info["dosen_ids"]
-                if d in dosen_cache
+                dosen_cache[d].jabatan is not None for d in class_info['dosen_ids'] if d in dosen_cache
             )
-            
-            assigned = False
-            random.shuffle(compatible_rooms)  # Acak urutan ruangan untuk variasi solusi
-            
-            # Cari semua kemungkinan indeks awal untuk slot waktu berurutan sesuai jumlah SKS
-            possible_start_idxs = list(range(len(timeslots_list) - sks + 1))
-            random.shuffle(possible_start_idxs)  # Acak urutan indeks untuk variasi solusi
-            
-          
-            preferred_timeslots = []
-            non_preferred_timeslots = []
-            for idx in possible_start_idxs:
-                slots = timeslots_list[idx : idx + sks]
-                
-                # jika dosen memiliki jabatan, hindari jadwal hari Senin (day_index==0)
-                if has_jabatan and slots[0].day_index == 0:
-                    continue
-                
-                slot_ids = {s.id for s in slots}
-                # cek apakah semua dosen menyukai slot waktu ini
-                if any(
-                     preferences_cache.get((oc.id, d), {}).get("is_special_needs", False)
-                    and t not in preferences_cache[(oc.id, d)]["preferences"]
-                    for d in class_info["dosen_ids"]
-                    for t in slot_ids
-                ):
-                    continue
 
-                # 2) now mark it preferred only if EVERY lecturer opted in and listed it
-                is_preferred = all(
-                    preferences_cache.get((oc.id, d), {}).get("used_preference", False)
-                    and any(t in preferences_cache[(oc.id, d)]["preferences"] for t in slot_ids)
-                    for d in class_info["dosen_ids"]
-                )
-                
-                # Kelompokkan slot waktu berdasarkan preferensi
-                if is_preferred:
-                    preferred_timeslots.append(idx)
+            # build possible starts
+            possible_starts = list(block_starts[sks])
+            random.shuffle(possible_starts)
+
+            # tentukan relevant dosen untuk preferensi
+            relevant = [d for d in class_info['dosen_ids'] if preferences_cache.get((oc.id,d),{}).get('used_preference',False)]
+
+            preferred, non_preferred = [], []
+            for idx in possible_starts:
+                seg = timeslots_list[idx: idx+sks]
+                if has_jabatan and seg[0].day_index == 0:
+                    continue
+                slot_ids = {s.id for s in seg}
+                if not relevant:
+                    non_preferred.append(idx)
+                elif all(slot_ids & set(preferences_cache[(oc.id,d)]['preferences'].keys())
+                         for d in relevant):
+                    preferred.append(idx)
                 else:
-                    non_preferred_timeslots.append(idx)
-            
-         
-            sorted_start_idxs = preferred_timeslots + non_preferred_timeslots
-            
-            # coba jadwalkan kelas ke ruangan dan slot waktu yang tersedia
-            for room in compatible_rooms:
-                if assigned:
-                    break
-                for start_idx in sorted_start_idxs:
-                    slots = timeslots_list[start_idx : start_idx + sks]
+                    non_preferred.append(idx)
 
-                    # Pastikan semua slot :
-                    #  di hari yang sama
-                    #  ga kepotong istirahat
-                    # berurutan
+            sorted_starts = preferred + non_preferred
+
+            # assign greedily
+            assigned = False
+            random.shuffle(compatible_rooms)
+            for room in compatible_rooms:
+                if assigned: break
+                for start in sorted_starts:
+                    seg = timeslots_list[start: start+sks]
+                    # cek recess + kontigu + hari sama
                     if not all(
-                        slots[i].day_index == slots[0].day_index and 
-                        slots[i].id == slots[i-1].id + 1 and
-                        slots[i].id not in recess_times
-                        for i in range(1, sks)
+                        seg[i].day_index==seg[0].day_index and
+                        seg[i].id==seg[i-1].id+1 and
+                        seg[i].id not in recess_times
+                        for i in range(1,sks)
                     ):
                         continue
+                    # cek konflik keras
+                    if any((room.id,s.id) in room_schedule or any((d,s.id) in lecturer_schedule for d in class_info['dosen_ids']) for s in seg):
+                        continue
+                    # pasang
+                    for s in seg:
+                        room_schedule[(room.id,s.id)] = oc.id
+                        for d in class_info['dosen_ids']:
+                            lecturer_schedule[(d,s.id)] = oc.id
+                    solution.append((oc.id, room.id, seg[0].id))
+                    assigned=True
+                    break
 
-                    # Cek ketersediaan slot waktu dan dosen
-                    slot_available = True
-                    for slot in slots:
-                        if (room.id, slot.id) in room_schedule or any(
-                            (dosen_id, slot.id) in lecturer_schedule for dosen_id in class_info["dosen_ids"]
-                        ):
-                            slot_available = False
-                            break
-
-                    # Jika semua slot tersedia, jadwalkan kelas
-                    if slot_available:
-                        for slot in slots:
-                            room_schedule[(room.id, slot.id)] = oc.id
-                            for dosen_id in class_info["dosen_ids"]:
-                                lecturer_schedule[(dosen_id, slot.id)] = oc.id
-                        solution.append((oc.id, room.id, slots[0].id))
-                        assigned = True
-                        break
-
-            # kalo ga ketemu, make fallback
+            # fallback minimal cost
             if not assigned:
-                best_cost       = float('inf')
-                best_assignment = None
-                best_slots      = None
-                best_room       = None
-
+                best, best_seg = float('inf'), None
                 for room in compatible_rooms:
-                    for start_idx in possible_start_idxs:
-                        slots = timeslots_list[start_idx : start_idx + sks]
-                        # skip non-contiguous / recess slots
-                        if not all(
-                            slots[i].day_index == slots[0].day_index and
-                            slots[i].id == slots[i-1].id + 1 and
-                            slots[i].id not in recess_times
-                            for i in range(1, sks)
-                        ):
+                    for start in sorted_starts:
+                        seg = timeslots_list[start: start+sks]
+                        if not all(seg[i].day_index==seg[0].day_index and seg[i].id==seg[i-1].id+1 for i in range(1,sks)):
                             continue
+                        cost = sum((room.id,s.id) in room_schedule or any((d,s.id) in lecturer_schedule for d in class_info['dosen_ids']) for s in seg)
+                        if cost<best:
+                            best, best_seg, best_room = cost, seg, room
+                if best_seg:
+                    for s in best_seg:
+                        room_schedule[(best_room.id,s.id)]=oc.id
+                        for d in class_info['dosen_ids']:
+                            lecturer_schedule[(d,s.id)]=oc.id
+                    solution.append((oc.id,best_room.id,best_seg[0].id))
 
-                        # 5a) conflict cost
-                        conflict_cost = sum(
-                            (room.id, slot.id) in room_schedule
-                            or any((d, slot.id) in lecturer_schedule
-                                for d in class_info["dosen_ids"])
-                            for slot in slots
-                        )
-
-                        # 5b) preference‐miss cost
-                        preference_cost = sum(
-                            preferences_cache.get((oc.id, d), {}).get("used_preference", False)
-                            and slot.id not in preferences_cache[(oc.id, d)]["preferences"]
-                            for d in class_info["dosen_ids"]
-                            for slot in slots
-                        )
-
-                        # 5c) combine them
-                        total_cost = (
-                            conflict_cost * penalties["conflict_multiplier"]
-                            + preference_cost * penalties["general_preference"]
-                        )
-
-                        if total_cost < best_cost:
-                            best_cost       = total_cost
-                            best_assignment = (oc.id, room.id, slots[0].id)
-                            best_slots      = slots
-                            best_room       = room
-
-                
-                if best_assignment:
-                    for slot in best_slots:
-                        room_schedule[(best_room.id, slot.id)] = oc.id
-                        for d in class_info["dosen_ids"]:
-                            lecturer_schedule[(d, slot.id)] = oc.id
-                    solution.append(best_assignment)
-                    assigned = True
-                    
-        # Tambahkan solusi ke dalam populasi
         population.append(solution)
-        
     return population
 
 
