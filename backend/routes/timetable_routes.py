@@ -137,7 +137,6 @@ def conflict_priority(conflict_type):
 def find_new_room_and_timeslot(db: Session, timetable_entry: TimeTable):
     #  mencoba seluruh kemungkinan ruangan dan timeslot yang berutuan.  
   
-
     required_sks = len(timetable_entry.timeslot_ids)
     candidate_rooms = db.query(Ruangan).filter(
         Ruangan.kapasitas >= timetable_entry.kapasitas

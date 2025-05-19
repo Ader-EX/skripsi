@@ -114,7 +114,8 @@ async def create_opened_class(data: OpenedClassCreate, db: Session = Depends(get
             from datetime import datetime
             sorted_dosens = sorted(
                 dosens, 
-                key=lambda d: d.tanggal_lahir if d.tanggal_lahir is not None else datetime.max
+                key=lambda d: d.tanggal_lahir if d.tanggal_lahir is not None else datetime.max,
+                reverse=True
             )
             non_dosen_besar = [d for d in sorted_dosens if d.pegawai_id != dosen_besar_id]
             if not non_dosen_besar:
