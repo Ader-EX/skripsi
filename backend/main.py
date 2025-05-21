@@ -31,6 +31,7 @@ from routes.ga_routes import router as ga_router
 from routes.hybrid_routes import router as hybrid_router
 from routes.temporary_timetable_routes import router as temporary_timetable_router
 from routes.hybrid_backup_routes import router as hybrid_backup_router
+from routes.export_routes import router as export_router
 load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY", "default_secret_key")
@@ -154,6 +155,7 @@ app.include_router(dosenopened_router, prefix="/dosen-opened", tags=["Dosen Open
 app.include_router(sa_router, prefix="/sa-router", tags=["Simulated Annealing"])
 app.include_router(ga_router, prefix="/ga-router", tags=["Genetic Algorithm"])
 app.include_router(hybrid_router, prefix="/hybrid-router", tags=["Hybrid Algorithm"])
+app.include_router(export_router, prefix="/export", tags=["Export"])
 app.include_router(temporary_timetable_router, prefix="/temporary-timetable", tags=["Temporary Timetable"])
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
