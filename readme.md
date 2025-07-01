@@ -1,4 +1,8 @@
-# FastAPI Project || PENJADWALAN OTOMATIS (Frontendnya di repo yang satu lagi)
+# FastAPI Project || PENJADWALAN OTOMATIS
+
+## Frontend Repository
+
+Frontend: [https://github.com/Ader-EX/skripsi-fe](https://github.com/Ader-EX/skripsi-fe)
 
 ## Deskripsi Proyek
 
