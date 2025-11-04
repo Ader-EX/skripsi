@@ -189,10 +189,10 @@ async def create_dosen(dosen: DosenCreate = Body(...), db: Session = Depends(get
         raise HTTPException(status_code=400, detail="User dengan NIM/NIP ini sudah ada.")
 
     new_user = User(
-        nim_nip=dosen.nim_nip,
-        password=dosen.password,
-        role="dosen"
-    )
+    nim_nip=dosen.nim_nip,
+    password=pwd_context.hash(dosen.password),  # ✅ hash before saving
+    role="dosen"
+)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
